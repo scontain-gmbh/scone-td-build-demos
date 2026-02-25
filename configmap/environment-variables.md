@@ -1,6 +1,6 @@
-This file defines the environment variables that we use to configure this `hello-world` example. This includes the following environment variables - which are set with the help of `tplenv`:
+This file defines the environment variables that we use to configure this configmap example. This includes the following environment variables - which are set with the help of `tplenv`:
 
-1. Original native conatainer image is stored: ${IMAGE_NAME}
+1. Original native container image is stored: ${DEMO_IMAGE}
 2. Destination of the confidential container image: ${DESTINATION_IMAGE_NAME}
 3. The name of the pull secret: ${IMAGE_PULL_SECRET_NAME}
 4. The SCONE version to use: ${SCONE_VERSION}

@@ -67,7 +67,7 @@ spec:
             - name: config-volume-2
               mountPath: /config
       imagePullSecrets:
-        - name: scontain
+        - name: ${IMAGE_PULL_SECRET_NAME}
       volumes:
         - name: config-volume-1
           configMap:

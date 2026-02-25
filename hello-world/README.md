@@ -16,7 +16,7 @@ Follow the [Setup environment](https://github.com/scontain/scone) guide to insta
 
 #### 3. Setting up the Environment Variables
 
-First, we build a simple cloud-native `hello world` image. For that we use Rust. Rust is available as a container image `rust:latest` on Dockerhub. We define a `Dockerfile` that uses this Rust image to create a `hello world` image:
+We build a simple cloud-native `hello world` image. For that we use Rust. Rust is available as a container image `rust:latest` on Dockerhub. We define a `Dockerfile` that uses this Rust image to create a `hello world` image:
 
 - it creates a new Rust crate using `cargo`
 - the new crate is actually defining a `hello world` program
@@ -28,13 +28,12 @@ pushd hello-world
 unset CONFIRM_ALL_ENVIRONMENT_VARIABLES
 ```
 
-The default values of several environment variables are defined in Values.yaml.
+The default values of several environment variables are defined in file `Values.yaml`.
 `tplenv` asks you if all defaults are ok. It then sets the environment variables:
 
- - `$IMAGE_NAME` - name of the native docker image,
- - `$IMAGE_PULL_SECRET_NAME` the name of the pull secret to pull this image (default is `sconeapps`).  For simplicity, we assume that we can use the same pull secret to run the native and the confidential workload. 
- - `$IMAGE_NAME` - the native conatainer image is stored: 
+ - `$IMAGE_NAME` - name of the native container image to deploy the `hello-world` application,
  - `$DESTINATION_IMAGE_NAME` - destination of the confidential container image
+ - `$IMAGE_PULL_SECRET_NAME` the name of the pull secret to pull this image (default is `sconeapps`).  For simplicity, we assume that we can use the same pull secret to run the native and the confidential workload. 
  - `$SCONE_VERSION` - the SCONE version to use (6.1.0-rc.0 for now) 
  - `$CAS_NAMESPACE` - the CAS namespace to use (e.g., `default`)
  - `$CAS_NAME` - The CAS name to use (e.g., `cas`) 
@@ -47,9 +46,13 @@ Replace the `--force` by `""` to only ask for variables that are not defined in 
 or the Values.yaml file. Note that the `Values.yaml` file has priority over the environment variables.
 If the user changes values, they are written to `Values.yaml`.
 
+Ensure that we ask the user to confirm or modify all environment variables:
+
 ```
 export CONFIRM_ALL_ENVIRONMENT_VARIABLES="--force"
 ```
+
+`tplenv` will now ask the user for all environment variables that are described in file `environment-variables.md`:
 
 ```bash
 eval $(tplenv --file environment-variables.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output  /dev/null )
