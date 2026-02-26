@@ -65,7 +65,7 @@ We build a simple cloud-native `web-server` image. For that we use Rust. Rust is
 
 ```bash
 # Ensure we are in the correct directory. Assumption, we start at directory `scone-td-build-demos`
-pushd hello-world
+pushd web-server
 unset CONFIRM_ALL_ENVIRONMENT_VARIABLES
 ```
 
@@ -112,102 +112,122 @@ Next, we need to customize the job manifest to set the right image name (`$IMAGE
 
 ```bash
 # customize the job manifest
-tplenv --file manifest.job.template.yaml --create-values-file --output  manifest.job.yaml
+tplenv --file manifest.template.yaml --create-values-file --output  manifest.yaml
 ```
 
-1. **Register image:**
+4. **Register image:**
 
-   > If you already used `./install.sh` change `./target/debug/k8s-scone` to `k8s-scone`
+Now, we create the native `web-server` application using Rust.
 
-   ```bash
-   pushd examples/demo/web-server/
+```bash
+# Build the Scone image for the demo client
+docker build -t ${IMAGE_NAME} .
 
-   # Build the Scone image for the demo client
-   docker build -t registry.scontain.com/k8s-scone-images/web-server:native .
+# Push it to the registry
+docker push ${IMAGE_NAME}
+```
 
-   # Push it to the registry
-   docker push registry.scontain.com/k8s-scone-images/web-server:native
+When transforming the binaries in the container image for confidential computing, we sign the binaries with a key. `scone-td-build` assumes, by default, that this key is stored in file `identity.pem`. We can generate this file as follows:
 
-   popd
+- we first check if the file exists, and
+- if it does not yet exist, we create with `openssl`
 
-   ./targe/debug/k8s-scone register \
-       --original-image registry.scontain.com/k8s-scone-images/web-server:native \
-       --base-image registry.scontain.com/k8s-scone-images/web-server:native \
-       --enforce ./web-server
+```bash
+if [ ! -f identity.pem ]; then
+  echo "Generating identity.pem ..."
+  openssl genrsa -3 -out identity.pem 3072
+else
+  echo "identity.pem already exists."
+fi
+```
 
-   docker push registry.scontain.com/k8s-scone-images/web-server:native-scone
-   ```
+```bash
+scone-td-build register \
+    --protected-image ${IMAGE_NAME} \
+    --unprotected-image ${IMAGE_NAME} \
+    --destination-image ${DESTINATION_IMAGE_NAME} \
+    --push \
+    -s ./storage.json \
+    --enforce ./web-server \
+    --version ${SCONE_VERSION}
+```
 
 1. **Test the manifest [optional]**:
 
-   ```bash
-   kubectl apply -f examples/demo/web-server/manifest.yaml
+```bash
+kubectl apply -f manifest.yaml
 
-   # Use this command in another terminal or add `&` at the end of the command to run in the background
-   kubectl port-forward deployment/web-server 8000:8000
+retry-spinner -- kubectl logs -l app=web-server --pod-running-timeout=2m --timestamps
+# Use this command in another terminal or add `&` at the end of the command to run in the background
+kubectl port-forward deployment/web-server 8000:8000 &
+PF_PID=$!
 
-   curl http://localhost:8000/env/MY_POD_IP
+curl http://localhost:8000/env/MY_POD_IP
 
-   kubectl delete -f examples/demo/web-server/manifest.yaml
+kubectl delete -f manifest.yaml
 
-   # Close the port forward after the execution
-   ```
+# Close the port forward after the execution
+kill -9 $PF_PID
+```
 
-1. **Convert the manifest**:
-   If you want to see how the scone image was registered in k8s-scone, take a look in [register-image](../../../register-image.md) markdown.
+6. **Convert the manifest**:
 
-   ```bash
-   # Change the cas name to your deployed cas
-   export CAS_NAME="</cas_name>"
-   kubectl port-forward $CAS_NAME 8081:8081
-   ./target/debug/k8s-scone apply \
-       -f ./examples/demo/web-server/manifest.yaml \
-       -c cas.scone-system \
-       -p
-   ```
+If you want to see how the scone image was registered in k8s-scone, take a look in [register-image](../../../register-image.md) markdown.
 
-1. **Deploy the new manifest**:
+```bash
+scone-td-build apply \
+    -f manifest.yaml \
+    -c ${CAS_NAME}.${default} \
+    -s ./storage.json \
+    -p
+```
 
-   ```bash
-   kubectl apply -f examples/demo/web-server/manifest.cleaned.yaml
-   ```
+7. **Deploy the new manifest**:
+
+```bash
+kubectl apply -f manifest.cleaned.yaml
+```
 
    > For the next step, it is expected that you have a Kubernetes cluster with SGX resource and the presence of a LAS
 
-1. **Run the demo**:
+8. **Run the demo**:
 
    - Open port:
 
    > Use this command in another terminal or add `&` at the end of the command to run in the background
 
-   ```bash
-   kubectl port-forward deployment/web-server 8000:8000
-   ```
+```bash
+retry-spinner -- kubectl logs -l app=web-server --pod-running-timeout=2m --timestamps
+
+kubectl port-forward deployment/web-server 8000:8000 &
+PF_PID=$!
+```
 
    - send requests:
 
    > You can execute the [`./examples/demo/web-server/test.sh`](./test.sh) to run all of these tests easily
 
+```bash
+# Test path
+curl http://localhost:8000/path
+
+# Test gen
+curl http://localhost:8000/gen
+
+# Test env
+curl http://localhost:8000/env/PLAYER_INITIAL_LIVES
+curl http://localhost:8000/env/UI_PROPERTIES_FILE_NAME
+curl http://localhost:8000/env/SECRET_ENV
+curl http://localhost:8000/env/SIMPLE_ENV
+curl http://localhost:8000/env/MY_POD_IP
+```
+
+9. **Uninstall demo**:
+
    ```bash
-   # Test path
-   curl http://localhost:8000/path
-
-   # Test gen
-   curl http://localhost:8000/gen
-
-   # Test env
-   curl http://localhost:8000/env/PLAYER_INITIAL_LIVES
-   curl http://localhost:8000/env/UI_PROPERTIES_FILE_NAME
-   curl http://localhost:8000/env/SECRET_ENV
-   curl http://localhost:8000/env/SIMPLE_ENV
-   curl http://localhost:8000/env/MY_POD_IP
+   kubectl delete -f manifest.cleaned.yaml
+   kill -9 $PF_PID
    ```
 
-1. **Uninstall demo**:
-
-   ```bash
-   kubectl delete -f examples/demo/web-server/manifest.cleaned.yaml
-   ```
-
-And there you have it—a simple yet functional "Web Server" web service in Rust! Feel free to explore and modify this demo to suit your needs.
+We introduced a simple, yet functional "Web Server" web service in Rust! Feel free to explore and modify this demo to suit your needs.
 If you have any questions or need further assistance, feel free to ask! 😊🚀

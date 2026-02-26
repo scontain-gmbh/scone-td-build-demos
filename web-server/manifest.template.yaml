@@ -31,7 +31,7 @@ spec:
     spec:
       containers:
         - name: web-server
-          image: registry.scontain.com/k8s-scone-images/web-server:native
+          image: ${IMAGE_NAME}
           imagePullPolicy: Always
           command: ["./web-server"]
           env:
@@ -61,7 +61,7 @@ spec:
               mountPath: "/config"
               readOnly: true
       imagePullSecrets:
-        - name: scontain
+        - name: ${IMAGE_PULL_SECRET_NAME}
       volumes:
         - name: config
           configMap:

@@ -1,7 +1,7 @@
-This file defines the environment variables that we use to configure this `configmap` example. This includes the following environment variables - which are set with the help of `tplenv`:
+This file defines the environment variables that we use to configure this `web-server` example. This includes the following environment variables - which are set with the help of `tplenv`:
 
-1. The original cloud-native `configmap` application uses a container image.
-   The URL of this container image is stored in environment variable ${DEMO_IMAGE}
+1. The original cloud-native `web-server` application uses a container image.
+   The URL of this container image is stored in environment variable ${IMAGE_NAME}
 2. The URL of the generated confidential container image is stored 
    in environment variable ${DESTINATION_IMAGE_NAME}
 3. The name of the pull secret for the native and the confidential 
