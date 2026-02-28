@@ -2,6 +2,8 @@
 
 ## Steps to Run the Hello World Program
 
+![Hello-World Example](../docs/hello-world.svg)
+
 ### 1. Prerequisites
 
 - A token for accessing `scone.cloud` images on registry.scontain.com
