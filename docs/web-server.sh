@@ -350,11 +350,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl port-forward deployment/web-server 8000:8000 &
-EOF
-)"
-pe "$(cat <<'EOF'
-echo $! > /tmp/pf-8000.pid
+kubectl port-forward deployment/web-server 8000:8000 & echo $! > /tmp/pf-8000.pid
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -456,15 +452,11 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl port-forward deployment/web-server 8000:8000 &
-EOF
-)"
-pe "$(cat <<'EOF'
 # we keep to PID to be able to delete the port-forward
 EOF
 )"
 pe "$(cat <<'EOF'
-echo $! > /tmp/pf-8000.pid
+kubectl port-forward deployment/web-server 8000:8000 & echo $! > /tmp/pf-8000.pid 
 EOF
 )"
 

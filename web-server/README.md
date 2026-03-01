@@ -173,8 +173,7 @@ kubectl wait --for=condition=Ready pod -l app="web-server" --timeout=240s
 
 # retry-spinner --retries 40 --wait 10 -- kubectl logs -l app=web-server --pod-running-timeout=2m --timestamps
 # Use this command in another terminal or add `&` at the end of the command to run in the background
-kubectl port-forward deployment/web-server 8000:8000 &
-echo $! > /tmp/pf-8000.pid
+kubectl port-forward deployment/web-server 8000:8000 & echo $! > /tmp/pf-8000.pid
 
 retry-spinner -- curl http://localhost:8000/env/MY_POD_IP
 ./test.sh
@@ -219,9 +218,8 @@ kubectl  wait --for=condition=Ready pod -l app="web-server" --timeout=240s
 # being ready does not mean that port is available
 sleep 20
 
-kubectl port-forward deployment/web-server 8000:8000 &
 # we keep to PID to be able to delete the port-forward
-echo $! > /tmp/pf-8000.pid
+kubectl port-forward deployment/web-server 8000:8000 & echo $! > /tmp/pf-8000.pid 
 ```
 
 We now send the first request. We do this with some retry just to ensure that the service is indeed ready to serve requests. 

@@ -253,8 +253,7 @@ printf '%s\n' 'kubectl wait --for=condition=Ready pod -l app="web-server" --time
 printf '%s\n' ''
 printf '%s\n' '# retry-spinner --retries 40 --wait 10 -- kubectl logs -l app=web-server --pod-running-timeout=2m --timestamps'
 printf '%s\n' '# Use this command in another terminal or add `&` at the end of the command to run in the background'
-printf '%s\n' 'kubectl port-forward deployment/web-server 8000:8000 &'
-printf '%s\n' 'echo \\$! > /tmp/pf-8000.pid'
+printf '%s\n' 'kubectl port-forward deployment/web-server 8000:8000 & echo \\$! > /tmp/pf-8000.pid'
 printf '%s\n' ''
 printf '%s\n' 'retry-spinner -- curl http://localhost:8000/env/MY_POD_IP'
 printf '%s\n' './test.sh'
@@ -272,8 +271,7 @@ kubectl wait --for=condition=Ready pod -l app="web-server" --timeout=240s
 
 # retry-spinner --retries 40 --wait 10 -- kubectl logs -l app=web-server --pod-running-timeout=2m --timestamps
 # Use this command in another terminal or add `&` at the end of the command to run in the background
-kubectl port-forward deployment/web-server 8000:8000 &
-echo $! > /tmp/pf-8000.pid
+kubectl port-forward deployment/web-server 8000:8000 & echo $! > /tmp/pf-8000.pid
 
 retry-spinner -- curl http://localhost:8000/env/MY_POD_IP
 ./test.sh
@@ -340,18 +338,16 @@ printf '%s\n' 'kubectl  wait --for=condition=Ready pod -l app="web-server" --tim
 printf '%s\n' '# being ready does not mean that port is available'
 printf '%s\n' 'sleep 20'
 printf '%s\n' ''
-printf '%s\n' 'kubectl port-forward deployment/web-server 8000:8000 &'
 printf '%s\n' '# we keep to PID to be able to delete the port-forward'
-printf '%s\n' 'echo \\$! > /tmp/pf-8000.pid'
+printf '%s\n' 'kubectl port-forward deployment/web-server 8000:8000 & echo \\$! > /tmp/pf-8000.pid '
 printf "${RESET}"
 
 kubectl  wait --for=condition=Ready pod -l app="web-server" --timeout=240s
 # being ready does not mean that port is available
 sleep 20
 
-kubectl port-forward deployment/web-server 8000:8000 &
 # we keep to PID to be able to delete the port-forward
-echo $! > /tmp/pf-8000.pid
+kubectl port-forward deployment/web-server 8000:8000 & echo $! > /tmp/pf-8000.pid 
 
 printf "${VIOLET}"
 printf '%s\n' ''
