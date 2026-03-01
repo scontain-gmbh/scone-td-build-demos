@@ -105,10 +105,32 @@ slow_type() {
   done
 }
 
+escape_unescaped_dollars() {
+  local input="$1"
+  local output=""
+  local prev=""
+  local ch
+  local i
+
+  for ((i=0; i<${#input}; i++)); do
+    ch="${input:i:1}"
+    if [[ "$ch" == '$' && "$prev" != '\' ]]; then
+      output+='\\$'
+    else
+      output+="$ch"
+    fi
+    prev="$ch"
+  done
+
+  printf "%s" "$output"
+}
+
 pe() {
   local cmd="$*"
+  local display_cmd
+  display_cmd=$(escape_unescaped_dollars "$cmd")
   printf "%b" "$ORANGE"
-  slow_type "$cmd"
+  slow_type "$display_cmd"
   printf "%b" "$RESET"
   printf "\n"
 
@@ -139,6 +161,64 @@ escape_single_quotes() {
   printf "%s" "$1" | sed "s/'/'\\\\''/g"
 }
 
+escape_dollars_for_display() {
+  local input="$1"
+  local output=""
+  local prev=""
+  local ch
+  local i
+
+  for ((i=0; i<${#input}; i++)); do
+    ch="${input:i:1}"
+    if [[ "$ch" == '$' && "$prev" != '\' ]]; then
+      output+='\\$'
+    else
+      output+="$ch"
+    fi
+    prev="$ch"
+  done
+
+  printf "%s" "$output"
+}
+
+emit_printf_lines() {
+  local output_file="$1"
+  shift
+  local line
+  local escaped
+  for line in "$@"; do
+    escaped=$(escape_single_quotes "$line")
+    echo "printf '%s\\n' '$escaped'" >>"$output_file"
+  done
+}
+
+ends_with_continuation_backslash() {
+  local line="$1"
+  local trimmed="$line"
+  local slash_count=0
+
+  trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
+  while [[ "$trimmed" == *\\ ]]; do
+    slash_count=$((slash_count + 1))
+    trimmed="${trimmed%\\}"
+  done
+
+  (( slash_count % 2 == 1 ))
+}
+
+emit_docs_pe_command() {
+  local output_file="$1"
+  shift
+  local cmd_lines=("$@")
+
+  echo 'pe "$(cat <<'"'"'EOF'"'"'' >>"$output_file"
+  for line in "${cmd_lines[@]}"; do
+    echo "$line" >>"$output_file"
+  done
+  echo 'EOF' >>"$output_file"
+  echo ')"' >>"$output_file"
+}
+
 if [[ "$mode" == "docs-pe" ]]; then
   write_docs_header
 else
@@ -154,11 +234,7 @@ flush_markdown() {
   if [[ ${#markdown_buffer[@]} -gt 0 ]]; then
     if [[ "$mode" == "docs-pe" ]]; then
       echo 'printf "%b" "$LILAC"' >> "$TMP_OUTPUT"
-      echo "cat <<'EOF'" >> "$TMP_OUTPUT"
-      for line in "${markdown_buffer[@]}"; do
-        echo "$line" >> "$TMP_OUTPUT"
-      done
-      echo "EOF" >> "$TMP_OUTPUT"
+      emit_printf_lines "$TMP_OUTPUT" "${markdown_buffer[@]}"
       echo 'printf "%b" "$RESET"' >> "$TMP_OUTPUT"
       echo "" >> "$TMP_OUTPUT"
       markdown_buffer=()
@@ -166,11 +242,7 @@ flush_markdown() {
     fi
 
     echo 'printf "${VIOLET}"' >> "$TMP_OUTPUT"
-    echo "cat <<'EOF'" >> "$TMP_OUTPUT"
-    for line in "${markdown_buffer[@]}"; do
-      echo "$line" >> "$TMP_OUTPUT"
-    done
-    echo "EOF" >> "$TMP_OUTPUT"
+    emit_printf_lines "$TMP_OUTPUT" "${markdown_buffer[@]}"
     echo 'printf "${RESET}"' >> "$TMP_OUTPUT"
     echo "" >> "$TMP_OUTPUT"
     markdown_buffer=()
@@ -183,21 +255,29 @@ flush_code_block() {
   fi
 
   if [[ "$mode" == "docs-pe" ]]; then
+    current_command=()
     for line in "${code_buffer[@]}"; do
-      escaped_line=$(escape_single_quotes "$line")
-      echo "pe '$escaped_line'" >> "$TMP_OUTPUT"
+      current_command+=("$line")
+      if ends_with_continuation_backslash "$line"; then
+        continue
+      fi
+      emit_docs_pe_command "$TMP_OUTPUT" "${current_command[@]}"
+      current_command=()
     done
+    if [[ ${#current_command[@]} -gt 0 ]]; then
+      emit_docs_pe_command "$TMP_OUTPUT" "${current_command[@]}"
+    fi
     echo "" >> "$TMP_OUTPUT"
     code_buffer=()
     return
   fi
 
   echo 'printf "${ORANGE}"' >> "$TMP_OUTPUT"
-  echo "cat <<'EOF'" >> "$TMP_OUTPUT"
+  local escaped_code_buffer=()
   for line in "${code_buffer[@]}"; do
-    echo "$line" >> "$TMP_OUTPUT"
+    escaped_code_buffer+=("$(escape_dollars_for_display "$line")")
   done
-  echo "EOF" >> "$TMP_OUTPUT"
+  emit_printf_lines "$TMP_OUTPUT" "${escaped_code_buffer[@]}"
   echo 'printf "${RESET}"' >> "$TMP_OUTPUT"
   echo "" >> "$TMP_OUTPUT"
   for line in "${code_buffer[@]}"; do

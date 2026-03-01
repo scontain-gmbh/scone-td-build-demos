@@ -22,10 +22,32 @@ slow_type() {
   done
 }
 
+escape_unescaped_dollars() {
+  local input="$1"
+  local output=""
+  local prev=""
+  local ch
+  local i
+
+  for ((i=0; i<${#input}; i++)); do
+    ch="${input:i:1}"
+    if [[ "$ch" == '$' && "$prev" != '\' ]]; then
+      output+='\\$'
+    else
+      output+="$ch"
+    fi
+    prev="$ch"
+  done
+
+  printf "%s" "$output"
+}
+
 pe() {
   local cmd="$*"
+  local display_cmd
+  display_cmd=$(escape_unescaped_dollars "$cmd")
   printf "%b" "$ORANGE"
-  slow_type "$cmd"
+  slow_type "$display_cmd"
   printf "%b" "$RESET"
   printf "\n"
 
@@ -50,313 +72,469 @@ export PS1="$PROMPT"
 stty cols "$COLUMNS" rows "$LINES"
 
 printf "%b" "$LILAC"
-cat <<'EOF'
-# Web Server Demo
-
-## Introduction
-
-This Rust application serves as a minimalistic web service built using the [Axum](https://github.com/tokio-rs/axum) framework.
-While it's more functional than a traditional "Web Server" program, it remains straightforward and easy to understand. Let's break it down:
-
-![Web-Server Example](../docs/web-server.webm)
-
-## Endpoints
-
-- **Generate Password Endpoint (`/gen`)**:
-
-  - Generates a random password consisting of alphanumeric characters.
-  - Example Response:
-
-  ```json
-  {
-    "password": "aBcD1234EeFgH5678"
-  }
-  ```
-
-- **Print Path Endpoint (`/path`)**:
-
-  - Reads files from the `/config` directory and returns their names and contents.
-  - Example Response:
-
-  ```json
-  {
-    "name": "file1.txt",
-    "content": "This is the content of file1.txt.\n..."
-  }
-  ```
-
-- **Print Environment Variable Endpoint (`/env/:env`)**:
-
-  - Retrieves the value of the specified environment variable.
-  - Example Response:
-
-  ```json
-  {
-    "value": "your_env_value_here"
-  }
-  ```
-
-## How to Run the Demo
-
-### 1. Prerequisites
-
-- A token for accessing `scone.cloud` images on registry.scontain.com
-- A Kubernetes cluster
-- The Kubernetes command line tool (`kubectl`)
-- Rust `cargo` is installed (`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`)
-- You installed `tplenv` (`cargo install tplenv`) and `retry-spinner` (`cargo install retry-spinner`)
-
-#### 2. Set up the environment
-
-Follow the [Setup environment](https://github.com/scontain/scone) guide to install tools. The simplest way is to install the tools in a Kubernetes cluster (see [k8s.md](https://github.com/scontain/scone/blob/main/k8s.md)).
-
-#### 3. Setting up the Environment Variables
-
-We build a simple cloud-native `web-server` image. For that we use Rust. Rust is available as a container image `rust:latest` on Dockerhub. We define a `Dockerfile` that uses this Rust image to create a `hello world` image:
-
-- it creates a new Rust crate using `cargo`
-- the new crate is actually defining a `hello world` program
-- we build this project and push it to a repository to which we have push rights:
-
-EOF
+printf '%s\n' '# Web Server Demo'
+printf '%s\n' ''
+printf '%s\n' '## Introduction'
+printf '%s\n' ''
+printf '%s\n' 'This Rust application serves as a minimalistic web service built using the [Axum](https://github.com/tokio-rs/axum) framework.'
+printf '%s\n' 'While it'\''s more functional than a traditional "Web Server" program, it remains straightforward and easy to understand. Let'\''s break it down:'
+printf '%s\n' ''
+printf '%s\n' '![Web-Server Example](../docs/web-server.gif)'
+printf '%s\n' ''
+printf '%s\n' '## Endpoints'
+printf '%s\n' ''
+printf '%s\n' '- **Generate Password Endpoint (`/gen`)**:'
+printf '%s\n' ''
+printf '%s\n' '  - Generates a random password consisting of alphanumeric characters.'
+printf '%s\n' '  - Example Response:'
+printf '%s\n' ''
+printf '%s\n' '  ```json'
+printf '%s\n' '  {'
+printf '%s\n' '    "password": "aBcD1234EeFgH5678"'
+printf '%s\n' '  }'
+printf '%s\n' '  ```'
+printf '%s\n' ''
+printf '%s\n' '- **Print Path Endpoint (`/path`)**:'
+printf '%s\n' ''
+printf '%s\n' '  - Reads files from the `/config` directory and returns their names and contents.'
+printf '%s\n' '  - Example Response:'
+printf '%s\n' ''
+printf '%s\n' '  ```json'
+printf '%s\n' '  {'
+printf '%s\n' '    "name": "file1.txt",'
+printf '%s\n' '    "content": "This is the content of file1.txt.\n..."'
+printf '%s\n' '  }'
+printf '%s\n' '  ```'
+printf '%s\n' ''
+printf '%s\n' '- **Print Environment Variable Endpoint (`/env/:env`)**:'
+printf '%s\n' ''
+printf '%s\n' '  - Retrieves the value of the specified environment variable.'
+printf '%s\n' '  - Example Response:'
+printf '%s\n' ''
+printf '%s\n' '  ```json'
+printf '%s\n' '  {'
+printf '%s\n' '    "value": "your_env_value_here"'
+printf '%s\n' '  }'
+printf '%s\n' '  ```'
+printf '%s\n' ''
+printf '%s\n' '## How to Run the Demo'
+printf '%s\n' ''
+printf '%s\n' '### 1. Prerequisites'
+printf '%s\n' ''
+printf '%s\n' '- A token for accessing `scone.cloud` images on registry.scontain.com'
+printf '%s\n' '- A Kubernetes cluster'
+printf '%s\n' '- The Kubernetes command line tool (`kubectl`)'
+printf '%s\n' '- Rust `cargo` is installed (`curl --proto '\''=https'\'' --tlsv1.2 -sSf https://sh.rustup.rs | sh`)'
+printf '%s\n' '- You installed `tplenv` (`cargo install tplenv`) and `retry-spinner` (`cargo install retry-spinner`)'
+printf '%s\n' ''
+printf '%s\n' '#### 2. Set up the environment'
+printf '%s\n' ''
+printf '%s\n' 'Follow the [Setup environment](https://github.com/scontain/scone) guide to install tools. The simplest way is to install the tools in a Kubernetes cluster (see [k8s.md](https://github.com/scontain/scone/blob/main/k8s.md)).'
+printf '%s\n' ''
+printf '%s\n' '#### 3. Setting up the Environment Variables'
+printf '%s\n' ''
+printf '%s\n' 'We build a simple cloud-native `web-server` image. For that we use Rust. Rust is available as a container image `rust:latest` on Dockerhub. We define a `Dockerfile` that uses this Rust image to create a `hello world` image:'
+printf '%s\n' ''
+printf '%s\n' '- it creates a new Rust crate using `cargo`'
+printf '%s\n' '- the new crate is actually defining a `hello world` program'
+printf '%s\n' '- we build this project and push it to a repository to which we have push rights:'
+printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe '# Ensure we are in the correct directory. Assumption, we start at directory `scone-td-build-demos`'
-pe 'pushd web-server'
-pe 'export CONFIRM_ALL_ENVIRONMENT_VARIABLES=""'
+pe "$(cat <<'EOF'
+# Ensure we are in the correct directory. Assumption, we start at directory `scone-td-build-demos`
+EOF
+)"
+pe "$(cat <<'EOF'
+pushd web-server
+EOF
+)"
+pe "$(cat <<'EOF'
+export CONFIRM_ALL_ENVIRONMENT_VARIABLES=""
+EOF
+)"
 
 printf "%b" "$LILAC"
-cat <<'EOF'
-
-The default values of several environment variables are defined in file `Values.yaml`.
-`tplenv` asks you if all defaults are ok. It then sets the environment variables:
-
- - `$IMAGE_NAME` - name of the native container image to deploy the `hello-world` application,
- - `$DESTINATION_IMAGE_NAME` - destination of the confidential container image
- - `$IMAGE_PULL_SECRET_NAME` the name of the pull secret to pull this image (default is `sconeapps`).  For simplicity, we assume that we can use the same pull secret to run the native and the confidential workload. 
- - `$SCONE_VERSION` - the SCONE version to use (7.0.0-alpha.1 for now) 
- - `$CAS_NAMESPACE` - the CAS namespace to use (e.g., `default`)
- - `$CAS_NAME` - The CAS name to use (e.g., `cas`) 
- - `$CVM_MODE` - If you want to have CVM mode, set to `--cvm`. For SGX, leave empty. 
- - `$SCONE_ENCLAVE` - In CVM mode, you can run using confidential Kubernetes nodes (set to `--scone-enclave`) or Kata-Pods (leave it empty). 
-
-Program `tplenv` asks the user if our current (default) configuration stored in `Values.yaml`.
-The user can modify the configuration if needed by setting the following variable to `--force`.
-Replace the `--force` by `""` to only ask for variables that are not defined in the environment
-or the Values.yaml file. Note that the `Values.yaml` file has priority over the environment variables.
-If the user changes values, they are written to `Values.yaml`.
-
-Ensure that we ask the user to confirm or modify all environment variables:
-
-export CONFIRM_ALL_ENVIRONMENT_VARIABLES="--force"
-
-`tplenv` will now ask the user for all environment variables that are described in file `environment-variables.md`:
-
-EOF
+printf '%s\n' ''
+printf '%s\n' 'The default values of several environment variables are defined in file `Values.yaml`.'
+printf '%s\n' '`tplenv` asks you if all defaults are ok. It then sets the environment variables:'
+printf '%s\n' ''
+printf '%s\n' ' - `$IMAGE_NAME` - name of the native container image to deploy the `hello-world` application,'
+printf '%s\n' ' - `$DESTINATION_IMAGE_NAME` - destination of the confidential container image'
+printf '%s\n' ' - `$IMAGE_PULL_SECRET_NAME` the name of the pull secret to pull this image (default is `sconeapps`).  For simplicity, we assume that we can use the same pull secret to run the native and the confidential workload. '
+printf '%s\n' ' - `$SCONE_VERSION` - the SCONE version to use (7.0.0-alpha.1 for now) '
+printf '%s\n' ' - `$CAS_NAMESPACE` - the CAS namespace to use (e.g., `default`)'
+printf '%s\n' ' - `$CAS_NAME` - The CAS name to use (e.g., `cas`) '
+printf '%s\n' ' - `$CVM_MODE` - If you want to have CVM mode, set to `--cvm`. For SGX, leave empty. '
+printf '%s\n' ' - `$SCONE_ENCLAVE` - In CVM mode, you can run using confidential Kubernetes nodes (set to `--scone-enclave`) or Kata-Pods (leave it empty). '
+printf '%s\n' ''
+printf '%s\n' 'Program `tplenv` asks the user if our current (default) configuration stored in `Values.yaml`.'
+printf '%s\n' 'The user can modify the configuration if needed by setting the following variable to `--force`.'
+printf '%s\n' 'Replace the `--force` by `""` to only ask for variables that are not defined in the environment'
+printf '%s\n' 'or the Values.yaml file. Note that the `Values.yaml` file has priority over the environment variables.'
+printf '%s\n' 'If the user changes values, they are written to `Values.yaml`.'
+printf '%s\n' ''
+printf '%s\n' 'Ensure that we ask the user to confirm or modify all environment variables:'
+printf '%s\n' ''
+printf '%s\n' 'export CONFIRM_ALL_ENVIRONMENT_VARIABLES="--force"'
+printf '%s\n' ''
+printf '%s\n' '`tplenv` will now ask the user for all environment variables that are described in file `environment-variables.md`:'
+printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe 'eval $(tplenv --file environment-variables.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output  /dev/null )'
+pe "$(cat <<'EOF'
+eval $(tplenv --file environment-variables.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output  /dev/null )
+EOF
+)"
 
 printf "%b" "$LILAC"
-cat <<'EOF'
-
-We encrypt the policies that we send to CAS to ensure the integrity and confidentiality of the policies. To do so, we need to attest the CAS. We do this using a plugin of `kubectl` that attests the CAS via the Kubernetes API:
-
-EOF
+printf '%s\n' ''
+printf '%s\n' 'We encrypt the policies that we send to CAS to ensure the integrity and confidentiality of the policies. To do so, we need to attest the CAS. We do this using a plugin of `kubectl` that attests the CAS via the Kubernetes API:'
+printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe '# attest the CAS - to ensure that we know the correct session encryption key'
-pe 'kubectl scone cas attest --namespace ${CAS_NAMESPACE}  ${CAS_NAME}'
+pe "$(cat <<'EOF'
+# attest the CAS - to ensure that we know the correct session encryption key
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl scone cas attest --namespace ${CAS_NAMESPACE}  ${CAS_NAME}
+EOF
+)"
 
 printf "%b" "$LILAC"
-cat <<'EOF'
-
-In case the attestation and verification of the CAS would fail, please read the output of `kubectl scone cas attest` to determine which vulnerabilities were detected. It also suggests which options to pass to `kubectl scone cas attest` to tolerate these vulnerabilities, i.e., to make the attestation and verification to succeed.
-
-Next, we need to customize the job manifest to set the right image name (`$IMAGE_NAME`) and the right pull secret (`$IMAGE_PULL_SECRET_NAME`):
-
-EOF
+printf '%s\n' ''
+printf '%s\n' 'In case the attestation and verification of the CAS would fail, please read the output of `kubectl scone cas attest` to determine which vulnerabilities were detected. It also suggests which options to pass to `kubectl scone cas attest` to tolerate these vulnerabilities, i.e., to make the attestation and verification to succeed.'
+printf '%s\n' ''
+printf '%s\n' 'Next, we need to customize the job manifest to set the right image name (`$IMAGE_NAME`) and the right pull secret (`$IMAGE_PULL_SECRET_NAME`):'
+printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe '# customize the job manifest'
-pe 'tplenv --file manifest.template.yaml --create-values-file --output  manifest.yaml'
+pe "$(cat <<'EOF'
+# customize the job manifest
+EOF
+)"
+pe "$(cat <<'EOF'
+tplenv --file manifest.template.yaml --create-values-file --output  manifest.yaml
+EOF
+)"
 
 printf "%b" "$LILAC"
-cat <<'EOF'
-
-4. **Register image:**
-
-Now, we create the native `web-server` application using Rust.
-
-EOF
+printf '%s\n' ''
+printf '%s\n' '4. **Register image:**'
+printf '%s\n' ''
+printf '%s\n' 'Now, we create the native `web-server` application using Rust.'
+printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe '# Build the Scone image for the demo client'
-pe 'docker build -t ${IMAGE_NAME} .'
-pe ''
-pe '# Push it to the registry'
-pe 'docker push ${IMAGE_NAME}'
-
-printf "%b" "$LILAC"
-cat <<'EOF'
-
-When transforming the binaries in the container image for confidential computing, we sign the binaries with a key. `scone-td-build` assumes, by default, that this key is stored in file `identity.pem`. We can generate this file as follows:
-
-- we first check if the file exists, and
-- if it does not yet exist, we create with `openssl`
+pe "$(cat <<'EOF'
+# Build the Scone image for the demo client
+EOF
+)"
+pe "$(cat <<'EOF'
+docker build -t ${IMAGE_NAME} .
+EOF
+)"
+pe "$(cat <<'EOF'
 
 EOF
+)"
+pe "$(cat <<'EOF'
+# Push it to the registry
+EOF
+)"
+pe "$(cat <<'EOF'
+docker push ${IMAGE_NAME}
+EOF
+)"
+
+printf "%b" "$LILAC"
+printf '%s\n' ''
+printf '%s\n' 'When transforming the binaries in the container image for confidential computing, we sign the binaries with a key. `scone-td-build` assumes, by default, that this key is stored in file `identity.pem`. We can generate this file as follows:'
+printf '%s\n' ''
+printf '%s\n' '- we first check if the file exists, and'
+printf '%s\n' '- if it does not yet exist, we create with `openssl`'
+printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe 'if [ ! -f identity.pem ]; then'
-pe '  echo "Generating identity.pem ..."'
-pe '  openssl genrsa -3 -out identity.pem 3072'
-pe 'else'
-pe '  echo "identity.pem already exists."'
-pe 'fi'
+pe "$(cat <<'EOF'
+if [ ! -f identity.pem ]; then
+EOF
+)"
+pe "$(cat <<'EOF'
+  echo "Generating identity.pem ..."
+EOF
+)"
+pe "$(cat <<'EOF'
+  openssl genrsa -3 -out identity.pem 3072
+EOF
+)"
+pe "$(cat <<'EOF'
+else
+EOF
+)"
+pe "$(cat <<'EOF'
+  echo "identity.pem already exists."
+EOF
+)"
+pe "$(cat <<'EOF'
+fi
+EOF
+)"
 
 printf "%b" "$LILAC"
-cat <<'EOF'
-
-EOF
+printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe 'scone-td-build register \'
-pe '    --protected-image ${IMAGE_NAME} \'
-pe '    --unprotected-image ${IMAGE_NAME} \'
-pe '    --destination-image ${DESTINATION_IMAGE_NAME} \'
-pe '    --push \'
-pe '    -s ./storage.json \'
-pe '    --enforce /app/web-server \'
-pe '    --version ${SCONE_VERSION}'
+pe "$(cat <<'EOF'
+scone-td-build register \
+    --protected-image ${IMAGE_NAME} \
+    --unprotected-image ${IMAGE_NAME} \
+    --destination-image ${DESTINATION_IMAGE_NAME} \
+    --push \
+    -s ./storage.json \
+    --enforce /app/web-server \
+    --version ${SCONE_VERSION}
+EOF
+)"
 
 printf "%b" "$LILAC"
-cat <<'EOF'
-
-1. **Test the manifest [optional]**:
-
-First, we clean up - just in case a previous version is running:
-
-EOF
+printf '%s\n' ''
+printf '%s\n' '1. **Test the manifest [optional]**:'
+printf '%s\n' ''
+printf '%s\n' 'First, we clean up - just in case a previous version is running:'
+printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe '# Make sure web-server does not yet run'
-pe 'kubectl delete deployment web-server || echo "ok - no web-server deployment yet"'
-pe 'kubectl wait --for=delete pod -l app=web-server --timeout=240s'
-pe 'kill $(cat /tmp/pf-8000.pid) || true'
+pe "$(cat <<'EOF'
+# Make sure web-server does not yet run
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl delete deployment web-server || echo "ok - no web-server deployment yet"
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl wait --for=delete pod -l app=web-server --timeout=240s
+EOF
+)"
+pe "$(cat <<'EOF'
+kill $(cat /tmp/pf-8000.pid) || true
+EOF
+)"
 
 printf "%b" "$LILAC"
-cat <<'EOF'
-
-Second, we start the deployment
-
-EOF
+printf '%s\n' ''
+printf '%s\n' 'Second, we start the deployment'
+printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe 'kubectl apply -f manifest.yaml'
-pe 'kubectl wait --for=condition=Ready pod -l app="web-server" --timeout=240s'
-pe ''
-pe '# retry-spinner --retries 40 --wait 10 -- kubectl logs -l app=web-server --pod-running-timeout=2m --timestamps'
-pe '# Use this command in another terminal or add `&` at the end of the command to run in the background'
-pe 'kubectl port-forward deployment/web-server 8000:8000 &'
-pe 'echo $! > /tmp/pf-8000.pid'
-pe ''
-pe 'retry-spinner -- curl http://localhost:8000/env/MY_POD_IP'
-pe './test.sh'
-pe ''
-pe 'kubectl delete -f manifest.yaml'
-pe 'kubectl wait --for=delete pod -l app=web-server --timeout=240s'
-pe ''
-pe '# Close the port forward after the execution'
-pe 'kill $(cat /tmp/pf-8000.pid) || true'
-pe 'rm /tmp/pf-8000.pid'
-
-printf "%b" "$LILAC"
-cat <<'EOF'
-
-6. **Convert the manifest**:
-
-If you want to see how the scone image was registered in scone-td-build, take a look in [register-image](../../../register-image.md) markdown.
+pe "$(cat <<'EOF'
+kubectl apply -f manifest.yaml
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl wait --for=condition=Ready pod -l app="web-server" --timeout=240s
+EOF
+)"
+pe "$(cat <<'EOF'
 
 EOF
+)"
+pe "$(cat <<'EOF'
+# retry-spinner --retries 40 --wait 10 -- kubectl logs -l app=web-server --pod-running-timeout=2m --timestamps
+EOF
+)"
+pe "$(cat <<'EOF'
+# Use this command in another terminal or add `&` at the end of the command to run in the background
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl port-forward deployment/web-server 8000:8000 &
+EOF
+)"
+pe "$(cat <<'EOF'
+echo $! > /tmp/pf-8000.pid
+EOF
+)"
+pe "$(cat <<'EOF'
+
+EOF
+)"
+pe "$(cat <<'EOF'
+retry-spinner -- curl http://localhost:8000/env/MY_POD_IP
+EOF
+)"
+pe "$(cat <<'EOF'
+./test.sh
+EOF
+)"
+pe "$(cat <<'EOF'
+
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl delete -f manifest.yaml
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl wait --for=delete pod -l app=web-server --timeout=240s
+EOF
+)"
+pe "$(cat <<'EOF'
+
+EOF
+)"
+pe "$(cat <<'EOF'
+# Close the port forward after the execution
+EOF
+)"
+pe "$(cat <<'EOF'
+kill $(cat /tmp/pf-8000.pid) || true
+EOF
+)"
+pe "$(cat <<'EOF'
+rm /tmp/pf-8000.pid
+EOF
+)"
+
+printf "%b" "$LILAC"
+printf '%s\n' ''
+printf '%s\n' '6. **Convert the manifest**:'
+printf '%s\n' ''
+printf '%s\n' 'If you want to see how the scone image was registered in scone-td-build, take a look in [register-image](../../../register-image.md) markdown.'
+printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe 'scone-td-build apply \'
-pe '    -f manifest.yaml \'
-pe '    -c ${CAS_NAME}.${CAS_NAMESPACE} \'
-pe '    -s ./storage.json \'
-pe '    --manifest-env SCONE_SYSLIBS=1 \'
-pe '    --manifest-env SCONE_VERSION=1 \'
-pe '    --session-env SCONE_VERSION=1 \'
-pe '    --version ${SCONE_VERSION} -p'
+pe "$(cat <<'EOF'
+scone-td-build apply \
+    -f manifest.yaml \
+    -c ${CAS_NAME}.${CAS_NAMESPACE} \
+    -s ./storage.json \
+    --manifest-env SCONE_SYSLIBS=1 \
+    --manifest-env SCONE_VERSION=1 \
+    --session-env SCONE_VERSION=1 \
+    --version ${SCONE_VERSION} -p
+EOF
+)"
 
 printf "%b" "$LILAC"
-cat <<'EOF'
-
-7. **Deploy the new manifest**:
-
-EOF
+printf '%s\n' ''
+printf '%s\n' '7. **Deploy the new manifest**:'
+printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe 'kubectl apply -f manifest.cleaned.yaml'
+pe "$(cat <<'EOF'
+kubectl apply -f manifest.cleaned.yaml
+EOF
+)"
 
 printf "%b" "$LILAC"
-cat <<'EOF'
-
-   > For the next step, it is expected that you have a Kubernetes cluster with SGX resource and the presence of a LAS
-
-8. **Run the demo**:
-
-We wait for the pod to become ready before we try a port-forward to access the `web-server`:
-
-EOF
+printf '%s\n' ''
+printf '%s\n' '   > For the next step, it is expected that you have a Kubernetes cluster with SGX resource and the presence of a LAS'
+printf '%s\n' ''
+printf '%s\n' '8. **Run the demo**:'
+printf '%s\n' ''
+printf '%s\n' 'We wait for the pod to become ready before we try a port-forward to access the `web-server`:'
+printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe 'kubectl  wait --for=condition=Ready pod -l app="web-server" --timeout=240s'
-pe '# being ready does not mean that port is available'
-pe 'sleep 20'
-pe ''
-pe 'kubectl port-forward deployment/web-server 8000:8000 &'
-pe '# we keep to PID to be able to delete the port-forward'
-pe 'echo $! > /tmp/pf-8000.pid'
-
-printf "%b" "$LILAC"
-cat <<'EOF'
-
-We now send the first request. We do this with some retry just to ensure that the service is indeed ready to serve requests. 
- 
-We execute the [`test.sh`](./test.sh) to run all of these tests more easily:
+pe "$(cat <<'EOF'
+kubectl  wait --for=condition=Ready pod -l app="web-server" --timeout=240s
+EOF
+)"
+pe "$(cat <<'EOF'
+# being ready does not mean that port is available
+EOF
+)"
+pe "$(cat <<'EOF'
+sleep 20
+EOF
+)"
+pe "$(cat <<'EOF'
 
 EOF
+)"
+pe "$(cat <<'EOF'
+kubectl port-forward deployment/web-server 8000:8000 &
+EOF
+)"
+pe "$(cat <<'EOF'
+# we keep to PID to be able to delete the port-forward
+EOF
+)"
+pe "$(cat <<'EOF'
+echo $! > /tmp/pf-8000.pid
+EOF
+)"
+
+printf "%b" "$LILAC"
+printf '%s\n' ''
+printf '%s\n' 'We now send the first request. We do this with some retry just to ensure that the service is indeed ready to serve requests. '
+printf '%s\n' ' '
+printf '%s\n' 'We execute the [`test.sh`](./test.sh) to run all of these tests more easily:'
+printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe '# Test path - result in error'
-pe 'retry-spinner --retries 40 --wait 10 -- curl http://localhost:8000/path'
-pe ''
-pe '# Test gen'
-pe 'retry-spinner -- curl http://localhost:8000/gen'
-pe ''
-pe '# Test env'
-pe './test.sh'
-
-printf "%b" "$LILAC"
-cat <<'EOF'
-
-9. **Uninstall demo**:
+pe "$(cat <<'EOF'
+# Test path - result in error
+EOF
+)"
+pe "$(cat <<'EOF'
+retry-spinner --retries 40 --wait 10 -- curl http://localhost:8000/path
+EOF
+)"
+pe "$(cat <<'EOF'
 
 EOF
+)"
+pe "$(cat <<'EOF'
+# Test gen
+EOF
+)"
+pe "$(cat <<'EOF'
+retry-spinner -- curl http://localhost:8000/gen
+EOF
+)"
+pe "$(cat <<'EOF'
+
+EOF
+)"
+pe "$(cat <<'EOF'
+# Test env
+EOF
+)"
+pe "$(cat <<'EOF'
+./test.sh
+EOF
+)"
+
+printf "%b" "$LILAC"
+printf '%s\n' ''
+printf '%s\n' '9. **Uninstall demo**:'
+printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe 'kubectl delete -f manifest.cleaned.yaml'
-pe 'kill $(cat /tmp/pf-8000.pid) || true'
-pe 'rm /tmp/pf-8000.pid'
-pe 'popd'
+pe "$(cat <<'EOF'
+kubectl delete -f manifest.cleaned.yaml
+EOF
+)"
+pe "$(cat <<'EOF'
+kill $(cat /tmp/pf-8000.pid) || true
+EOF
+)"
+pe "$(cat <<'EOF'
+rm /tmp/pf-8000.pid
+EOF
+)"
+pe "$(cat <<'EOF'
+popd
+EOF
+)"
 
 printf "%b" "$LILAC"
-cat <<'EOF'
-
-We introduced a simple, yet functional "Web Server" web service in Rust! Feel free to explore and modify this demo to suit your needs.
-If you have any questions or need further assistance, feel free to ask! 😊🚀
-EOF
+printf '%s\n' ''
+printf '%s\n' 'We introduced a simple, yet functional "Web Server" web service in Rust! Feel free to explore and modify this demo to suit your needs.'
+printf '%s\n' 'If you have any questions or need further assistance, feel free to ask! 😊🚀'
 printf "%b" "$RESET"
 

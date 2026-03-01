@@ -2,7 +2,7 @@
 
 ## Steps to Run the Hello World Program
 
-![Hello-World Example](../docs/hello-world.webm)
+![Hello-World Example](../docs/hello-world.gif)
 
 ### 1. Prerequisites
 
