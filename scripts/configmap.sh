@@ -75,7 +75,7 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' 'eval \\$(tplenv --file environment-variables.md --create-values-file  --context --eval \\${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output  /dev/null )'
+printf '%s\n' 'eval $(tplenv --file environment-variables.md --create-values-file  --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output  /dev/null )'
 printf "${RESET}"
 
 eval $(tplenv --file environment-variables.md --create-values-file  --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output  /dev/null )
@@ -90,8 +90,8 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' 'pushd folder-reader'
-printf '%s\n' 'docker build -t \\${DEMO_IMAGE} .'
-printf '%s\n' 'docker push \\${DEMO_IMAGE}'
+printf '%s\n' 'docker build -t ${DEMO_IMAGE} .'
+printf '%s\n' 'docker push ${DEMO_IMAGE}'
 printf '%s\n' ''
 printf '%s\n' 'popd'
 printf "${RESET}"
@@ -113,7 +113,7 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' 'export SIGNER="\\$(scone self show-session-signing-key)"'
+printf '%s\n' 'export SIGNER="$(scone self show-session-signing-key)"'
 printf "${RESET}"
 
 export SIGNER="$(scone self show-session-signing-key)"
@@ -151,13 +151,13 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' 'if kubectl get secret "\\${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then'
-printf '%s\n' '  echo "Secret \\${IMAGE_PULL_SECRET_NAME} already exists"'
+printf '%s\n' 'if kubectl get secret "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then'
+printf '%s\n' '  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"'
 printf '%s\n' 'else'
-printf '%s\n' '  echo "Secret \\${IMAGE_PULL_SECRET_NAME} not exist - creating now."'
+printf '%s\n' '  echo "Secret ${IMAGE_PULL_SECRET_NAME} not exist - creating now."'
 printf '%s\n' '  # ask user for the credentials for accessing the registry'
-printf '%s\n' '  eval \\$(tplenv --file registry.credentials.md --create-values-file --eval --force )'
-printf '%s\n' '  kubectl create secret docker-registry scontain --docker-server=\\$REGISTRY --docker-username=\\$REGISTRY_USER --docker-password=\\$REGISTRY_TOKEN'
+printf '%s\n' '  eval $(tplenv --file registry.credentials.md --create-values-file --eval --force )'
+printf '%s\n' '  kubectl create secret docker-registry scontain --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN'
 printf '%s\n' 'fi'
 printf "${RESET}"
 

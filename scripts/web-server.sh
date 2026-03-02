@@ -115,7 +115,7 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' 'eval \\$(tplenv --file environment-variables.md --create-values-file --eval \\${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output  /dev/null )'
+printf '%s\n' 'eval $(tplenv --file environment-variables.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output  /dev/null )'
 printf "${RESET}"
 
 eval $(tplenv --file environment-variables.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output  /dev/null )
@@ -128,7 +128,7 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# attest the CAS - to ensure that we know the correct session encryption key'
-printf '%s\n' 'kubectl scone cas attest --namespace \\${CAS_NAMESPACE}  \\${CAS_NAME}'
+printf '%s\n' 'kubectl scone cas attest --namespace ${CAS_NAMESPACE}  ${CAS_NAME}'
 printf "${RESET}"
 
 # attest the CAS - to ensure that we know the correct session encryption key
@@ -160,10 +160,10 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Build the Scone image for the demo client'
-printf '%s\n' 'docker build -t \\${IMAGE_NAME} .'
+printf '%s\n' 'docker build -t ${IMAGE_NAME} .'
 printf '%s\n' ''
 printf '%s\n' '# Push it to the registry'
-printf '%s\n' 'docker push \\${IMAGE_NAME}'
+printf '%s\n' 'docker push ${IMAGE_NAME}'
 printf "${RESET}"
 
 # Build the Scone image for the demo client
@@ -203,13 +203,13 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' 'scone-td-build register \'
-printf '%s\n' '    --protected-image \\${IMAGE_NAME} \'
-printf '%s\n' '    --unprotected-image \\${IMAGE_NAME} \'
-printf '%s\n' '    --destination-image \\${DESTINATION_IMAGE_NAME} \'
+printf '%s\n' '    --protected-image ${IMAGE_NAME} \'
+printf '%s\n' '    --unprotected-image ${IMAGE_NAME} \'
+printf '%s\n' '    --destination-image ${DESTINATION_IMAGE_NAME} \'
 printf '%s\n' '    --push \'
 printf '%s\n' '    -s ./storage.json \'
 printf '%s\n' '    --enforce /app/web-server \'
-printf '%s\n' '    --version \\${SCONE_VERSION}'
+printf '%s\n' '    --version ${SCONE_VERSION}'
 printf "${RESET}"
 
 scone-td-build register \
@@ -233,7 +233,7 @@ printf "${ORANGE}"
 printf '%s\n' '# Make sure web-server does not yet run'
 printf '%s\n' 'kubectl delete deployment web-server || echo "ok - no web-server deployment yet"'
 printf '%s\n' 'kubectl wait --for=delete pod -l app=web-server --timeout=240s'
-printf '%s\n' 'kill \\$(cat /tmp/pf-8000.pid) || true'
+printf '%s\n' 'kill $(cat /tmp/pf-8000.pid) || true'
 printf "${RESET}"
 
 # Make sure web-server does not yet run
@@ -253,7 +253,7 @@ printf '%s\n' 'kubectl wait --for=condition=Ready pod -l app="web-server" --time
 printf '%s\n' ''
 printf '%s\n' '# retry-spinner --retries 40 --wait 10 -- kubectl logs -l app=web-server --pod-running-timeout=2m --timestamps'
 printf '%s\n' '# Use this command in another terminal or add `&` at the end of the command to run in the background'
-printf '%s\n' 'kubectl port-forward deployment/web-server 8000:8000 & echo \\$! > /tmp/pf-8000.pid'
+printf '%s\n' 'kubectl port-forward deployment/web-server 8000:8000 & echo $! > /tmp/pf-8000.pid'
 printf '%s\n' ''
 printf '%s\n' 'retry-spinner -- curl http://localhost:8000/env/MY_POD_IP'
 printf '%s\n' './test.sh'
@@ -262,7 +262,7 @@ printf '%s\n' 'kubectl delete -f manifest.yaml'
 printf '%s\n' 'kubectl wait --for=delete pod -l app=web-server --timeout=240s'
 printf '%s\n' ''
 printf '%s\n' '# Close the port forward after the execution'
-printf '%s\n' 'kill \\$(cat /tmp/pf-8000.pid) || true'
+printf '%s\n' 'kill $(cat /tmp/pf-8000.pid) || true'
 printf '%s\n' 'rm /tmp/pf-8000.pid'
 printf "${RESET}"
 
@@ -294,12 +294,12 @@ printf "${RESET}"
 printf "${ORANGE}"
 printf '%s\n' 'scone-td-build apply \'
 printf '%s\n' '    -f manifest.yaml \'
-printf '%s\n' '    -c \\${CAS_NAME}.\\${CAS_NAMESPACE} \'
+printf '%s\n' '    -c ${CAS_NAME}.${CAS_NAMESPACE} \'
 printf '%s\n' '    -s ./storage.json \'
 printf '%s\n' '    --manifest-env SCONE_SYSLIBS=1 \'
 printf '%s\n' '    --manifest-env SCONE_VERSION=1 \'
 printf '%s\n' '    --session-env SCONE_VERSION=1 \'
-printf '%s\n' '    --version \\${SCONE_VERSION} -p'
+printf '%s\n' '    --version ${SCONE_VERSION} -p'
 printf "${RESET}"
 
 scone-td-build apply \
@@ -339,7 +339,7 @@ printf '%s\n' '# being ready does not mean that port is available'
 printf '%s\n' 'sleep 20'
 printf '%s\n' ''
 printf '%s\n' '# we keep to PID to be able to delete the port-forward'
-printf '%s\n' 'kubectl port-forward deployment/web-server 8000:8000 & echo \\$! > /tmp/pf-8000.pid '
+printf '%s\n' 'kubectl port-forward deployment/web-server 8000:8000 & echo $! > /tmp/pf-8000.pid '
 printf "${RESET}"
 
 kubectl  wait --for=condition=Ready pod -l app="web-server" --timeout=240s
@@ -385,7 +385,7 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' 'kubectl delete -f manifest.cleaned.yaml'
-printf '%s\n' 'kill \\$(cat /tmp/pf-8000.pid) || true'
+printf '%s\n' 'kill $(cat /tmp/pf-8000.pid) || true'
 printf '%s\n' 'rm /tmp/pf-8000.pid'
 printf '%s\n' 'popd'
 printf "${RESET}"

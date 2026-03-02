@@ -74,7 +74,7 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' 'eval \\$(tplenv --file environment-variables.md --create-values-file --context --eval \\${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output  /dev/null )'
+printf '%s\n' 'eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output  /dev/null )'
 printf "${RESET}"
 
 eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output  /dev/null )
@@ -87,7 +87,7 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# attest the CAS - to ensure that we know the correct session encryption key'
-printf '%s\n' 'kubectl scone cas attest --namespace \\${CAS_NAMESPACE}  \\${CAS_NAME}'
+printf '%s\n' 'kubectl scone cas attest --namespace ${CAS_NAMESPACE}  ${CAS_NAME}'
 printf "${RESET}"
 
 # attest the CAS - to ensure that we know the correct session encryption key
@@ -133,7 +133,7 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# build the hello-world app in a Container'
-printf '%s\n' 'docker build -t \\$IMAGE_NAME .'
+printf '%s\n' 'docker build -t $IMAGE_NAME .'
 printf "${RESET}"
 
 # build the hello-world app in a Container
@@ -167,7 +167,7 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' 'scone-td-build register --protected-image \\$IMAGE_NAME --unprotected-image rust:latest --manifest-env SCONE_PRODUCTION=0 -s ./storage.json --destination-image \\${DESTINATION_IMAGE_NAME} --push --version \\${SCONE_VERSION} \\${CVM_MODE}'
+printf '%s\n' 'scone-td-build register --protected-image $IMAGE_NAME --unprotected-image rust:latest --manifest-env SCONE_PRODUCTION=0 -s ./storage.json --destination-image ${DESTINATION_IMAGE_NAME} --push --version ${SCONE_VERSION} ${CVM_MODE}'
 printf "${RESET}"
 
 scone-td-build register --protected-image $IMAGE_NAME --unprotected-image rust:latest --manifest-env SCONE_PRODUCTION=0 -s ./storage.json --destination-image ${DESTINATION_IMAGE_NAME} --push --version ${SCONE_VERSION} ${CVM_MODE}
@@ -189,13 +189,13 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' 'if kubectl get secret "\\${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then'
-printf '%s\n' '  echo "Secret \\${IMAGE_PULL_SECRET_NAME} already exists"'
+printf '%s\n' 'if kubectl get secret "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then'
+printf '%s\n' '  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"'
 printf '%s\n' 'else'
-printf '%s\n' '  echo "Secret \\${IMAGE_PULL_SECRET_NAME} not exist - creating now."'
+printf '%s\n' '  echo "Secret ${IMAGE_PULL_SECRET_NAME} not exist - creating now."'
 printf '%s\n' '  # ask user for the credentials for accessing the registry'
-printf '%s\n' '  eval \\$(tplenv --file registry.credentials.md --create-values-file --eval --force )'
-printf '%s\n' '  kubectl create secret docker-registry scontain --docker-server=\\$REGISTRY --docker-username=\\$REGISTRY_USER --docker-password=\\$REGISTRY_TOKEN'
+printf '%s\n' '  eval $(tplenv --file registry.credentials.md --create-values-file --eval --force )'
+printf '%s\n' '  kubectl create secret docker-registry scontain --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN'
 printf '%s\n' 'fi'
 printf "${RESET}"
 
@@ -217,7 +217,7 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' 'scone-td-build apply -f manifest.job.yaml -c \\${CAS_NAME}.\\${CAS_NAMESPACE} -p -s ./storage.json --manifest-env SCONE_SYSLIBS=1 --manifest-env SCONE_PRODUCTION=0  \\${CVM_MODE} \\${SCONE_ENCLAVE}'
+printf '%s\n' 'scone-td-build apply -f manifest.job.yaml -c ${CAS_NAME}.${CAS_NAMESPACE} -p -s ./storage.json --manifest-env SCONE_SYSLIBS=1 --manifest-env SCONE_PRODUCTION=0  ${CVM_MODE} ${SCONE_ENCLAVE}'
 printf "${RESET}"
 
 scone-td-build apply -f manifest.job.yaml -c ${CAS_NAME}.${CAS_NAMESPACE} -p -s ./storage.json --manifest-env SCONE_SYSLIBS=1 --manifest-env SCONE_PRODUCTION=0  ${CVM_MODE} ${SCONE_ENCLAVE}
