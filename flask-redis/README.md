@@ -73,6 +73,7 @@ The script will pause after generating the secret and manifest YAML files in `--
 #### 1. Generate TLS certificates
 
 ```bash
+cd flask-redis
 mkdir -p certs
 
 # CA
@@ -128,7 +129,7 @@ docker push ${IMAGE_NAME}
 #### 3. Create the namespace
 
 ```bash
-kubectl create namespace ${NAMESPACE}
+kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
 ```
 
 ---
@@ -164,7 +165,29 @@ kubectl apply -f k8s/secret-flask-tls.yaml
 
 ---
 
-#### 5. Generate the manifest from the template
+## 5. Add Docker Registry Secret to Kubernetes
+
+We assume you need a pull secret to pull both the native and confidential container images. First, we check whether the pull secret is already set. If it is not, we ask the user for the information needed to create it:
+
+- `$REGISTRY` - the name of the registry. By default, this is `registry.scontain.com`.
+- `$REGISTRY_USER` - the login name of the user that pulls the container image.
+- `$REGISTRY_TOKEN` - the token used to pull the image. See <https://sconedocs.github.io/registry/> for how to create this token.
+
+Note that `tplenv` stores this information in `Values.yaml`.
+
+```bash
+if kubectl get secret "${IMAGE_PULL_SECRET_NAME}" -n ${NAMESPACE} >/dev/null 2>&1; then
+  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists in namespace ${NAMESPACE}"
+else
+  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist in namespace ${NAMESPACE} - creating now."
+  # ask user for the credentials for accessing the registry
+  eval $(tplenv --file registry.credentials.md --create-values-file --eval --force )
+  kubectl create secret docker-registry -n ${NAMESPACE} "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
+fi
+```
+
+
+#### 6. Generate the manifest from the template
 
 ```bash
 tplenv --file k8s/manifest.template.yaml --create-values-file --output k8s/manifest.yaml
@@ -178,7 +201,7 @@ kubectl apply -f k8s/manifest.yaml --namespace ${NAMESPACE}
 
 ---
 
-#### 6. Verify the deployment
+#### 7. Verify the deployment
 
 ```bash
 # Watch all resources come up
@@ -197,24 +220,24 @@ kubectl logs -n ${NAMESPACE} -l app=redis --tail=20
 
 ---
 
-#### 7. Test the API via port-forward
+#### 8. Test the API via port-forward
 
 Open a port-forward to the Flask API pod:
 
 ```bash
 kubectl port-forward -n ${NAMESPACE} \
   $(kubectl get pod -n ${NAMESPACE} -l app=flask-api -o jsonpath='{.items[0].metadata.name}') \
-  14996:4996
+  14996:4996 &  echo $! > /tmp/pf-14996.pid
 ```
 
 Then in another terminal, send requests against `https://localhost:14996`:
 
 ```bash
 # List all stored keys
-curl -sk https://localhost:14996/keys
+curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/keys
 
 # Create a client record
-curl -sk -X POST https://localhost:14996/client/abc123 \
+curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10  -sk -X POST https://localhost:14996/client/abc123 \
   -F fname=John \
   -F lname=Doe \
   -F address="123 Main St" \
@@ -224,26 +247,27 @@ curl -sk -X POST https://localhost:14996/client/abc123 \
   -F email="john@example.com"
 
 # Retrieve a client
-curl -sk https://localhost:14996/client/abc123
+curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10  -sk https://localhost:14996/client/abc123
 
 # Get credit score
-curl -sk https://localhost:14996/score/abc123
+curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10  -sk https://localhost:14996/score/abc123
 
 # Memory dump (debug)
-curl -sk https://localhost:14996/memory
+curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/memory
 ```
 
 > `-sk` skips TLS verification for the self-signed certificate.
 
 ---
 
-#### 8. Cleanup
+#### 9. Cleanup
 
 ```bash
-kubectl delete -f k8s/manifest.yaml --namespace ${NAMESPACE} --ignore-not-found
+kubectl delete -f k8s/manifest.yaml --ignore-not-found
 kubectl delete secret redis-tls flask-tls --namespace ${NAMESPACE} --ignore-not-found
-kubectl delete namespace ${NAMESPACE} --ignore-not-found
 rm -f k8s/secret-redis-tls.yaml k8s/secret-flask-tls.yaml k8s/manifest.yaml
+kill $(cat /tmp/pf-14996.pid) || true
+rm /tmp/pf-14996.pid
 ```
 
 ---

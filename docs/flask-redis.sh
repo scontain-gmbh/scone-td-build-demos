@@ -120,6 +120,10 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+cd flask-redis
+EOF
+)"
+pe "$(cat <<'EOF'
 mkdir -p certs
 EOF
 )"
@@ -250,7 +254,7 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-kubectl create namespace ${NAMESPACE}
+kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
 EOF
 )"
 
@@ -308,7 +312,55 @@ printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
-printf '%s\n' '#### 5. Generate the manifest from the template'
+printf '%s\n' '## 5. Add Docker Registry Secret to Kubernetes'
+printf '%s\n' ''
+printf '%s\n' 'We assume you need a pull secret to pull both the native and confidential container images. First, we check whether the pull secret is already set. If it is not, we ask the user for the information needed to create it:'
+printf '%s\n' ''
+printf '%s\n' '- `$REGISTRY` - the name of the registry. By default, this is `registry.scontain.com`.'
+printf '%s\n' '- `$REGISTRY_USER` - the login name of the user that pulls the container image.'
+printf '%s\n' '- `$REGISTRY_TOKEN` - the token used to pull the image. See <https://sconedocs.github.io/registry/> for how to create this token.'
+printf '%s\n' ''
+printf '%s\n' 'Note that `tplenv` stores this information in `Values.yaml`.'
+printf '%s\n' ''
+printf "%b" "$RESET"
+
+pe "$(cat <<'EOF'
+if kubectl get secret "${IMAGE_PULL_SECRET_NAME}" -n ${NAMESPACE} >/dev/null 2>&1; then
+EOF
+)"
+pe "$(cat <<'EOF'
+  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists in namespace ${NAMESPACE}"
+EOF
+)"
+pe "$(cat <<'EOF'
+else
+EOF
+)"
+pe "$(cat <<'EOF'
+  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist in namespace ${NAMESPACE} - creating now."
+EOF
+)"
+pe "$(cat <<'EOF'
+  # ask user for the credentials for accessing the registry
+EOF
+)"
+pe "$(cat <<'EOF'
+  eval $(tplenv --file registry.credentials.md --create-values-file --eval --force )
+EOF
+)"
+pe "$(cat <<'EOF'
+  kubectl create secret docker-registry -n ${NAMESPACE} "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
+EOF
+)"
+pe "$(cat <<'EOF'
+fi
+EOF
+)"
+
+printf "%b" "$LILAC"
+printf '%s\n' ''
+printf '%s\n' ''
+printf '%s\n' '#### 6. Generate the manifest from the template'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
@@ -332,7 +384,7 @@ printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
-printf '%s\n' '#### 6. Verify the deployment'
+printf '%s\n' '#### 7. Verify the deployment'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
@@ -389,7 +441,7 @@ printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
-printf '%s\n' '#### 7. Test the API via port-forward'
+printf '%s\n' '#### 8. Test the API via port-forward'
 printf '%s\n' ''
 printf '%s\n' 'Open a port-forward to the Flask API pod:'
 printf '%s\n' ''
@@ -398,7 +450,7 @@ printf "%b" "$RESET"
 pe "$(cat <<'EOF'
 kubectl port-forward -n ${NAMESPACE} \
   $(kubectl get pod -n ${NAMESPACE} -l app=flask-api -o jsonpath='{.items[0].metadata.name}') \
-  14996:4996
+  14996:4996 &  echo $! > /tmp/pf-14996.pid
 EOF
 )"
 
@@ -413,7 +465,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-curl -sk https://localhost:14996/keys
+curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/keys
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -425,7 +477,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-curl -sk -X POST https://localhost:14996/client/abc123 \
+curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10  -sk -X POST https://localhost:14996/client/abc123 \
   -F fname=John \
   -F lname=Doe \
   -F address="123 Main St" \
@@ -444,7 +496,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-curl -sk https://localhost:14996/client/abc123
+curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10  -sk https://localhost:14996/client/abc123
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -456,7 +508,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-curl -sk https://localhost:14996/score/abc123
+curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10  -sk https://localhost:14996/score/abc123
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -468,7 +520,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-curl -sk https://localhost:14996/memory
+curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/memory
 EOF
 )"
 
@@ -478,12 +530,12 @@ printf '%s\n' '> `-sk` skips TLS verification for the self-signed certificate.'
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
-printf '%s\n' '#### 8. Cleanup'
+printf '%s\n' '#### 9. Cleanup'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-kubectl delete -f k8s/manifest.yaml --namespace ${NAMESPACE} --ignore-not-found
+kubectl delete -f k8s/manifest.yaml --ignore-not-found
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -491,11 +543,15 @@ kubectl delete secret redis-tls flask-tls --namespace ${NAMESPACE} --ignore-not-
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl delete namespace ${NAMESPACE} --ignore-not-found
+rm -f k8s/secret-redis-tls.yaml k8s/secret-flask-tls.yaml k8s/manifest.yaml
 EOF
 )"
 pe "$(cat <<'EOF'
-rm -f k8s/secret-redis-tls.yaml k8s/secret-flask-tls.yaml k8s/manifest.yaml
+kill $(cat /tmp/pf-14996.pid) || true
+EOF
+)"
+pe "$(cat <<'EOF'
+rm /tmp/pf-14996.pid
 EOF
 )"
 
