@@ -90,33 +90,16 @@ printf '%s\n' '  -n, --namespace    Kubernetes namespace (default: flask-redis)'
 printf '%s\n' ''
 printf '%s\n' '#### Example'
 printf '%s\n' ''
-printf "%b" "$RESET"
-
-pe "$(cat <<'EOF'
-chmod +x deploy.sh
-EOF
-)"
-pe "$(cat <<'EOF'
-./deploy.sh --image myregistry/flask-redis-api:latest
-EOF
-)"
-
-printf "%b" "$LILAC"
+printf '%s\n' 'chmod +x deploy.sh'
+printf '%s\n' './deploy.sh --image myregistry/flask-redis-api:latest'
 printf '%s\n' ''
 printf '%s\n' 'With custom paths:'
 printf '%s\n' ''
-printf "%b" "$RESET"
-
-pe "$(cat <<'EOF'
-./deploy.sh \
-  --image myregistry/flask-redis-api:latest \
-  --certs ./my-certs \
-  --k8s ./k8s \
-  --namespace flask-redis
-EOF
-)"
-
-printf "%b" "$LILAC"
+printf '%s\n' './deploy.sh \'
+printf '%s\n' '  --image myregistry/flask-redis-api:latest \'
+printf '%s\n' '  --certs ./my-certs \'
+printf '%s\n' '  --k8s ./k8s \'
+printf '%s\n' '  --namespace flask-redis'
 printf '%s\n' ''
 printf '%s\n' 'The script will pause after generating the secret and manifest YAML files in `--k8s` so you can inspect them before anything is applied to the cluster. After the tests finish, all deployed resources are automatically removed.'
 printf '%s\n' ''
@@ -128,7 +111,7 @@ printf '%s\n' '#### Prerequisites'
 printf '%s\n' ''
 printf '%s\n' '- `kubectl` configured for your cluster'
 printf '%s\n' '- `docker` with access to a registry your cluster can pull from'
-printf '%s\n' '- `openssl` and `envsubst` available in your shell'
+printf '%s\n' '- `openssl` and `tplenv` available in your shell'
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
@@ -234,14 +217,27 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '#### 2. Build and push the Docker image'
 printf '%s\n' ''
+printf '%s\n' 'First, let `tplenv` query all environment variables used by this example:'
+printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-docker build -t <your-registry>/flask-redis-api:latest .
+eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
+EOF
+)"
+
+printf "%b" "$LILAC"
+printf '%s\n' ''
+printf '%s\n' 'Then build and push the Docker image:'
+printf '%s\n' ''
+printf "%b" "$RESET"
+
+pe "$(cat <<'EOF'
+docker build -t ${IMAGE_NAME} .
 EOF
 )"
 pe "$(cat <<'EOF'
-docker push <your-registry>/flask-redis-api:latest
+docker push ${IMAGE_NAME}
 EOF
 )"
 
@@ -254,7 +250,7 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-kubectl create namespace flask-redis
+kubectl create namespace ${NAMESPACE}
 EOF
 )"
 
@@ -270,7 +266,7 @@ printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
 kubectl create secret generic redis-tls \
-  --namespace flask-redis \
+  --namespace ${NAMESPACE} \
   --from-file=redis.crt=certs/redis.crt \
   --from-file=redis.key=certs/redis.key \
   --from-file=redis-ca.crt=certs/redis-ca.crt \
@@ -283,7 +279,7 @@ EOF
 )"
 pe "$(cat <<'EOF'
 kubectl create secret generic flask-tls \
-  --namespace flask-redis \
+  --namespace ${NAMESPACE} \
   --from-file=flask.crt=certs/flask.crt \
   --from-file=flask.key=certs/flask.key \
   --from-file=client.crt=certs/client.crt \
@@ -317,11 +313,7 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-export IMAGE_NAME=<your-registry>/flask-redis-api:latest
-EOF
-)"
-pe "$(cat <<'EOF'
-envsubst '$IMAGE_NAME' < k8s/manifest.template.yaml > k8s/manifest.yaml
+tplenv --file k8s/manifest.template.yaml --create-values-file --output k8s/manifest.yaml
 EOF
 )"
 
@@ -332,7 +324,7 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-kubectl apply -f k8s/manifest.yaml --namespace flask-redis
+kubectl apply -f k8s/manifest.yaml --namespace ${NAMESPACE}
 EOF
 )"
 
@@ -349,7 +341,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl get all -n flask-redis
+kubectl get all -n ${NAMESPACE}
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -361,7 +353,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl rollout status deployment/redis -n flask-redis --timeout=120s
+kubectl rollout status deployment/redis -n ${NAMESPACE} --timeout=120s
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -373,7 +365,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl rollout status deployment/flask-api -n flask-redis --timeout=120s
+kubectl rollout status deployment/flask-api -n ${NAMESPACE} --timeout=120s
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -385,11 +377,11 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl logs -n flask-redis -l app=flask-api --tail=50
+kubectl logs -n ${NAMESPACE} -l app=flask-api --tail=50
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl logs -n flask-redis -l app=redis --tail=20
+kubectl logs -n ${NAMESPACE} -l app=redis --tail=20
 EOF
 )"
 
@@ -404,8 +396,8 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-kubectl port-forward -n flask-redis \
-  $(kubectl get pod -n flask-redis -l app=flask-api -o jsonpath='{.items[0].metadata.name}') \
+kubectl port-forward -n ${NAMESPACE} \
+  $(kubectl get pod -n ${NAMESPACE} -l app=flask-api -o jsonpath='{.items[0].metadata.name}') \
   14996:4996
 EOF
 )"
@@ -491,15 +483,15 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-kubectl delete -f k8s/manifest.yaml --namespace flask-redis --ignore-not-found
+kubectl delete -f k8s/manifest.yaml --namespace ${NAMESPACE} --ignore-not-found
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl delete secret redis-tls flask-tls --namespace flask-redis --ignore-not-found
+kubectl delete secret redis-tls flask-tls --namespace ${NAMESPACE} --ignore-not-found
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl delete namespace flask-redis --ignore-not-found
+kubectl delete namespace ${NAMESPACE} --ignore-not-found
 EOF
 )"
 pe "$(cat <<'EOF'
