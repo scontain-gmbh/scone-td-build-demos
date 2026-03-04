@@ -47,37 +47,16 @@ printf '%s\n' '  -n, --namespace    Kubernetes namespace (default: flask-redis)'
 printf '%s\n' ''
 printf '%s\n' '#### Example'
 printf '%s\n' ''
-printf "${RESET}"
-
-printf "${ORANGE}"
 printf '%s\n' 'chmod +x deploy.sh'
 printf '%s\n' './deploy.sh --image myregistry/flask-redis-api:latest'
-printf "${RESET}"
-
-chmod +x deploy.sh
-./deploy.sh --image myregistry/flask-redis-api:latest
-
-printf "${VIOLET}"
 printf '%s\n' ''
 printf '%s\n' 'With custom paths:'
 printf '%s\n' ''
-printf "${RESET}"
-
-printf "${ORANGE}"
 printf '%s\n' './deploy.sh \'
 printf '%s\n' '  --image myregistry/flask-redis-api:latest \'
 printf '%s\n' '  --certs ./my-certs \'
 printf '%s\n' '  --k8s ./k8s \'
 printf '%s\n' '  --namespace flask-redis'
-printf "${RESET}"
-
-./deploy.sh \
-  --image myregistry/flask-redis-api:latest \
-  --certs ./my-certs \
-  --k8s ./k8s \
-  --namespace flask-redis
-
-printf "${VIOLET}"
 printf '%s\n' ''
 printf '%s\n' 'The script will pause after generating the secret and manifest YAML files in `--k8s` so you can inspect them before anything is applied to the cluster. After the tests finish, all deployed resources are automatically removed.'
 printf '%s\n' ''
@@ -89,7 +68,7 @@ printf '%s\n' '#### Prerequisites'
 printf '%s\n' ''
 printf '%s\n' '- `kubectl` configured for your cluster'
 printf '%s\n' '- `docker` with access to a registry your cluster can pull from'
-printf '%s\n' '- `openssl` and `envsubst` available in your shell'
+printf '%s\n' '- `openssl` and `tplenv` available in your shell'
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
@@ -162,15 +141,29 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '#### 2. Build and push the Docker image'
 printf '%s\n' ''
+printf '%s\n' 'First, let `tplenv` query all environment variables used by this example:'
+printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' 'docker build -t <your-registry>/flask-redis-api:latest .'
-printf '%s\n' 'docker push <your-registry>/flask-redis-api:latest'
+printf '%s\n' 'eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)'
 printf "${RESET}"
 
-docker build -t <your-registry>/flask-redis-api:latest .
-docker push <your-registry>/flask-redis-api:latest
+eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
+
+printf "${VIOLET}"
+printf '%s\n' ''
+printf '%s\n' 'Then build and push the Docker image:'
+printf '%s\n' ''
+printf "${RESET}"
+
+printf "${ORANGE}"
+printf '%s\n' 'docker build -t ${IMAGE_NAME} .'
+printf '%s\n' 'docker push ${IMAGE_NAME}'
+printf "${RESET}"
+
+docker build -t ${IMAGE_NAME} .
+docker push ${IMAGE_NAME}
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -181,10 +174,10 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' 'kubectl create namespace flask-redis'
+printf '%s\n' 'kubectl create namespace ${NAMESPACE}'
 printf "${RESET}"
 
-kubectl create namespace flask-redis
+kubectl create namespace ${NAMESPACE}
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -198,14 +191,14 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' 'kubectl create secret generic redis-tls \'
-printf '%s\n' '  --namespace flask-redis \'
+printf '%s\n' '  --namespace ${NAMESPACE} \'
 printf '%s\n' '  --from-file=redis.crt=certs/redis.crt \'
 printf '%s\n' '  --from-file=redis.key=certs/redis.key \'
 printf '%s\n' '  --from-file=redis-ca.crt=certs/redis-ca.crt \'
 printf '%s\n' '  --dry-run=client -o yaml > k8s/secret-redis-tls.yaml'
 printf '%s\n' ''
 printf '%s\n' 'kubectl create secret generic flask-tls \'
-printf '%s\n' '  --namespace flask-redis \'
+printf '%s\n' '  --namespace ${NAMESPACE} \'
 printf '%s\n' '  --from-file=flask.crt=certs/flask.crt \'
 printf '%s\n' '  --from-file=flask.key=certs/flask.key \'
 printf '%s\n' '  --from-file=client.crt=certs/client.crt \'
@@ -215,14 +208,14 @@ printf '%s\n' '  --dry-run=client -o yaml > k8s/secret-flask-tls.yaml'
 printf "${RESET}"
 
 kubectl create secret generic redis-tls \
-  --namespace flask-redis \
+  --namespace ${NAMESPACE} \
   --from-file=redis.crt=certs/redis.crt \
   --from-file=redis.key=certs/redis.key \
   --from-file=redis-ca.crt=certs/redis-ca.crt \
   --dry-run=client -o yaml > k8s/secret-redis-tls.yaml
 
 kubectl create secret generic flask-tls \
-  --namespace flask-redis \
+  --namespace ${NAMESPACE} \
   --from-file=flask.crt=certs/flask.crt \
   --from-file=flask.key=certs/flask.key \
   --from-file=client.crt=certs/client.crt \
@@ -253,12 +246,10 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' 'export IMAGE_NAME=<your-registry>/flask-redis-api:latest'
-printf '%s\n' 'envsubst '\''$IMAGE_NAME'\'' < k8s/manifest.template.yaml > k8s/manifest.yaml'
+printf '%s\n' 'tplenv --file k8s/manifest.template.yaml --create-values-file --output k8s/manifest.yaml'
 printf "${RESET}"
 
-export IMAGE_NAME=<your-registry>/flask-redis-api:latest
-envsubst '$IMAGE_NAME' < k8s/manifest.template.yaml > k8s/manifest.yaml
+tplenv --file k8s/manifest.template.yaml --create-values-file --output k8s/manifest.yaml
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -267,10 +258,10 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' 'kubectl apply -f k8s/manifest.yaml --namespace flask-redis'
+printf '%s\n' 'kubectl apply -f k8s/manifest.yaml --namespace ${NAMESPACE}'
 printf "${RESET}"
 
-kubectl apply -f k8s/manifest.yaml --namespace flask-redis
+kubectl apply -f k8s/manifest.yaml --namespace ${NAMESPACE}
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -282,31 +273,31 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Watch all resources come up'
-printf '%s\n' 'kubectl get all -n flask-redis'
+printf '%s\n' 'kubectl get all -n ${NAMESPACE}'
 printf '%s\n' ''
 printf '%s\n' '# Wait for Redis'
-printf '%s\n' 'kubectl rollout status deployment/redis -n flask-redis --timeout=120s'
+printf '%s\n' 'kubectl rollout status deployment/redis -n ${NAMESPACE} --timeout=120s'
 printf '%s\n' ''
 printf '%s\n' '# Wait for Flask API'
-printf '%s\n' 'kubectl rollout status deployment/flask-api -n flask-redis --timeout=120s'
+printf '%s\n' 'kubectl rollout status deployment/flask-api -n ${NAMESPACE} --timeout=120s'
 printf '%s\n' ''
 printf '%s\n' '# Check logs'
-printf '%s\n' 'kubectl logs -n flask-redis -l app=flask-api --tail=50'
-printf '%s\n' 'kubectl logs -n flask-redis -l app=redis --tail=20'
+printf '%s\n' 'kubectl logs -n ${NAMESPACE} -l app=flask-api --tail=50'
+printf '%s\n' 'kubectl logs -n ${NAMESPACE} -l app=redis --tail=20'
 printf "${RESET}"
 
 # Watch all resources come up
-kubectl get all -n flask-redis
+kubectl get all -n ${NAMESPACE}
 
 # Wait for Redis
-kubectl rollout status deployment/redis -n flask-redis --timeout=120s
+kubectl rollout status deployment/redis -n ${NAMESPACE} --timeout=120s
 
 # Wait for Flask API
-kubectl rollout status deployment/flask-api -n flask-redis --timeout=120s
+kubectl rollout status deployment/flask-api -n ${NAMESPACE} --timeout=120s
 
 # Check logs
-kubectl logs -n flask-redis -l app=flask-api --tail=50
-kubectl logs -n flask-redis -l app=redis --tail=20
+kubectl logs -n ${NAMESPACE} -l app=flask-api --tail=50
+kubectl logs -n ${NAMESPACE} -l app=redis --tail=20
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -319,13 +310,13 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' 'kubectl port-forward -n flask-redis \'
-printf '%s\n' '  $(kubectl get pod -n flask-redis -l app=flask-api -o jsonpath='\''{.items[0].metadata.name}'\'') \'
+printf '%s\n' 'kubectl port-forward -n ${NAMESPACE} \'
+printf '%s\n' '  $(kubectl get pod -n ${NAMESPACE} -l app=flask-api -o jsonpath='\''{.items[0].metadata.name}'\'') \'
 printf '%s\n' '  14996:4996'
 printf "${RESET}"
 
-kubectl port-forward -n flask-redis \
-  $(kubectl get pod -n flask-redis -l app=flask-api -o jsonpath='{.items[0].metadata.name}') \
+kubectl port-forward -n ${NAMESPACE} \
+  $(kubectl get pod -n ${NAMESPACE} -l app=flask-api -o jsonpath='{.items[0].metadata.name}') \
   14996:4996
 
 printf "${VIOLET}"
@@ -391,15 +382,15 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' 'kubectl delete -f k8s/manifest.yaml --namespace flask-redis --ignore-not-found'
-printf '%s\n' 'kubectl delete secret redis-tls flask-tls --namespace flask-redis --ignore-not-found'
-printf '%s\n' 'kubectl delete namespace flask-redis --ignore-not-found'
+printf '%s\n' 'kubectl delete -f k8s/manifest.yaml --namespace ${NAMESPACE} --ignore-not-found'
+printf '%s\n' 'kubectl delete secret redis-tls flask-tls --namespace ${NAMESPACE} --ignore-not-found'
+printf '%s\n' 'kubectl delete namespace ${NAMESPACE} --ignore-not-found'
 printf '%s\n' 'rm -f k8s/secret-redis-tls.yaml k8s/secret-flask-tls.yaml k8s/manifest.yaml'
 printf "${RESET}"
 
-kubectl delete -f k8s/manifest.yaml --namespace flask-redis --ignore-not-found
-kubectl delete secret redis-tls flask-tls --namespace flask-redis --ignore-not-found
-kubectl delete namespace flask-redis --ignore-not-found
+kubectl delete -f k8s/manifest.yaml --namespace ${NAMESPACE} --ignore-not-found
+kubectl delete secret redis-tls flask-tls --namespace ${NAMESPACE} --ignore-not-found
+kubectl delete namespace ${NAMESPACE} --ignore-not-found
 rm -f k8s/secret-redis-tls.yaml k8s/secret-flask-tls.yaml k8s/manifest.yaml
 
 printf "${VIOLET}"

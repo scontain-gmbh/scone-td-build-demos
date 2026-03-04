@@ -41,14 +41,14 @@ Flags:
 
 #### Example
 
-```bash
+```
 chmod +x deploy.sh
 ./deploy.sh --image myregistry/flask-redis-api:latest
 ```
 
 With custom paths:
 
-```bash
+```
 ./deploy.sh \
   --image myregistry/flask-redis-api:latest \
   --certs ./my-certs \
@@ -66,7 +66,7 @@ The script will pause after generating the secret and manifest YAML files in `--
 
 - `kubectl` configured for your cluster
 - `docker` with access to a registry your cluster can pull from
-- `openssl` and `envsubst` available in your shell
+- `openssl` and `tplenv` available in your shell
 
 ---
 
@@ -110,9 +110,17 @@ openssl x509 -req -in certs/client.csr -CA certs/redis-ca.crt -CAkey certs/redis
 
 #### 2. Build and push the Docker image
 
+First, let `tplenv` query all environment variables used by this example:
+
 ```bash
-docker build -t <your-registry>/flask-redis-api:latest .
-docker push <your-registry>/flask-redis-api:latest
+eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
+```
+
+Then build and push the Docker image:
+
+```bash
+docker build -t ${IMAGE_NAME} .
+docker push ${IMAGE_NAME}
 ```
 
 ---
@@ -120,7 +128,7 @@ docker push <your-registry>/flask-redis-api:latest
 #### 3. Create the namespace
 
 ```bash
-kubectl create namespace flask-redis
+kubectl create namespace ${NAMESPACE}
 ```
 
 ---
@@ -131,14 +139,14 @@ Generate the secret YAML files locally so you can inspect them before applying:
 
 ```bash
 kubectl create secret generic redis-tls \
-  --namespace flask-redis \
+  --namespace ${NAMESPACE} \
   --from-file=redis.crt=certs/redis.crt \
   --from-file=redis.key=certs/redis.key \
   --from-file=redis-ca.crt=certs/redis-ca.crt \
   --dry-run=client -o yaml > k8s/secret-redis-tls.yaml
 
 kubectl create secret generic flask-tls \
-  --namespace flask-redis \
+  --namespace ${NAMESPACE} \
   --from-file=flask.crt=certs/flask.crt \
   --from-file=flask.key=certs/flask.key \
   --from-file=client.crt=certs/client.crt \
@@ -159,14 +167,13 @@ kubectl apply -f k8s/secret-flask-tls.yaml
 #### 5. Generate the manifest from the template
 
 ```bash
-export IMAGE_NAME=<your-registry>/flask-redis-api:latest
-envsubst '$IMAGE_NAME' < k8s/manifest.template.yaml > k8s/manifest.yaml
+tplenv --file k8s/manifest.template.yaml --create-values-file --output k8s/manifest.yaml
 ```
 
 Review `k8s/manifest.yaml`, then apply it:
 
 ```bash
-kubectl apply -f k8s/manifest.yaml --namespace flask-redis
+kubectl apply -f k8s/manifest.yaml --namespace ${NAMESPACE}
 ```
 
 ---
@@ -175,17 +182,17 @@ kubectl apply -f k8s/manifest.yaml --namespace flask-redis
 
 ```bash
 # Watch all resources come up
-kubectl get all -n flask-redis
+kubectl get all -n ${NAMESPACE}
 
 # Wait for Redis
-kubectl rollout status deployment/redis -n flask-redis --timeout=120s
+kubectl rollout status deployment/redis -n ${NAMESPACE} --timeout=120s
 
 # Wait for Flask API
-kubectl rollout status deployment/flask-api -n flask-redis --timeout=120s
+kubectl rollout status deployment/flask-api -n ${NAMESPACE} --timeout=120s
 
 # Check logs
-kubectl logs -n flask-redis -l app=flask-api --tail=50
-kubectl logs -n flask-redis -l app=redis --tail=20
+kubectl logs -n ${NAMESPACE} -l app=flask-api --tail=50
+kubectl logs -n ${NAMESPACE} -l app=redis --tail=20
 ```
 
 ---
@@ -195,8 +202,8 @@ kubectl logs -n flask-redis -l app=redis --tail=20
 Open a port-forward to the Flask API pod:
 
 ```bash
-kubectl port-forward -n flask-redis \
-  $(kubectl get pod -n flask-redis -l app=flask-api -o jsonpath='{.items[0].metadata.name}') \
+kubectl port-forward -n ${NAMESPACE} \
+  $(kubectl get pod -n ${NAMESPACE} -l app=flask-api -o jsonpath='{.items[0].metadata.name}') \
   14996:4996
 ```
 
@@ -233,9 +240,9 @@ curl -sk https://localhost:14996/memory
 #### 8. Cleanup
 
 ```bash
-kubectl delete -f k8s/manifest.yaml --namespace flask-redis --ignore-not-found
-kubectl delete secret redis-tls flask-tls --namespace flask-redis --ignore-not-found
-kubectl delete namespace flask-redis --ignore-not-found
+kubectl delete -f k8s/manifest.yaml --namespace ${NAMESPACE} --ignore-not-found
+kubectl delete secret redis-tls flask-tls --namespace ${NAMESPACE} --ignore-not-found
+kubectl delete namespace ${NAMESPACE} --ignore-not-found
 rm -f k8s/secret-redis-tls.yaml k8s/secret-flask-tls.yaml k8s/manifest.yaml
 ```
 
