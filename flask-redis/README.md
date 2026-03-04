@@ -96,7 +96,7 @@ docker push ${IMAGE_NAME}
 We try to ensure the namespace exists. This may fail when running in a container that is already in the target namespace, so we ignore that failure.
 
 ```bash
-kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching of namespace ${NAMESPACE}  failed -- ignoring this"
+kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - || echo "Patching of namespace ${NAMESPACE} failed -- ignoring this"
 ```
 
 ---
@@ -147,8 +147,8 @@ if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2
   echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"
 else
   echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
-  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} )
-  kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
+  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES})
+  kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" --docker-server="$REGISTRY" --docker-username="$REGISTRY_USER" --docker-password="$REGISTRY_TOKEN"
 fi
 ```
 
