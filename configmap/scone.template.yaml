@@ -43,7 +43,7 @@ spec:
       - ANY
     update:
       - signer: |
-        ${SIGNER}
+          ${SIGNER}
     create_sessions:
       - signer: |
-        ${SIGNER}
+          ${SIGNER}
