@@ -15,6 +15,14 @@ WEBSERVER_SCRIPT  ?= docs/web-server.sh
 WEBSERVER_CAST    ?= docs/web-server.cast
 WEBSERVER_GIF    ?= docs/web-server.gif
 WEBSERVER_TITLE   ?= Confidential Web Server
+FLASKREDIS_SCRIPT ?= docs/flask-redis.sh
+FLASKREDIS_CAST   ?= docs/flask-redis.cast
+FLASKREDIS_GIF    ?= docs/flask-redis.gif
+FLASKREDIS_TITLE  ?= Flask Redis Demo
+NETWORKPOLICY_SCRIPT ?= docs/network-policy.sh
+NETWORKPOLICY_CAST   ?= docs/network-policy.cast
+NETWORKPOLICY_GIF    ?= docs/network-policy.gif
+NETWORKPOLICY_TITLE  ?= Network Policy Demo
 COLS              ?= 100
 ROWS              ?= 50
 
@@ -25,8 +33,8 @@ GREEN := \033[0;32m
 YELLOW:= \033[1;33m
 RESET := \033[0m
 
-.PHONY: all record gif configmap-record configmap-gif web-server-record web-server-gif check-deps clean help
-all: record gif configmap-record configmap-gif web-server-record web-server-gif
+.PHONY: all record gif configmap-record configmap-gif web-server-record web-server-gif flask-redis-record flask-redis-gif network-policy-record network-policy-gif check-deps clean help
+all: record gif configmap-record configmap-gif web-server-record web-server-gif flask-redis-record flask-redis-gif network-policy-record network-policy-gif
 
 # -----------------------------
 # Record
@@ -69,6 +77,28 @@ $(WEBSERVER_GIF): $(WEBSERVER_CAST) | check-deps
 	@agg --cols "$(COLS)" --rows "$(ROWS)" "$(WEBSERVER_CAST)" "$(WEBSERVER_GIF)"
 	@echo "$(GREEN)✓ GIF created: $(WEBSERVER_GIF)$(RESET)"
 
+$(FLASKREDIS_CAST): $(FLASKREDIS_SCRIPT) | check-deps
+	@echo "$(YELLOW)Recording to $(FLASKREDIS_CAST)…$(RESET)"
+	@TYPE_SPEED=$(TYPE_SPEED) PAUSE_AFTER_CMD=$(PAUSE_AFTER_CMD) \
+	asciinema rec --cols "$(COLS)" --rows "$(ROWS)" --overwrite -q -t "$(FLASKREDIS_TITLE)" -c "$(FLASKREDIS_SCRIPT)" $@
+	@echo "$(GREEN)✓ Recorded: $(FLASKREDIS_CAST)$(RESET)"
+
+$(FLASKREDIS_GIF): $(FLASKREDIS_CAST) | check-deps
+	@echo "$(YELLOW)Exporting GIF to $(FLASKREDIS_GIF)…$(RESET)"
+	@agg --cols "$(COLS)" --rows "$(ROWS)" "$(FLASKREDIS_CAST)" "$(FLASKREDIS_GIF)"
+	@echo "$(GREEN)✓ GIF created: $(FLASKREDIS_GIF)$(RESET)"
+
+$(NETWORKPOLICY_CAST): $(NETWORKPOLICY_SCRIPT) | check-deps
+	@echo "$(YELLOW)Recording to $(NETWORKPOLICY_CAST)…$(RESET)"
+	@TYPE_SPEED=$(TYPE_SPEED) PAUSE_AFTER_CMD=$(PAUSE_AFTER_CMD) \
+	asciinema rec --cols "$(COLS)" --rows "$(ROWS)" --overwrite -q -t "$(NETWORKPOLICY_TITLE)" -c "$(NETWORKPOLICY_SCRIPT)" $@
+	@echo "$(GREEN)✓ Recorded: $(NETWORKPOLICY_CAST)$(RESET)"
+
+$(NETWORKPOLICY_GIF): $(NETWORKPOLICY_CAST) | check-deps
+	@echo "$(YELLOW)Exporting GIF to $(NETWORKPOLICY_GIF)…$(RESET)"
+	@agg --cols "$(COLS)" --rows "$(ROWS)" "$(NETWORKPOLICY_CAST)" "$(NETWORKPOLICY_GIF)"
+	@echo "$(GREEN)✓ GIF created: $(NETWORKPOLICY_GIF)$(RESET)"
+
 # Front-door targets, matching your original names
 record:  $(HELLOWORLD_CAST)
 gif:    $(HELLOWORLD_GIF)
@@ -76,6 +106,10 @@ configmap-record: $(CONFIGMAP_CAST)
 configmap-gif:    $(CONFIGMAP_GIF)
 web-server-record: $(WEBSERVER_CAST)
 web-server-gif:    $(WEBSERVER_GIF)
+flask-redis-record: $(FLASKREDIS_CAST)
+flask-redis-gif:    $(FLASKREDIS_GIF)
+network-policy-record: $(NETWORKPOLICY_CAST)
+network-policy-gif:    $(NETWORKPOLICY_GIF)
 
 # -----------------------------
 # Dependency checks
@@ -97,9 +131,9 @@ check-deps:
 # Utilities
 # -----------------------------
 clean:
-	@rm -f "$(HELLOWORLD_CAST)" "$(HELLOWORLD_GIF)" "$(CONFIGMAP_CAST)" "$(CONFIGMAP_GIF)" "$(WEBSERVER_CAST)" "$(WEBSERVER_GIF)"
+	@rm -f "$(HELLOWORLD_CAST)" "$(HELLOWORLD_GIF)" "$(CONFIGMAP_CAST)" "$(CONFIGMAP_GIF)" "$(WEBSERVER_CAST)" "$(WEBSERVER_GIF)" "$(FLASKREDIS_CAST)" "$(FLASKREDIS_GIF)" "$(NETWORKPOLICY_CAST)" "$(NETWORKPOLICY_GIF)"
 	@echo "$(GREEN)Cleaned$(RESET)"
 
 help:
-	@echo "Targets: record | gif | configmap-record | configmap-gif | web-server-record | web-server-gif | check-deps | clean | all"
-	@echo "Vars: TYPE_SPEED PAUSE_AFTER_CMD HELLOWORLD_* CONFIGMAP_* WEBSERVER_* COLS"
+	@echo "Targets: record | gif | configmap-record | configmap-gif | web-server-record | web-server-gif | flask-redis-record | flask-redis-gif | network-policy-record | network-policy-gif | check-deps | clean | all"
+	@echo "Vars: TYPE_SPEED PAUSE_AFTER_CMD HELLOWORLD_* CONFIGMAP_* WEBSERVER_* FLASKREDIS_* NETWORKPOLICY_* COLS ROWS"
