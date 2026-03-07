@@ -2,6 +2,8 @@
 
 This guide shows how to build, deploy, and test the **NetworkPolicy demo** using `scone-td-build`. You will build client and server images, generate SCONE-protected images, apply the Kubernetes manifests, and verify that everything works as expected.
 
+![Network Policy Demo](../docs/network-policy.gif)
+
 ______________________________________________________________________
 
 ## 🧱 Normal Setup
