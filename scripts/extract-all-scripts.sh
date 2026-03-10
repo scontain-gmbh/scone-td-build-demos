@@ -9,6 +9,7 @@ files=(
   "web-server/README.md scripts/web-server.sh"
   "network-policy/README.md scripts/network-policy.sh"
   "flask-redis/README.md scripts/flask-redis.sh"
+  "flask-redis-netshield/README.md scripts/flask-redis-netshield.sh"
 )
 
 generated_scripts=()
