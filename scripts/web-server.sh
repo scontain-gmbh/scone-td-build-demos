@@ -181,7 +181,7 @@ scone-td-build register \
   --protected-image ${IMAGE_NAME} \
   --unprotected-image ${IMAGE_NAME} \
   --destination-image ${DESTINATION_IMAGE_NAME} \
-  --push \
+  --push ${CVM_MODE} \
   -s ./storage.json \
   --enforce /app/web-server \
   --version ${SCONE_VERSION}
@@ -260,10 +260,11 @@ scone-td-build apply \
   -f manifest.yaml \
   -c ${CAS_NAME}.${CAS_NAMESPACE} \
   -s ./storage.json \
-  --spol \
+  --spol ${CVM_MODE} ${SCONE_ENCLAVE} \
   --manifest-env SCONE_SYSLIBS=1 \
   --manifest-env SCONE_VERSION=1 \
   --session-env SCONE_VERSION=1 \
+  --manifest-env SCONE_PRODUCTION=0 \
   --version ${SCONE_VERSION} -p
 
 printf "${VIOLET}"
