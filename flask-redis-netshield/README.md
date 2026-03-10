@@ -36,7 +36,7 @@ flask-redis/
 ### Step 1. Generate TLS certificates
 
 ```bash
-cd flask-redis
+cd flask-redis-netshield
 mkdir -p certs
 
 # CA
