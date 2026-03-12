@@ -38,6 +38,15 @@ for pair in "${cvm_files[@]}"; do
   generated_cvm_scripts+=("$output_file")
 done
 
+workshop_files=(
+  "workshop/README.md scripts/workshop.sh"
+)
+
+for pair in "${workshop_files[@]}"; do
+  read -r input_file output_file <<<"$pair"
+  ./scripts/extract-bash.sh "$input_file" "$output_file"
+done
+
 run_all_script="scripts/run-all-scripts.sh"
 {
   echo '#!/usr/bin/env bash'
