@@ -275,6 +275,14 @@ rm flask-redis-demo.json || true
 scone-td-build from -y scone.yaml
 ```
 
+Push the confidential images so the cluster can pull them:
+
+```bash
+grep -oP 'image: \K\S+' manifest.prod.sanitized.yaml | sort -u | while read -r img; do
+  docker push "${img}"
+done
+```
+
 ---
 
 ### Step 11. Deploy the confidential version
