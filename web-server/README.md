@@ -89,7 +89,25 @@ Render the manifest template:
 tplenv --file manifest.template.yaml --create-values-file --output manifest.yaml
 ```
 
-## 4. Build and Register the Image
+## 4. Create a Pull Secret
+
+If the pull secret does not exist yet, create it using registry credentials.
+
+- `$REGISTRY` - Registry hostname (default: `registry.scontain.com`)
+- `$REGISTRY_USER` - Registry login name
+- `$REGISTRY_TOKEN` - Registry pull token (see <https://sconedocs.github.io/registry/>)
+
+```bash
+if kubectl get secret "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
+  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"
+else
+  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
+  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES})
+  kubectl create secret docker-registry "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
+fi
+```
+
+## 5. Build and Register the Image
 
 Build and push the native image:
 
@@ -122,7 +140,7 @@ scone-td-build register \
   --version ${SCONE_VERSION}
 ```
 
-## 5. Test the Native Manifest (Optional)
+## 6. Test the Native Manifest (Optional)
 
 Clean up previous runs first:
 
@@ -148,7 +166,7 @@ kill $(cat /tmp/pf-8000.pid) || true
 rm /tmp/pf-8000.pid
 ```
 
-## 6. Convert the Manifest
+## 7. Convert the Manifest
 
 If you want to inspect registration details, see [register-image](../../../register-image.md).
 
@@ -164,7 +182,7 @@ scone-td-build apply \
   --version ${SCONE_VERSION} -p
 ```
 
-## 7. Deploy the Confidential Manifest
+## 8. Deploy the Confidential Manifest
 
 ```bash
 kubectl apply -f manifest.cleaned.yaml
@@ -172,7 +190,7 @@ kubectl apply -f manifest.cleaned.yaml
 
 For the next step, you need a Kubernetes cluster with SGX resources and a running LAS.
 
-## 8. Run the Demo
+## 9. Run the Demo
 
 ```bash
 kubectl wait --for=condition=Ready pod -l app="web-server" --timeout=240s
@@ -189,7 +207,7 @@ retry-spinner -- curl http://localhost:8000/gen
 ./test.sh
 ```
 
-## 9. Uninstall the Demo
+## 10. Uninstall the Demo
 
 ```bash
 kubectl delete -f manifest.cleaned.yaml
