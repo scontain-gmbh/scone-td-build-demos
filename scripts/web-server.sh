@@ -124,7 +124,37 @@ tplenv --file manifest.template.yaml --create-values-file --output manifest.yaml
 
 printf "${VIOLET}"
 printf '%s\n' ''
-printf '%s\n' '## 4. Build and Register the Image'
+printf '%s\n' '## 4. Create a Pull Secret'
+printf '%s\n' ''
+printf '%s\n' 'If the pull secret does not exist yet, create it using registry credentials.'
+printf '%s\n' ''
+printf '%s\n' '- `$REGISTRY` - Registry hostname (default: `registry.scontain.com`)'
+printf '%s\n' '- `$REGISTRY_USER` - Registry login name'
+printf '%s\n' '- `$REGISTRY_TOKEN` - Registry pull token (see <https://sconedocs.github.io/registry/>)'
+printf '%s\n' ''
+printf "${RESET}"
+
+printf "${ORANGE}"
+printf '%s\n' 'if kubectl get secret "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then'
+printf '%s\n' '  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"'
+printf '%s\n' 'else'
+printf '%s\n' '  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."'
+printf '%s\n' '  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES})'
+printf '%s\n' '  kubectl create secret docker-registry "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN'
+printf '%s\n' 'fi'
+printf "${RESET}"
+
+if kubectl get secret "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
+  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"
+else
+  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
+  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES})
+  kubectl create secret docker-registry "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
+fi
+
+printf "${VIOLET}"
+printf '%s\n' ''
+printf '%s\n' '## 5. Build and Register the Image'
 printf '%s\n' ''
 printf '%s\n' 'Build and push the native image:'
 printf '%s\n' ''
@@ -188,7 +218,7 @@ scone-td-build register \
 
 printf "${VIOLET}"
 printf '%s\n' ''
-printf '%s\n' '## 5. Test the Native Manifest (Optional)'
+printf '%s\n' '## 6. Test the Native Manifest (Optional)'
 printf '%s\n' ''
 printf '%s\n' 'Clean up previous runs first:'
 printf '%s\n' ''
@@ -238,7 +268,7 @@ rm /tmp/pf-8000.pid
 
 printf "${VIOLET}"
 printf '%s\n' ''
-printf '%s\n' '## 6. Convert the Manifest'
+printf '%s\n' '## 7. Convert the Manifest'
 printf '%s\n' ''
 printf '%s\n' 'If you want to inspect registration details, see [register-image](../../../register-image.md).'
 printf '%s\n' ''
@@ -268,7 +298,7 @@ scone-td-build apply \
 
 printf "${VIOLET}"
 printf '%s\n' ''
-printf '%s\n' '## 7. Deploy the Confidential Manifest'
+printf '%s\n' '## 8. Deploy the Confidential Manifest'
 printf '%s\n' ''
 printf "${RESET}"
 
@@ -282,7 +312,7 @@ printf "${VIOLET}"
 printf '%s\n' ''
 printf '%s\n' 'For the next step, you need a Kubernetes cluster with SGX resources and a running LAS.'
 printf '%s\n' ''
-printf '%s\n' '## 8. Run the Demo'
+printf '%s\n' '## 9. Run the Demo'
 printf '%s\n' ''
 printf "${RESET}"
 
@@ -316,7 +346,7 @@ retry-spinner -- curl http://localhost:8000/gen
 
 printf "${VIOLET}"
 printf '%s\n' ''
-printf '%s\n' '## 9. Uninstall the Demo'
+printf '%s\n' '## 10. Uninstall the Demo'
 printf '%s\n' ''
 printf "${RESET}"
 
