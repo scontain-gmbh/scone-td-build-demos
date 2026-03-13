@@ -10,4 +10,4 @@ environment:
   REGISTRY: ''
   REGISTRY_TOKEN: ''
   REGISTRY_USER: ''
-  CAS_EXTERNAL_IP: ''
+

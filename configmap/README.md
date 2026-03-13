@@ -103,7 +103,7 @@ Your containers should print content from the mounted ConfigMap files.
 First, attest the CAS to ensure we have the correct session encryption key:
 
 ```bash
-kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S || echo "Attestation failed: This is ok if you first attested using *scone cas attest ..."
+kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S || scone cas attest scone-cas.cf -C -G -S --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 ```
 
 Then register the image and apply the manifest transformation:

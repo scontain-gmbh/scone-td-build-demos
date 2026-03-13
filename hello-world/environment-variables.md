@@ -11,5 +11,4 @@ This file defines the environment variables used to configure this `hello-world`
 7. If you want to use CVM mode, set `${CVM_MODE}` to `--cvm`. For SGX, leave it empty or single space.
 8. In CVM mode, you can run on confidential Kubernetes nodes or Kata Pods (set to empty).
    We recommend using confidential nodes and setting `${SCONE_ENCLAVE}` to `--scone-enclave`.
-9. The external IP address of the CAS instance is stored in `${CAS_EXTERNAL_IP}`.
-   In CVM mode, CAS runs on the SGX cluster and is accessed via its external IP (e.g., `10.0.0.1`).
+

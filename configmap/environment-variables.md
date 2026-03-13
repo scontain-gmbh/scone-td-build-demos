@@ -10,8 +10,7 @@ This file defines the environment variables used to configure this `configmap` e
 6. The CAS name is stored in `${CAS_NAME}`.
 7. If you want to use CVM mode, set `${CVM_MODE}` to `true`. For SGX, set to `false`.
 8. In CVM mode, you can run on confidential Kubernetes nodes or Kata Pods.
-   We recommend using confidential nodes and setting `${SCONE_ENCLAVE}` to `--scone-enclave`.
+   We recommend using confidential nodes and setting `${SCONE_ENCLAVE}` to `true`.
 9. We need to set the local signer: `${SIGNER}`
    This should already be preset to `scone self show-session-signing-key`
-10. The external IP address of the CAS instance is stored in `${CAS_EXTERNAL_IP}`.
-   In CVM mode, CAS runs on the SGX cluster and is accessed via its external IP (e.g., `10.0.0.1`).
+
