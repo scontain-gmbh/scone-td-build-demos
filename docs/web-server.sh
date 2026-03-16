@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Generated file. Do not edit manually.
 
 set -Eeuo pipefail
 
@@ -11,7 +12,6 @@ LINES="${LINES:-26}"
 ORANGE="${ORANGE:-\033[38;5;208m}"
 LILAC="${LILAC:-\033[38;5;141m}"
 RESET="${RESET:-\033[0m}"
-CONFIRM_ALL_ENVIRONMENT_VARIABLES="${CONFIRM_ALL_ENVIRONMENT_VARIABLES:-}"
 
 slow_type() {
   local text="$*"
@@ -49,6 +49,67 @@ export LC_ALL=C.UTF-8
 export COLUMNS LINES
 export PS1="$PROMPT"
 stty cols "$COLUMNS" rows "$LINES"
+
+show_help() {
+  cat <<USAGE
+Usage: $0 [--help] [--non-interactive]
+
+Runs a demo-style shell script generated from web-server/README.md.
+
+Options:
+  --help             Show this help message and exit.
+  --non-interactive  Do not force confirmation for existing tplenv values.
+USAGE
+}
+
+NON_INTERACTIVE=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help)
+      show_help
+      exit 0
+      ;;
+    --non-interactive)
+      NON_INTERACTIVE=true
+      unset CONFIRM_ALL_ENVIRONMENT_VARIABLES || true
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      echo "Error: Unknown option '$1'." >&2
+      show_help >&2
+      exit 1
+      ;;
+    *)
+      echo "Error: This script does not accept positional arguments." >&2
+      show_help >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [[ $# -gt 0 ]]; then
+  echo "Error: This script does not accept positional arguments." >&2
+  show_help >&2
+  exit 1
+fi
+
+unset CONFIRM_ALL_ENVIRONMENT_VARIABLES || true
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+expected_workdir="$(cd "${script_dir}/.." && pwd)"
+expected_invocation="./$(basename "${script_dir}")/$(basename "$0")"
+
+if [[ "$(pwd)" != "$expected_workdir" ]]; then
+  echo "Error: Wrong working directory." >&2
+  echo "Expected working directory: $expected_workdir" >&2
+  echo "Run this script as: $expected_invocation" >&2
+  exit 1
+fi
 
 printf "%b" "$LILAC"
 printf '%s\n' '# Web Server Demo'
@@ -111,7 +172,15 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+# Enter `web-server` and remember the previous directory.
+EOF
+)"
+pe "$(cat <<'EOF'
 pushd web-server
+EOF
+)"
+pe "$(cat <<'EOF'
+# Remove `storage.json` if it exists.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -126,7 +195,7 @@ printf '%s\n' ''
 printf '%s\n' '- `$IMAGE_NAME` - Name of the native `web-server` image'
 printf '%s\n' '- `$DESTINATION_IMAGE_NAME` - Name of the confidential image'
 printf '%s\n' '- `$IMAGE_PULL_SECRET_NAME` - Pull secret name (default: `sconeapps`)'
-printf '%s\n' '- `$SCONE_VERSION` - SCONE version to use (for example, `6.1.0-rc.0`)'
+printf '%s\n' '- `$SCONE_RUNTIME_VERSION` - SCONE version to use (for example, `6.1.0-rc.0`)'
 printf '%s\n' '- `$CAS_NAMESPACE` - CAS namespace (for example, `default`)'
 printf '%s\n' '- `$CAS_NAME` - CAS name (for example, `cas`)'
 printf '%s\n' '- `$CVM_MODE` - Set to `--cvm` for CVM mode, otherwise leave empty for SGX'
@@ -135,7 +204,11 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-eval $(tplenv --file environment-variables.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
+# Load environment variables from the tplenv definition file.
+EOF
+)"
+pe "$(cat <<'EOF'
+eval $(tplenv --file environment-variables.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 EOF
 )"
 
@@ -146,7 +219,11 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S || echo "Attestation failed: This is ok if you first attested using *scone cas attest ..."
+# Attest the CAS instance before sending encrypted policies.
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S || echo "Attestation failed: This is OK if you first attested using *scone cas attest ..."
 EOF
 )"
 
@@ -159,20 +236,73 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+# Render the template with the selected values.
+EOF
+)"
+pe "$(cat <<'EOF'
 tplenv --file manifest.template.yaml --create-values-file --output manifest.yaml
 EOF
 )"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' '## 4. Build and Register the Image'
+printf '%s\n' '## 4. Create a Pull Secret'
+printf '%s\n' ''
+printf '%s\n' 'If the pull secret does not exist yet, create it using registry credentials.'
+printf '%s\n' ''
+printf '%s\n' '- `$REGISTRY` - Registry hostname (default: `registry.scontain.com`)'
+printf '%s\n' '- `$REGISTRY_USER` - Registry login name'
+printf '%s\n' '- `$REGISTRY_TOKEN` - Registry pull token (see <https://sconedocs.github.io/registry/>)'
+printf '%s\n' ''
+printf "%b" "$RESET"
+
+pe "$(cat <<'EOF'
+if kubectl get secret "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
+EOF
+)"
+pe "$(cat <<'EOF'
+  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"
+EOF
+)"
+pe "$(cat <<'EOF'
+else
+EOF
+)"
+pe "$(cat <<'EOF'
+  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
+EOF
+)"
+pe "$(cat <<'EOF'
+  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
+EOF
+)"
+pe "$(cat <<'EOF'
+  kubectl create secret docker-registry "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
+EOF
+)"
+pe "$(cat <<'EOF'
+fi
+EOF
+)"
+
+printf "%b" "$LILAC"
+printf '%s\n' ''
+printf '%s\n' '## 5. Build and Register the Image'
 printf '%s\n' ''
 printf '%s\n' 'Build and push the native image:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+# Build the container image.
+EOF
+)"
+pe "$(cat <<'EOF'
 docker build -t ${IMAGE_NAME} .
+EOF
+)"
+pe "$(cat <<'EOF'
+# Push the container image to the registry.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -187,11 +317,23 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+# Check whether the signing key needs to be generated.
+EOF
+)"
+pe "$(cat <<'EOF'
 if [ ! -f identity.pem ]; then
 EOF
 )"
 pe "$(cat <<'EOF'
+  # Print a status message.
+EOF
+)"
+pe "$(cat <<'EOF'
   echo "Generating identity.pem ..."
+EOF
+)"
+pe "$(cat <<'EOF'
+  # Generate the signing key for confidential binaries.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -200,6 +342,10 @@ EOF
 )"
 pe "$(cat <<'EOF'
 else
+EOF
+)"
+pe "$(cat <<'EOF'
+  # Print a status message.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -218,6 +364,10 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+# Register the image for confidential execution.
+EOF
+)"
+pe "$(cat <<'EOF'
 scone-td-build register \
   --protected-image ${IMAGE_NAME} \
   --unprotected-image ${IMAGE_NAME} \
@@ -225,24 +375,36 @@ scone-td-build register \
   --push \
   -s ./storage.json \
   --enforce /app/web-server \
-  --version ${SCONE_VERSION}
+  --version ${SCONE_RUNTIME_VERSION}
 EOF
 )"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' '## 5. Test the Native Manifest (Optional)'
+printf '%s\n' '## 6. Test the Native Manifest (Optional)'
 printf '%s\n' ''
 printf '%s\n' 'Clean up previous runs first:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+# Delete the Kubernetes resource if it exists.
+EOF
+)"
+pe "$(cat <<'EOF'
 kubectl delete deployment web-server || echo "ok - no web-server deployment yet"
 EOF
 )"
 pe "$(cat <<'EOF'
+# Wait for the Kubernetes resource to reach the expected state.
+EOF
+)"
+pe "$(cat <<'EOF'
 kubectl wait --for=delete pod -l app=web-server --timeout=240s || echo "ok - no web-server deployment yet"
+EOF
+)"
+pe "$(cat <<'EOF'
+# Stop the previous background process if it is still running.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -257,11 +419,23 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+# Apply the Kubernetes manifest.
+EOF
+)"
+pe "$(cat <<'EOF'
 kubectl apply -f manifest.yaml
 EOF
 )"
 pe "$(cat <<'EOF'
+# Wait for the Kubernetes resource to reach the expected state.
+EOF
+)"
+pe "$(cat <<'EOF'
 kubectl wait --for=condition=Ready pod -l app="web-server" --timeout=240s
+EOF
+)"
+pe "$(cat <<'EOF'
+# Start a local port-forward to the Kubernetes workload.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -273,7 +447,15 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
+# Retry the wrapped command until it succeeds or reaches the retry limit.
+EOF
+)"
+pe "$(cat <<'EOF'
 retry-spinner -- curl http://localhost:8000/env/MY_POD_IP
+EOF
+)"
+pe "$(cat <<'EOF'
+# Run the demo test script.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -285,7 +467,15 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
+# Delete the Kubernetes resource if it exists.
+EOF
+)"
+pe "$(cat <<'EOF'
 kubectl delete -f manifest.yaml
+EOF
+)"
+pe "$(cat <<'EOF'
+# Wait for the Kubernetes resource to reach the expected state.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -293,7 +483,15 @@ kubectl wait --for=delete pod -l app=web-server --timeout=240s
 EOF
 )"
 pe "$(cat <<'EOF'
+# Stop the previous background process if it is still running.
+EOF
+)"
+pe "$(cat <<'EOF'
 kill $(cat /tmp/pf-8000.pid) || true
+EOF
+)"
+pe "$(cat <<'EOF'
+# Remove `/tmp/pf-8000.pid` if it exists.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -303,12 +501,16 @@ EOF
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' '## 6. Convert the Manifest'
+printf '%s\n' '## 7. Convert the Manifest'
 printf '%s\n' ''
 printf '%s\n' 'If you want to inspect registration details, see [register-image](../../../register-image.md).'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
+pe "$(cat <<'EOF'
+# Convert the native manifest into a confidential manifest.
+EOF
+)"
 pe "$(cat <<'EOF'
 scone-td-build apply \
   -f manifest.yaml \
@@ -318,18 +520,23 @@ scone-td-build apply \
   --manifest-env SCONE_SYSLIBS=1 \
   --manifest-env SCONE_VERSION=1 \
   --session-env SCONE_VERSION=1 \
-  --version ${SCONE_VERSION} -p
+  --output-manifest-file manifest.sanitized.yaml \
+  --version ${SCONE_RUNTIME_VERSION} -p
 EOF
 )"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' '## 7. Deploy the Confidential Manifest'
+printf '%s\n' '## 8. Deploy the Confidential Manifest'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-kubectl apply -f manifest.cleaned.yaml
+# Apply the Kubernetes manifest.
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl apply -f manifest.sanitized.yaml
 EOF
 )"
 
@@ -337,10 +544,14 @@ printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' 'For the next step, you need a Kubernetes cluster with SGX resources and a running LAS.'
 printf '%s\n' ''
-printf '%s\n' '## 8. Run the Demo'
+printf '%s\n' '## 9. Run the Demo'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
+pe "$(cat <<'EOF'
+# Wait for the Kubernetes resource to reach the expected state.
+EOF
+)"
 pe "$(cat <<'EOF'
 kubectl wait --for=condition=Ready pod -l app="web-server" --timeout=240s
 EOF
@@ -350,7 +561,15 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
+# Wait briefly for the service to become reachable.
+EOF
+)"
+pe "$(cat <<'EOF'
 sleep 20
+EOF
+)"
+pe "$(cat <<'EOF'
+# Start a local port-forward to the Kubernetes workload.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -365,11 +584,23 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+# Retry the wrapped command until it succeeds or reaches the retry limit.
+EOF
+)"
+pe "$(cat <<'EOF'
 retry-spinner --retries 40 --wait 10 -- curl http://localhost:8000/path
 EOF
 )"
 pe "$(cat <<'EOF'
+# Retry the wrapped command until it succeeds or reaches the retry limit.
+EOF
+)"
+pe "$(cat <<'EOF'
 retry-spinner -- curl http://localhost:8000/gen
+EOF
+)"
+pe "$(cat <<'EOF'
+# Run the demo test script.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -379,12 +610,20 @@ EOF
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' '## 9. Uninstall the Demo'
+printf '%s\n' '## 10. Uninstall the Demo'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-kubectl delete -f manifest.cleaned.yaml
+# Delete the Kubernetes resource if it exists.
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl delete -f manifest.sanitized.yaml
+EOF
+)"
+pe "$(cat <<'EOF'
+# Stop the previous background process if it is still running.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -392,7 +631,15 @@ kill $(cat /tmp/pf-8000.pid) || true
 EOF
 )"
 pe "$(cat <<'EOF'
+# Remove `/tmp/pf-8000.pid` if it exists.
+EOF
+)"
+pe "$(cat <<'EOF'
 rm /tmp/pf-8000.pid
+EOF
+)"
+pe "$(cat <<'EOF'
+# Return to the previous working directory.
 EOF
 )"
 pe "$(cat <<'EOF'

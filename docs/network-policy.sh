@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Generated file. Do not edit manually.
 
 set -Eeuo pipefail
 
@@ -11,7 +12,6 @@ LINES="${LINES:-26}"
 ORANGE="${ORANGE:-\033[38;5;208m}"
 LILAC="${LILAC:-\033[38;5;141m}"
 RESET="${RESET:-\033[0m}"
-CONFIRM_ALL_ENVIRONMENT_VARIABLES="${CONFIRM_ALL_ENVIRONMENT_VARIABLES:-}"
 
 slow_type() {
   local text="$*"
@@ -50,10 +50,71 @@ export COLUMNS LINES
 export PS1="$PROMPT"
 stty cols "$COLUMNS" rows "$LINES"
 
+show_help() {
+  cat <<USAGE
+Usage: $0 [--help] [--non-interactive]
+
+Runs a demo-style shell script generated from network-policy/README.md.
+
+Options:
+  --help             Show this help message and exit.
+  --non-interactive  Do not force confirmation for existing tplenv values.
+USAGE
+}
+
+NON_INTERACTIVE=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help)
+      show_help
+      exit 0
+      ;;
+    --non-interactive)
+      NON_INTERACTIVE=true
+      unset CONFIRM_ALL_ENVIRONMENT_VARIABLES || true
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      echo "Error: Unknown option '$1'." >&2
+      show_help >&2
+      exit 1
+      ;;
+    *)
+      echo "Error: This script does not accept positional arguments." >&2
+      show_help >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [[ $# -gt 0 ]]; then
+  echo "Error: This script does not accept positional arguments." >&2
+  show_help >&2
+  exit 1
+fi
+
+unset CONFIRM_ALL_ENVIRONMENT_VARIABLES || true
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+expected_workdir="$(cd "${script_dir}/.." && pwd)"
+expected_invocation="./$(basename "${script_dir}")/$(basename "$0")"
+
+if [[ "$(pwd)" != "$expected_workdir" ]]; then
+  echo "Error: Wrong working directory." >&2
+  echo "Expected working directory: $expected_workdir" >&2
+  echo "Run this script as: $expected_invocation" >&2
+  exit 1
+fi
+
 printf "%b" "$LILAC"
-printf '%s\n' '# NetworkPolicy'
+printf '%s\n' '# Network Policy'
 printf '%s\n' ''
-printf '%s\n' 'This guide explains how to build, deploy, and test the **NetworkPolicy demo** with `scone-td-build`. You will build client and server images, generate SCONE-protected images, apply Kubernetes manifests, and verify the result.'
+printf '%s\n' 'This guide explains how to build, deploy, and test the **Network Policy demo** with `scone-td-build`. You will build client and server images, generate SCONE-protected images, apply Kubernetes manifests, and verify the result.'
 printf '%s\n' ''
 printf '%s\n' '[![Network Policy Example](../docs/network-policy.gif)](../docs/network-policy.mp4)'
 printf '%s\n' ''
@@ -72,7 +133,15 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+# Change into `network-policy`.
+EOF
+)"
+pe "$(cat <<'EOF'
 cd network-policy
+EOF
+)"
+pe "$(cat <<'EOF'
+# Remove `netshield.json` if it exists.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -84,12 +153,31 @@ printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '## 2. Build Images'
 printf '%s\n' ''
+printf '%s\n' 'Set `SIGNER` for policy signing:'
+printf '%s\n' ''
+printf "%b" "$RESET"
+
+pe "$(cat <<'EOF'
+# Export the required environment variable for the next steps.
+EOF
+)"
+pe "$(cat <<'EOF'
+export SIGNER="$(scone self show-session-signing-key)"
+EOF
+)"
+
+printf "%b" "$LILAC"
+printf '%s\n' ''
 printf '%s\n' 'Initialize environment variables from `environment-variables.md` using `tplenv`:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
+# Load environment variables from the tplenv definition file.
+EOF
+)"
+pe "$(cat <<'EOF'
+eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 EOF
 )"
 
@@ -100,7 +188,15 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+# Build the container image.
+EOF
+)"
+pe "$(cat <<'EOF'
 docker build -t $SERVER_IMAGE "server/"
+EOF
+)"
+pe "$(cat <<'EOF'
+# Build the container image.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -112,7 +208,15 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
+# Push the container image to the registry.
+EOF
+)"
+pe "$(cat <<'EOF'
 docker push $SERVER_IMAGE
+EOF
+)"
+pe "$(cat <<'EOF'
+# Push the container image to the registry.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -129,11 +233,23 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+# Render the template with the selected values.
+EOF
+)"
+pe "$(cat <<'EOF'
 tplenv --file "./manifest.template.yaml" --output "./manifest.yaml"
 EOF
 )"
 pe "$(cat <<'EOF'
+# Render the template with the selected values.
+EOF
+)"
+pe "$(cat <<'EOF'
 tplenv --file "./scone.template.yaml" --output "./scone.yaml"
+EOF
+)"
+pe "$(cat <<'EOF'
+# Generate the confidential image and sanitized manifest from the SCONE configuration.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -148,7 +264,15 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+# Push the container image to the registry.
+EOF
+)"
+pe "$(cat <<'EOF'
 docker push $SERVER_IMAGE-scone
+EOF
+)"
+pe "$(cat <<'EOF'
+# Push the container image to the registry.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -162,6 +286,10 @@ printf '%s\n' '## 4. Apply Kubernetes Manifests'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
+pe "$(cat <<'EOF'
+# Apply the Kubernetes manifest.
+EOF
+)"
 pe "$(cat <<'EOF'
 kubectl apply -f "manifest.prod.sanitized.yaml"
 EOF
@@ -178,7 +306,15 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+# Wait for the Kubernetes resource to reach the expected state.
+EOF
+)"
+pe "$(cat <<'EOF'
 kubectl wait --for=condition=Ready pod -l app="server" --timeout=300s
+EOF
+)"
+pe "$(cat <<'EOF'
+# Wait for the Kubernetes resource to reach the expected state.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -190,11 +326,19 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
+# Wait briefly for the service to become reachable.
+EOF
+)"
+pe "$(cat <<'EOF'
 sleep 10
 EOF
 )"
 pe "$(cat <<'EOF'
 
+EOF
+)"
+pe "$(cat <<'EOF'
+# Start a local port-forward to the Kubernetes workload.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -209,7 +353,15 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+# Send a test request to the demo service endpoint.
+EOF
+)"
+pe "$(cat <<'EOF'
 curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 localhost:3000/db-query
+EOF
+)"
+pe "$(cat <<'EOF'
+# Send a test request to the demo service endpoint.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -223,14 +375,22 @@ printf '%s\n' 'Expected result: a random 7-character password, which confirms:'
 printf '%s\n' ''
 printf '%s\n' '- The application is running correctly'
 printf '%s\n' '- SCONE-protected images are working'
-printf '%s\n' '- NetworkPolicy rules allow intended traffic'
+printf '%s\n' '- Network Policy rules allow the intended traffic'
 printf '%s\n' ''
 printf '%s\n' '## 6. Uninstall the Demo'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+# Delete the Kubernetes resource if it exists.
+EOF
+)"
+pe "$(cat <<'EOF'
 kubectl delete -f manifest.prod.sanitized.yaml
+EOF
+)"
+pe "$(cat <<'EOF'
+# Stop the previous background process if it is still running.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -238,7 +398,15 @@ kill $(cat /tmp/pf-3000.pid) || true
 EOF
 )"
 pe "$(cat <<'EOF'
+# Remove `/tmp/pf-3000.pid` if it exists.
+EOF
+)"
+pe "$(cat <<'EOF'
 rm /tmp/pf-3000.pid
+EOF
+)"
+pe "$(cat <<'EOF'
+# Return to the previous working directory.
 EOF
 )"
 pe "$(cat <<'EOF'
