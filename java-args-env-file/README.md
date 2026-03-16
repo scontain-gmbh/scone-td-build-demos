@@ -52,7 +52,7 @@ Default values are stored in `Values.yaml`. `tplenv` asks whether to keep the de
 - `$CAS_NAME` — CAS name (for example, `cas`)
 - `$CVM_MODE` — Set to `--cvm` for CVM mode, otherwise leave empty for SGX
 - `$SCONE_ENCLAVE` — In CVM mode, set to `--scone-enclave` for confidential nodes, or leave empty for Kata Pods
-- `$NAMESPACE` — namespace name (for example, `java demo`)
+- `$NAMESPACE` — namespace name (for example, `java-demo`)
 
 Set `SIGNER` for policy signing:
 
@@ -63,8 +63,10 @@ export SIGNER="$(scone self show-session-signing-key)"
 Load the full variable set from `environment-variables.md`:
 
 ```bash
-eval $(tplenv --file environment-variables.md --create-values-file --context --eval --force --output /dev/null)
+eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 ```
+
+> **Note:** All commands in the following sections assume these environment variables are exported in your current shell session. If you open a new terminal, re-run the `export SIGNER` and `eval $(tplenv ...)` commands above before proceeding.
 
 ---
 
@@ -84,8 +86,8 @@ docker push ${DEMO_IMAGE}
 `tplenv` substitutes environment variables into the template files and writes the final manifests:
 
 ```bash
-tplenv --file manifest.template.yaml --create-values-file --output manifests/manifest.yaml --indent
-tplenv --file scone.template.yaml    --create-values-file --output manifests/scone.yaml    --indent
+tplenv --file manifests/manifest.template.yaml --create-values-file --output manifests/manifest.yaml --indent
+tplenv --file manifests/scone.template.yaml    --create-values-file --output manifests/scone.yaml    --indent
 ```
 
 Before applying, confirm that image values were substituted correctly.
@@ -101,13 +103,15 @@ If you need a pull secret for native and confidential images, create it when mis
 - `$REGISTRY_TOKEN` — Registry pull token (see <https://sconedocs.github.io/registry/>)
 
 ```bash
+kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching of namespace ${NAMESPACE} failed -- ignoring this"
+
 if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
   echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"
 else
+  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
+  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
   kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \
-    --docker-server=$REGISTRY \
-    --docker-username=$REGISTRY_USER \
-    --docker-password=$REGISTRY_TOKEN
+    --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
 fi
 ```
 
@@ -119,7 +123,7 @@ Apply the manifest and follow the pod logs to confirm the app prints arguments, 
 
 ```bash
 kubectl apply -f manifests/manifest.yaml
-retry-spinner --retries 10 --wait 2 -- kubectl logs deployment/java-args-env-file --follow
+retry-spinner --retries 10 --wait 2 -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow
 ```
 
 Your container should print the command-line args, all environment variables, the contents of `/config/configs.yaml`, and `/config/secrets`.
@@ -163,7 +167,7 @@ kubectl apply -f manifests/manifest.prod.sanitized.yaml
 ## 10. View Logs
 
 ```bash
-retry-spinner -- kubectl logs deployment/java-args-env-file --follow
+retry-spinner -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow
 ```
 
 ---
@@ -190,4 +194,3 @@ kubectl delete -f manifests/manifest.prod.sanitized.yaml
 ## Signal handling
 
 The JVM catches `InterruptedException` during `Thread.sleep()`. On interruption it prints the exception message to **stderr** and exits, making it suitable for graceful shutdown in containerised environments.
-
