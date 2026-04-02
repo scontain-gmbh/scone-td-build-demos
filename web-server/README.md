@@ -192,7 +192,7 @@ rm /tmp/pf-8000.pid
 
 ## 7. Convert the Manifest
 
-If you want to inspect registration details, see [register-image](../../../register-image.md).
+If you want to inspect registration details, see [register-image](https://github.com/scontain/k8s-scone/blob/main/register-image.md).
 
 ```bash
 # Convert the native manifest into a confidential manifest.
