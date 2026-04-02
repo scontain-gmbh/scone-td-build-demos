@@ -25,6 +25,7 @@ Use the following examples to learn how `scone-td-build` transforms applications
 - [flask-redis](./flask-redis/README.md): Deploy a SCONE-protected Flask API backed by Redis with mutual TLS in Kubernetes, including (manual) certificate generation, namespace and secret management, native smoke tests, and full integration tests for `/keys`, `/client`, `/score`, and `/memory`.
 - [flask-redis-netshield](./flask-redis-netshield/README.md): Extends `flask-redis` by adding a network policy to encrypt network traffic between `flask` and `redis` services.
 - [go-args-env-file](./go-args-env-file/README.md): Deploy a SCONE-protected Go utility that prints command-line arguments, environment variables, and reads two config files from `/config/`. We use a slightly enhanced Go runtime which uses a libc to issue system calls.
+- [java-args-env-file](./java-args-env-file/README.md): Deploy a Java utility that prints command-line arguments, environment variables, and reads two config files from `/config/`.
 
 ## Background
 
