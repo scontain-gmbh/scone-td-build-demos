@@ -13,3 +13,5 @@ This file defines the environment variables used to configure the `configmap` ex
    We recommend using confidential nodes and setting `${SCONE_ENCLAVE}` to `true`.
 9. Set the local signer key in `${SIGNER}`.
    This should already be set to the output of `scone self show-session-signing-key`.
+10. The Kubernetes namespace where the demo manifests are deployed is stored in `${NAMESPACE}`.
+    The default value is `default`.

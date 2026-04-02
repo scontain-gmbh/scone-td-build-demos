@@ -6,6 +6,7 @@ environment:
   CVM_MODE: 'false'
   SCONE_ENCLAVE: 'false'
   REGISTRY: registry.scontain.com
+  NAMESPACE: default
   CLIENT_IMAGE: registry.scontain.com/workshop/network-policy:client
   SERVER_IMAGE: registry.scontain.com/workshop/network-policy:server
   SCRIPT_DIR: .

@@ -8,3 +8,4 @@ environment:
   CVM_MODE: ''
   SCONE_ENCLAVE: ''
   REGISTRY: registry.scontain.com
+  NAMESPACE: default

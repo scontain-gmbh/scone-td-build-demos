@@ -11,3 +11,5 @@ This file defines the environment variables used to configure this `web-server` 
 7. If you want to use CVM mode, set `${CVM_MODE}` to `--cvm`. For SGX, leave it empty.
 8. In CVM mode, you can run on confidential Kubernetes nodes or Kata Pods.
    We recommend using confidential nodes and setting `${SCONE_ENCLAVE}` to `--scone-enclave`.
+9. The Kubernetes namespace where the demo manifests are deployed is stored in `${NAMESPACE}`.
+   The default value is `default`.
