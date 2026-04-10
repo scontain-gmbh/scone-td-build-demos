@@ -4,7 +4,7 @@ set -euo pipefail
 
 show_help() {
   cat <<USAGE
-Usage: $0 --mode <sgx|cvm> [--registry REGISTRY] [--image-pull-secret-name NAME]
+Usage: $0 --mode <sgx|cvm> [--registry REGISTRY] [--image-pull-secret-name NAME] [--namespace NAMESPACE]
 
 Prepares the example Values.yaml files and Kubernetes pull secrets for CI.
 
@@ -16,6 +16,7 @@ Options:
   --mode <mode>              One of: sgx, cvm
   --registry <registry>      Registry hostname to use (default: registry.scontain.com)
   --image-pull-secret-name   Pull secret name to use (default: sconeapps)
+  --namespace <namespace>    Kubernetes namespace to deploy all demos into (default: keeps each demo's current value)
   --help                     Show this help message and exit.
 USAGE
 }
@@ -23,6 +24,7 @@ USAGE
 mode=""
 registry="${REGISTRY:-registry.scontain.com}"
 image_pull_secret_name="${IMAGE_PULL_SECRET_NAME:-sconeapps}"
+namespace="${NAMESPACE:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -36,6 +38,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --image-pull-secret-name)
       image_pull_secret_name="${2:-}"
+      shift 2
+      ;;
+    --namespace)
+      namespace="${2:-}"
       shift 2
       ;;
     --help)
@@ -164,6 +170,7 @@ all_values_files=(
   "${repo_root}/go-args-env-file/Values.yaml"
   "${repo_root}/flask-redis/Values.yaml"
   "${repo_root}/flask-redis-netshield/Values.yaml"
+  "${repo_root}/java-args-env-file/Values.yaml"
 )
 
 flag_mode_files=(
@@ -204,28 +211,34 @@ done
 for values_file in "${all_values_files[@]}"; do
   upsert_scalar "$values_file" "IMAGE_PULL_SECRET_NAME" "$image_pull_secret_name"
   upsert_scalar "$values_file" "REGISTRY" "$registry"
+  if [[ -n "$namespace" ]]; then
+    upsert_scalar "$values_file" "NAMESPACE" "$namespace"
+  fi
 done
 
 declare -A seen_namespaces=()
 target_namespaces=("default")
 
 for values_file in "${all_values_files[@]}"; do
-  namespace="$(awk -F': ' '/^  NAMESPACE:/ { gsub(/["'\''[:space:]]/, "", $2); print $2; exit }' "$values_file")"
-  if [[ -n "$namespace" && -z "${seen_namespaces[$namespace]:-}" ]]; then
-    seen_namespaces["$namespace"]=1
-    target_namespaces+=("$namespace")
+  ns="$(awk -F': ' '/^  NAMESPACE:/ { gsub(/["'\''[:space:]]/, "", $2); print $2; exit }' "$values_file")"
+  if [[ -n "$ns" && -z "${seen_namespaces[$ns]:-}" ]]; then
+    seen_namespaces["$ns"]=1
+    target_namespaces+=("$ns")
   fi
 done
 
-for namespace in "${target_namespaces[@]}"; do
-  ensure_namespace "$namespace"
-  apply_pull_secret "$namespace"
+for ns in "${target_namespaces[@]}"; do
+  ensure_namespace "$ns"
+  apply_pull_secret "$ns"
 done
 
 printf 'Prepared example CI configuration for mode: %s\n' "$mode"
 printf 'Registry: %s\n' "$registry"
 printf 'Image pull secret: %s\n' "$image_pull_secret_name"
+if [[ -n "$namespace" ]]; then
+  printf 'Namespace (applied to all demos): %s\n' "$namespace"
+fi
 printf 'Namespaces:\n'
-for namespace in "${target_namespaces[@]}"; do
-  printf '  - %s\n' "$namespace"
+for ns in "${target_namespaces[@]}"; do
+  printf '  - %s\n' "$ns"
 done

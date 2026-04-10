@@ -17,3 +17,5 @@ This file defines the environment variables used to configure the `network-polic
 9. The manifests are stored in `${SCRIPT_DIR}`
 10. Set the local signer key in `${SIGNER}`.
     This should already be set to the output of `scone self show-session-signing-key`.
+11. The Kubernetes namespace where the demo manifests are deployed is stored in `${NAMESPACE}`.
+    The default value is `default`.

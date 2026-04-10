@@ -8,6 +8,7 @@ environment:
   CVM_MODE: 'false'
   SCONE_ENCLAVE: 'false'
   SCONE_RUNTIME_VERSION: 6.1.0-rc.0
+  NAMESPACE: default
   SIGNER: |-
     -----BEGIN PUBLIC KEY-----
     MCowBQYDK2VwAyEAvSRST+dhEaX42c6VkY1Sv+KVelnSup96M6TMHOlqcrg=

@@ -239,13 +239,13 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Apply the Kubernetes manifest.'
-printf '%s\n' 'kubectl apply -f manifests/manifest.yaml'
+printf '%s\n' 'kubectl apply -f manifests/manifest.yaml -n ${NAMESPACE}'
 printf '%s\n' '# Follow logs from the Kubernetes workload.'
 printf '%s\n' 'retry-spinner --retries 10 --wait 2 -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow'
 printf "${RESET}"
 
 # Apply the Kubernetes manifest.
-kubectl apply -f manifests/manifest.yaml
+kubectl apply -f manifests/manifest.yaml -n ${NAMESPACE}
 # Follow logs from the Kubernetes workload.
 retry-spinner --retries 10 --wait 2 -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow
 
@@ -260,11 +260,11 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Delete the Kubernetes resource if it exists.'
-printf '%s\n' 'kubectl delete -f manifests/manifest.yaml'
+printf '%s\n' 'kubectl delete -f manifests/manifest.yaml -n ${NAMESPACE}'
 printf "${RESET}"
 
 # Delete the Kubernetes resource if it exists.
-kubectl delete -f manifests/manifest.yaml
+kubectl delete -f manifests/manifest.yaml -n ${NAMESPACE}
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -296,11 +296,11 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Apply the Kubernetes manifest.'
-printf '%s\n' 'kubectl apply -f manifests/manifest.prod.sanitized.yaml'
+printf '%s\n' 'kubectl apply -f manifests/manifest.prod.sanitized.yaml -n ${NAMESPACE}'
 printf "${RESET}"
 
 # Apply the Kubernetes manifest.
-kubectl apply -f manifests/manifest.prod.sanitized.yaml
+kubectl apply -f manifests/manifest.prod.sanitized.yaml -n ${NAMESPACE}
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -324,9 +324,9 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Delete the Kubernetes resource if it exists.'
-printf '%s\n' 'kubectl delete -f manifests/manifest.prod.sanitized.yaml'
+printf '%s\n' 'kubectl delete -f manifests/manifest.prod.sanitized.yaml -n ${NAMESPACE}'
 printf "${RESET}"
 
 # Delete the Kubernetes resource if it exists.
-kubectl delete -f manifests/manifest.prod.sanitized.yaml
+kubectl delete -f manifests/manifest.prod.sanitized.yaml -n ${NAMESPACE}
 popd

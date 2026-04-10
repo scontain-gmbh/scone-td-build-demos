@@ -125,6 +125,7 @@ printf '%s\n' '- `$CAS_NAMESPACE` - CAS Kubernetes namespace (for example, `defa
 printf '%s\n' '- `$CAS_NAME` - CAS Kubernetes name (for example, `cas`)'
 printf '%s\n' '- `$CVM_MODE` - Set to `--cvm` for CVM mode, otherwise leave empty for SGX'
 printf '%s\n' '- `$SCONE_ENCLAVE` - In CVM mode, set to `--scone-enclave` for confidential nodes, or leave empty for Kata Pods'
+printf '%s\n' '- `$NAMESPACE` - Kubernetes namespace where the demo runs (default: `default`)'
 printf '%s\n' ''
 printf '%s\n' 'Defaults are stored in `Values.yaml`. We use [`tplenv`](https://github.com/scontainug/tplenv) to confirm or override values:'
 printf '%s\n' ''
@@ -137,6 +138,14 @@ printf "${RESET}"
 
 # Load environment variables from the tplenv definition file.
 eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+
+printf "${ORANGE}"
+printf '%s\n' '# Create the Kubernetes namespace if it does not already exist.'
+printf '%s\n' 'kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"'
+printf "${RESET}"
+
+# Create the Kubernetes namespace if it does not already exist.
+kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -200,7 +209,7 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Check whether the pull secret already exists.'
-printf '%s\n' 'if kubectl get secret "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then'
+printf '%s\n' 'if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then'
 printf '%s\n' '  # Print a status message.'
 printf '%s\n' '  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"'
 printf '%s\n' 'else'
@@ -209,12 +218,12 @@ printf '%s\n' '  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creatin
 printf '%s\n' '  # Load environment variables from the tplenv definition file.'
 printf '%s\n' '  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})'
 printf '%s\n' '  # Create the Docker registry pull secret.'
-printf '%s\n' '  kubectl create secret docker-registry "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN'
+printf '%s\n' '  kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN'
 printf '%s\n' 'fi'
 printf "${RESET}"
 
 # Check whether the pull secret already exists.
-if kubectl get secret "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
+if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
   # Print a status message.
   echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"
 else
@@ -223,7 +232,7 @@ else
   # Load environment variables from the tplenv definition file.
   eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
   # Create the Docker registry pull secret.
-  kubectl create secret docker-registry "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
+  kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
 fi
 
 printf "${VIOLET}"
@@ -234,15 +243,15 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Delete the Kubernetes resource if it exists.'
-printf '%s\n' 'kubectl delete job hello-world || echo "ok - no previous job that we need to delete"'
+printf '%s\n' 'kubectl delete job hello-world -n ${NAMESPACE} || echo "ok - no previous job that we need to delete"'
 printf '%s\n' '# Apply the Kubernetes manifest.'
-printf '%s\n' 'kubectl apply -f manifest.job.yaml'
+printf '%s\n' 'kubectl apply -f manifest.job.yaml -n ${NAMESPACE}'
 printf "${RESET}"
 
 # Delete the Kubernetes resource if it exists.
-kubectl delete job hello-world || echo "ok - no previous job that we need to delete"
+kubectl delete job hello-world -n ${NAMESPACE} || echo "ok - no previous job that we need to delete"
 # Apply the Kubernetes manifest.
-kubectl apply -f manifest.job.yaml
+kubectl apply -f manifest.job.yaml -n ${NAMESPACE}
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -252,15 +261,15 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
-printf '%s\n' 'kubectl wait --for=condition=complete job/hello-world --timeout=300s'
+printf '%s\n' 'kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s'
 printf '%s\n' '# Show logs from the Kubernetes workload.'
-printf '%s\n' 'kubectl logs job/hello-world --follow --pod-running-timeout=2m --timestamps'
+printf '%s\n' 'kubectl logs job/hello-world -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps'
 printf "${RESET}"
 
 # Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=condition=complete job/hello-world --timeout=300s
+kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s
 # Show logs from the Kubernetes workload.
-kubectl logs job/hello-world --follow --pod-running-timeout=2m --timestamps
+kubectl logs job/hello-world -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -270,15 +279,15 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Delete the Kubernetes resource if it exists.'
-printf '%s\n' 'kubectl delete job hello-world'
+printf '%s\n' 'kubectl delete job hello-world -n ${NAMESPACE}'
 printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
-printf '%s\n' 'kubectl wait --for=delete pod -l app=hello-world --timeout=300s'
+printf '%s\n' 'kubectl wait --for=delete pod -l app=hello-world -n ${NAMESPACE} --timeout=300s'
 printf "${RESET}"
 
 # Delete the Kubernetes resource if it exists.
-kubectl delete job hello-world
+kubectl delete job hello-world -n ${NAMESPACE}
 # Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=delete pod -l app=hello-world --timeout=300s
+kubectl wait --for=delete pod -l app=hello-world -n ${NAMESPACE} --timeout=300s
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -340,19 +349,19 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Apply the Kubernetes manifest.'
-printf '%s\n' 'kubectl apply -f manifest.job.sanitized.yaml'
+printf '%s\n' 'kubectl apply -f manifest.job.sanitized.yaml -n ${NAMESPACE}'
 printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
-printf '%s\n' 'kubectl wait --for=condition=complete job/hello-world --timeout=300s'
+printf '%s\n' 'kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s'
 printf '%s\n' '# Show logs from the Kubernetes workload.'
-printf '%s\n' 'kubectl logs job/hello-world --follow --pod-running-timeout=2m --timestamps'
+printf '%s\n' 'kubectl logs job/hello-world -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps'
 printf "${RESET}"
 
 # Apply the Kubernetes manifest.
-kubectl apply -f manifest.job.sanitized.yaml
+kubectl apply -f manifest.job.sanitized.yaml -n ${NAMESPACE}
 # Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=condition=complete job/hello-world --timeout=300s
+kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s
 # Show logs from the Kubernetes workload.
-kubectl logs job/hello-world --follow --pod-running-timeout=2m --timestamps
+kubectl logs job/hello-world -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -362,17 +371,17 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Delete the Kubernetes resource if it exists.'
-printf '%s\n' 'kubectl delete job hello-world'
+printf '%s\n' 'kubectl delete job hello-world -n ${NAMESPACE}'
 printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
-printf '%s\n' 'kubectl wait --for=delete pod -l app=hello-world --timeout=300s'
+printf '%s\n' 'kubectl wait --for=delete pod -l app=hello-world -n ${NAMESPACE} --timeout=300s'
 printf '%s\n' '# Return to the previous working directory.'
 printf '%s\n' 'popd'
 printf "${RESET}"
 
 # Delete the Kubernetes resource if it exists.
-kubectl delete job hello-world
+kubectl delete job hello-world -n ${NAMESPACE}
 # Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=delete pod -l app=hello-world --timeout=300s
+kubectl wait --for=delete pod -l app=hello-world -n ${NAMESPACE} --timeout=300s
 # Return to the previous working directory.
 popd
 

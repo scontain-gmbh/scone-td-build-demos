@@ -8,7 +8,4 @@ environment:
   CVM_MODE: 'false'
   SCONE_ENCLAVE: 'false'
   REGISTRY: registry.scontain.com
-  SIGNER: |-
-    -----BEGIN PUBLIC KEY-----
-    MCowBQYDK2VwAyEAvSRST+dhEaX42c6VkY1Sv+KVelnSup96M6TMHOlqcrg=
-    -----END PUBLIC KEY-----
+  NAMESPACE: default
