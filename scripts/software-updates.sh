@@ -227,8 +227,6 @@ printf '%s\n' '  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"'
 printf '%s\n' 'else'
 printf '%s\n' '  # Print a status message.'
 printf '%s\n' '  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."'
-printf '%s\n' '  # Load environment variables from the tplenv definition file.'
-printf '%s\n' '  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})'
 printf '%s\n' '  # Create the Docker registry pull secret.'
 printf '%s\n' '  kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN'
 printf '%s\n' 'fi'
@@ -241,8 +239,6 @@ if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2
 else
   # Print a status message.
   echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
-  # Load environment variables from the tplenv definition file.
-  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
   # Create the Docker registry pull secret.
   kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
 fi
@@ -281,18 +277,18 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## 6. Render the Manifests'
 printf '%s\n' ''
-printf '%s\n' 'Render the Kubernetes deployment manifest and SCONE configuration for Version 1:'
+printf '%s\n' 'Render the Kubernetes job manifest and SCONE configuration for Version 1:'
 printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Render the Version 1 deployment manifest.'
+printf '%s\n' '# Render the Version 1 job manifest.'
 printf '%s\n' 'tplenv --file k8s/manifest.v1.template.yaml --create-values-file --output k8s/manifest.v1.yaml --indent'
 printf '%s\n' '# Render the Version 1 SCONE configuration.'
 printf '%s\n' 'tplenv --file scone.v1.template.yaml --create-values-file --output scone.v1.yaml --indent'
 printf "${RESET}"
 
-# Render the Version 1 deployment manifest.
+# Render the Version 1 job manifest.
 tplenv --file k8s/manifest.v1.template.yaml --create-values-file --output k8s/manifest.v1.yaml --indent
 # Render the Version 1 SCONE configuration.
 tplenv --file scone.v1.template.yaml --create-values-file --output scone.v1.yaml --indent
@@ -364,10 +360,14 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
+printf '%s\n' '# Remove any previous job with the same name to allow a clean re-run.'
+printf '%s\n' 'kubectl delete job python-hello-user --namespace ${NAMESPACE} --ignore-not-found'
 printf '%s\n' '# Apply the Kubernetes manifest.'
 printf '%s\n' 'kubectl apply -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}'
 printf "${RESET}"
 
+# Remove any previous job with the same name to allow a clean re-run.
+kubectl delete job python-hello-user --namespace ${NAMESPACE} --ignore-not-found
 # Apply the Kubernetes manifest.
 kubectl apply -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}
 
@@ -378,45 +378,43 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Wait for the deployment rollout to complete.'
-printf '%s\n' 'kubectl rollout status deployment/python-hello-user -n ${NAMESPACE} --timeout=300s'
-printf '%s\n' '# Show logs from the Kubernetes workload.'
-printf '%s\n' 'kubectl logs -n ${NAMESPACE} -l app=python-hello-user --tail=20'
+printf '%s\n' '# Wait for the job to complete.'
+printf '%s\n' 'kubectl wait --for=condition=complete job/python-hello-user -n ${NAMESPACE} --timeout=300s'
+printf '%s\n' '# Retry the wrapped command until it succeeds or reaches the retry limit.'
+printf '%s\n' 'retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} job/python-hello-user'
 printf "${RESET}"
 
-# Wait for the deployment rollout to complete.
-kubectl rollout status deployment/python-hello-user -n ${NAMESPACE} --timeout=300s
-# Show logs from the Kubernetes workload.
-kubectl logs -n ${NAMESPACE} -l app=python-hello-user --tail=20
+# Wait for the job to complete.
+kubectl wait --for=condition=complete job/python-hello-user -n ${NAMESPACE} --timeout=300s
+# Retry the wrapped command until it succeeds or reaches the retry limit.
+retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} job/python-hello-user
 
 printf "${VIOLET}"
 printf '%s\n' ''
 printf '%s\n' 'You should see output such as:'
 printf '%s\n' ''
 printf '%s\n' 'Version 1: Hello, '\''myself'\'' - thanks for passing along the API_PASSWORD'
-printf '%s\n' 'The checksum of the original API_PASSWORD is '\''<checksum>'\'''
-printf '%s\n' 'Version 1: Hello, user '\''myself'\''!'
-printf '%s\n' 'The checksum of the current password is '\''<checksum>'\'''
-printf '%s\n' 'Running Version 1. Update by re-applying the v2 confidential manifest.'
+printf '%s\n' 'The checksum of API_PASSWORD is '\''<checksum>'\'''
+printf '%s\n' 'Version 1 completed successfully.'
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## Part 2 — Software Update to Version 2'
 printf '%s\n' ''
-printf '%s\n' 'The API credentials Secret is **not modified** during this update. The same `api-credentials` Kubernetes Secret is mounted into both v1 and v2 pods.'
+printf '%s\n' '`API_PASSWORD` is **not modified** during this update. The same value is preserved in the CAS session and injected into both v1 and v2 jobs.'
 printf '%s\n' ''
 printf '%s\n' '### Step 11. Render the manifests for Version 2'
 printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Render the Version 2 deployment manifest.'
+printf '%s\n' '# Render the Version 2 job manifest.'
 printf '%s\n' 'tplenv --file k8s/manifest.v2.template.yaml --create-values-file --output k8s/manifest.v2.yaml --indent'
 printf '%s\n' '# Render the Version 2 SCONE configuration.'
 printf '%s\n' 'tplenv --file scone.v2.template.yaml --create-values-file --output scone.v2.yaml --indent'
 printf "${RESET}"
 
-# Render the Version 2 deployment manifest.
+# Render the Version 2 job manifest.
 tplenv --file k8s/manifest.v2.template.yaml --create-values-file --output k8s/manifest.v2.yaml --indent
 # Render the Version 2 SCONE configuration.
 tplenv --file scone.v2.template.yaml --create-values-file --output scone.v2.yaml --indent
@@ -445,21 +443,25 @@ printf '%s\n' '- Produces `manifest.prod.sanitized.yaml` referencing the Version
 printf '%s\n' ''
 printf '%s\n' '### Step 13. Apply the update'
 printf '%s\n' ''
-printf '%s\n' 'Applying the new manifest triggers a Kubernetes **rolling update** — the v1 pods are replaced by v2 pods without downtime:'
+printf '%s\n' 'Delete the v1 job and apply the v2 job:'
 printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
+printf '%s\n' '# Remove the v1 job before deploying v2.'
+printf '%s\n' 'kubectl delete job python-hello-user --namespace ${NAMESPACE} --ignore-not-found'
 printf '%s\n' '# Apply the updated Kubernetes manifest.'
 printf '%s\n' 'kubectl apply -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}'
-printf '%s\n' '# Wait for the rolling update to complete.'
-printf '%s\n' 'kubectl rollout status deployment/python-hello-user -n ${NAMESPACE} --timeout=300s'
+printf '%s\n' '# Wait for the v2 job to complete.'
+printf '%s\n' 'kubectl wait --for=condition=complete job/python-hello-user -n ${NAMESPACE} --timeout=300s'
 printf "${RESET}"
 
+# Remove the v1 job before deploying v2.
+kubectl delete job python-hello-user --namespace ${NAMESPACE} --ignore-not-found
 # Apply the updated Kubernetes manifest.
 kubectl apply -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}
-# Wait for the rolling update to complete.
-kubectl rollout status deployment/python-hello-user -n ${NAMESPACE} --timeout=300s
+# Wait for the v2 job to complete.
+kubectl wait --for=condition=complete job/python-hello-user -n ${NAMESPACE} --timeout=300s
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -468,22 +470,20 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Show logs from the Kubernetes workload.'
-printf '%s\n' 'kubectl logs -n ${NAMESPACE} -l app=python-hello-user --tail=20'
+printf '%s\n' '# Retry the wrapped command until it succeeds or reaches the retry limit.'
+printf '%s\n' 'retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} job/python-hello-user'
 printf "${RESET}"
 
-# Show logs from the Kubernetes workload.
-kubectl logs -n ${NAMESPACE} -l app=python-hello-user --tail=20
+# Retry the wrapped command until it succeeds or reaches the retry limit.
+retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} job/python-hello-user
 
 printf "${VIOLET}"
 printf '%s\n' ''
 printf '%s\n' 'You should see output such as:'
 printf '%s\n' ''
 printf '%s\n' 'Version 2 (updated): Hello, '\''myself'\'' - software update successful!'
-printf '%s\n' 'The checksum of the original API_PASSWORD is '\''<checksum>'\'''
-printf '%s\n' 'Version 2: Hello, user '\''myself'\''!'
-printf '%s\n' 'The checksum of the current password is '\''<checksum>'\'''
-printf '%s\n' 'Running Version 2.'
+printf '%s\n' 'The checksum of API_PASSWORD is '\''<checksum>'\'''
+printf '%s\n' 'Version 2 completed successfully.'
 printf '%s\n' ''
 printf '%s\n' 'The **checksum must match** the one printed by Version 1 and the one printed in Step 5, confirming that `API_PASSWORD` was preserved across the software update.'
 printf '%s\n' ''
@@ -496,18 +496,14 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Delete the Kubernetes deployment.'
-printf '%s\n' 'kubectl delete deployment python-hello-user --namespace ${NAMESPACE} --ignore-not-found'
-printf '%s\n' '# Wait for the pods to be terminated.'
-printf '%s\n' 'kubectl wait --for=delete pod --namespace ${NAMESPACE} -l app=python-hello-user --timeout=300s'
+printf '%s\n' '# Delete the Kubernetes job.'
+printf '%s\n' 'kubectl delete job python-hello-user --namespace ${NAMESPACE} --ignore-not-found'
 printf '%s\n' '# Return to the previous working directory.'
 printf '%s\n' 'popd'
 printf "${RESET}"
 
-# Delete the Kubernetes deployment.
-kubectl delete deployment python-hello-user --namespace ${NAMESPACE} --ignore-not-found
-# Wait for the pods to be terminated.
-kubectl wait --for=delete pod --namespace ${NAMESPACE} -l app=python-hello-user --timeout=300s
+# Delete the Kubernetes job.
+kubectl delete job python-hello-user --namespace ${NAMESPACE} --ignore-not-found
 # Return to the previous working directory.
 popd
 

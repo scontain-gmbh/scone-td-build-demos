@@ -310,14 +310,6 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-  # Load environment variables from the tplenv definition file.
-EOF
-)"
-pe "$(cat <<'EOF'
-  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
-EOF
-)"
-pe "$(cat <<'EOF'
   # Create the Docker registry pull secret.
 EOF
 )"
@@ -373,12 +365,12 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## 6. Render the Manifests'
 printf '%s\n' ''
-printf '%s\n' 'Render the Kubernetes deployment manifest and SCONE configuration for Version 1:'
+printf '%s\n' 'Render the Kubernetes job manifest and SCONE configuration for Version 1:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Render the Version 1 deployment manifest.
+# Render the Version 1 job manifest.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -483,6 +475,14 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+# Remove any previous job with the same name to allow a clean re-run.
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl delete job python-hello-user --namespace ${NAMESPACE} --ignore-not-found
+EOF
+)"
+pe "$(cat <<'EOF'
 # Apply the Kubernetes manifest.
 EOF
 )"
@@ -498,19 +498,19 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Wait for the deployment rollout to complete.
+# Wait for the job to complete.
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl rollout status deployment/python-hello-user -n ${NAMESPACE} --timeout=300s
+kubectl wait --for=condition=complete job/python-hello-user -n ${NAMESPACE} --timeout=300s
 EOF
 )"
 pe "$(cat <<'EOF'
-# Show logs from the Kubernetes workload.
+# Retry the wrapped command until it succeeds or reaches the retry limit.
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl logs -n ${NAMESPACE} -l app=python-hello-user --tail=20
+retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} job/python-hello-user
 EOF
 )"
 
@@ -519,23 +519,21 @@ printf '%s\n' ''
 printf '%s\n' 'You should see output such as:'
 printf '%s\n' ''
 printf '%s\n' 'Version 1: Hello, '\''myself'\'' - thanks for passing along the API_PASSWORD'
-printf '%s\n' 'The checksum of the original API_PASSWORD is '\''<checksum>'\'''
-printf '%s\n' 'Version 1: Hello, user '\''myself'\''!'
-printf '%s\n' 'The checksum of the current password is '\''<checksum>'\'''
-printf '%s\n' 'Running Version 1. Update by re-applying the v2 confidential manifest.'
+printf '%s\n' 'The checksum of API_PASSWORD is '\''<checksum>'\'''
+printf '%s\n' 'Version 1 completed successfully.'
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## Part 2 — Software Update to Version 2'
 printf '%s\n' ''
-printf '%s\n' 'The API credentials Secret is **not modified** during this update. The same `api-credentials` Kubernetes Secret is mounted into both v1 and v2 pods.'
+printf '%s\n' '`API_PASSWORD` is **not modified** during this update. The same value is preserved in the CAS session and injected into both v1 and v2 jobs.'
 printf '%s\n' ''
 printf '%s\n' '### Step 11. Render the manifests for Version 2'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Render the Version 2 deployment manifest.
+# Render the Version 2 job manifest.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -576,10 +574,18 @@ printf '%s\n' '- Produces `manifest.prod.sanitized.yaml` referencing the Version
 printf '%s\n' ''
 printf '%s\n' '### Step 13. Apply the update'
 printf '%s\n' ''
-printf '%s\n' 'Applying the new manifest triggers a Kubernetes **rolling update** — the v1 pods are replaced by v2 pods without downtime:'
+printf '%s\n' 'Delete the v1 job and apply the v2 job:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
+pe "$(cat <<'EOF'
+# Remove the v1 job before deploying v2.
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl delete job python-hello-user --namespace ${NAMESPACE} --ignore-not-found
+EOF
+)"
 pe "$(cat <<'EOF'
 # Apply the updated Kubernetes manifest.
 EOF
@@ -589,11 +595,11 @@ kubectl apply -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}
 EOF
 )"
 pe "$(cat <<'EOF'
-# Wait for the rolling update to complete.
+# Wait for the v2 job to complete.
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl rollout status deployment/python-hello-user -n ${NAMESPACE} --timeout=300s
+kubectl wait --for=condition=complete job/python-hello-user -n ${NAMESPACE} --timeout=300s
 EOF
 )"
 
@@ -604,11 +610,11 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Show logs from the Kubernetes workload.
+# Retry the wrapped command until it succeeds or reaches the retry limit.
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl logs -n ${NAMESPACE} -l app=python-hello-user --tail=20
+retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} job/python-hello-user
 EOF
 )"
 
@@ -617,10 +623,8 @@ printf '%s\n' ''
 printf '%s\n' 'You should see output such as:'
 printf '%s\n' ''
 printf '%s\n' 'Version 2 (updated): Hello, '\''myself'\'' - software update successful!'
-printf '%s\n' 'The checksum of the original API_PASSWORD is '\''<checksum>'\'''
-printf '%s\n' 'Version 2: Hello, user '\''myself'\''!'
-printf '%s\n' 'The checksum of the current password is '\''<checksum>'\'''
-printf '%s\n' 'Running Version 2.'
+printf '%s\n' 'The checksum of API_PASSWORD is '\''<checksum>'\'''
+printf '%s\n' 'Version 2 completed successfully.'
 printf '%s\n' ''
 printf '%s\n' 'The **checksum must match** the one printed by Version 1 and the one printed in Step 5, confirming that `API_PASSWORD` was preserved across the software update.'
 printf '%s\n' ''
@@ -633,19 +637,11 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Delete the Kubernetes deployment.
+# Delete the Kubernetes job.
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl delete deployment python-hello-user --namespace ${NAMESPACE} --ignore-not-found
-EOF
-)"
-pe "$(cat <<'EOF'
-# Wait for the pods to be terminated.
-EOF
-)"
-pe "$(cat <<'EOF'
-kubectl wait --for=delete pod --namespace ${NAMESPACE} -l app=python-hello-user --timeout=300s
+kubectl delete job python-hello-user --namespace ${NAMESPACE} --ignore-not-found
 EOF
 )"
 pe "$(cat <<'EOF'
