@@ -1,20 +1,15 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
   name: python-hello-user
   namespace: ${NAMESPACE}
-  labels:
-    app: python-hello-user
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: python-hello-user
   template:
     metadata:
       labels:
         app: python-hello-user
     spec:
+      restartPolicy: Never
       imagePullSecrets:
         - name: ${IMAGE_PULL_SECRET_NAME}
       containers:
