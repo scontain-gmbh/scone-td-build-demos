@@ -2,10 +2,10 @@
 
 This example demonstrates how to perform a **software update** of a confidential Python application using SCONE and `scone-td-build`. Two versions of the application are built and deployed:
 
-- **Version 1** — the initial confidential deployment
-- **Version 2** — the updated version, deployed via a Kubernetes rolling update
+- **Version 1** — the initial deployment
+- **Version 2** — the updated version
 
-The demo shows that secrets (such as `API_PASSWORD`) are **preserved across the update**, since they live in a Kubernetes Secret that is not touched during the application upgrade.
+The demo first runs both versions natively to confirm they work, then shows the full confidential flow where `API_PASSWORD` is **preserved across the update** because it lives in the CAS session shared by both versions.
 
 ---
 
@@ -22,8 +22,8 @@ software-updates/
 ├── environment-variables.md       # tplenv variable definitions
 ├── registry.credentials.md        # tplenv registry credential definitions
 ├── k8s/
-│   ├── manifest.v1.template.yaml  # Kubernetes Deployment template for Version 1
-│   └── manifest.v2.template.yaml  # Kubernetes Deployment template for Version 2
+│   ├── manifest.v1.template.yaml  # Kubernetes Job template for Version 1
+│   └── manifest.v2.template.yaml  # Kubernetes Job template for Version 2
 └── README.md
 ```
 
@@ -125,8 +125,6 @@ fi
 ```bash
 # Generate a random API password and persist it to Values.yaml.
 export API_PASSWORD=$(openssl rand -hex 16)
-# Load environment variables from the tplenv definition file.
-eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 # Print a status message.
 echo "API_PASSWORD checksum: $(echo -n "${API_PASSWORD}" | md5sum | cut -d' ' -f1)"
 ```
@@ -137,20 +135,79 @@ Note the printed checksum. After the software update (Part 2 below), the applica
 
 ## 6. Render the Manifests
 
-Render the Kubernetes job manifest and SCONE configuration for Version 1:
+Render the Kubernetes job manifests and SCONE configurations for both versions:
 
 ```bash
 # Render the Version 1 job manifest.
 tplenv --file k8s/manifest.v1.template.yaml --create-values-file --output k8s/manifest.v1.yaml --indent
 # Render the Version 1 SCONE configuration.
 tplenv --file scone.v1.template.yaml --create-values-file --output scone.v1.yaml --indent
+# Render the Version 2 job manifest.
+tplenv --file k8s/manifest.v2.template.yaml --create-values-file --output k8s/manifest.v2.yaml --indent
+# Render the Version 2 SCONE configuration.
+tplenv --file scone.v2.template.yaml --create-values-file --output scone.v2.yaml --indent
 ```
 
 ---
 
-## Part 1 — Deploy Version 1
+## Part 0 — Native Run
 
-### Step 7. Generate the signing key
+Run both versions natively first to confirm the application works before adding SCONE protection.
+
+### Step 7. Deploy and verify native Version 1
+
+```bash
+# Remove any previous job with the same name to allow a clean re-run.
+kubectl delete job python-hello-user --namespace ${NAMESPACE} --ignore-not-found
+# Apply the native Version 1 job manifest.
+kubectl apply -f k8s/manifest.v1.yaml --namespace ${NAMESPACE}
+# Wait for the job to complete.
+kubectl wait --for=condition=complete job/python-hello-user -n ${NAMESPACE} --timeout=300s
+# Show logs from the native Version 1 job.
+kubectl logs -n ${NAMESPACE} job/python-hello-user
+```
+
+You should see:
+
+```
+Version 1: Hello, 'myself' - thanks for passing along the API_PASSWORD
+The checksum of API_PASSWORD is '<checksum>'
+Version 1 completed successfully.
+```
+
+### Step 8. Deploy and verify native Version 2
+
+```bash
+# Remove the Version 1 job.
+kubectl delete job python-hello-user --namespace ${NAMESPACE} --ignore-not-found
+# Apply the native Version 2 job manifest.
+kubectl apply -f k8s/manifest.v2.yaml --namespace ${NAMESPACE}
+# Wait for the job to complete.
+kubectl wait --for=condition=complete job/python-hello-user -n ${NAMESPACE} --timeout=300s
+# Show logs from the native Version 2 job.
+kubectl logs -n ${NAMESPACE} job/python-hello-user
+```
+
+You should see:
+
+```
+Version 2 (updated): Hello, 'myself' - software update successful!
+The checksum of API_PASSWORD is '<checksum>'
+Version 2 completed successfully.
+```
+
+Clean up the native jobs before moving on to the SCONE deployment:
+
+```bash
+# Remove the native job before the SCONE run.
+kubectl delete job python-hello-user --namespace ${NAMESPACE} --ignore-not-found
+```
+
+---
+
+## Part 1 — Deploy Version 1 (SCONE)
+
+### Step 9. Generate the signing key
 
 When protecting binaries for confidential execution, `scone-td-build` signs them with a key stored in `identity.pem`:
 
@@ -167,7 +224,7 @@ else
 fi
 ```
 
-### Step 8. Build the confidential image and session for Version 1
+### Step 10. Build the confidential image and session for Version 1
 
 ```bash
 # Remove any existing state file.
@@ -182,7 +239,7 @@ This command:
 - Creates a CAS session
 - Produces `manifest.prod.sanitized.yaml` referencing the confidential image
 
-### Step 9. Deploy Version 1
+### Step 11. Deploy Version 1 (SCONE)
 
 ```bash
 # Remove any previous job with the same name to allow a clean re-run.
@@ -191,7 +248,7 @@ kubectl delete job python-hello-user --namespace ${NAMESPACE} --ignore-not-found
 kubectl apply -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}
 ```
 
-### Step 10. Verify the Version 1 deployment
+### Step 12. Verify the Version 1 deployment
 
 ```bash
 # Wait for the job to complete.
@@ -214,16 +271,7 @@ Version 1 completed successfully.
 
 `API_PASSWORD` is **not modified** during this update. The same value is preserved in the CAS session and injected into both v1 and v2 jobs.
 
-### Step 11. Render the manifests for Version 2
-
-```bash
-# Render the Version 2 job manifest.
-tplenv --file k8s/manifest.v2.template.yaml --create-values-file --output k8s/manifest.v2.yaml --indent
-# Render the Version 2 SCONE configuration.
-tplenv --file scone.v2.template.yaml --create-values-file --output scone.v2.yaml --indent
-```
-
-### Step 12. Build the confidential image and update the session for Version 2
+### Step 13. Build the confidential image and update the session for Version 2
 
 ```bash
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
@@ -236,7 +284,7 @@ This command:
 - Updates the existing CAS session (same session name as Version 1)
 - Produces `manifest.prod.sanitized.yaml` referencing the Version 2 confidential image
 
-### Step 13. Apply the update
+### Step 14. Apply the update
 
 Delete the v1 job and apply the v2 job:
 
@@ -249,7 +297,7 @@ kubectl apply -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}
 kubectl wait --for=condition=complete job/python-hello-user -n ${NAMESPACE} --timeout=300s
 ```
 
-### Step 14. Verify the Version 2 deployment
+### Step 15. Verify the Version 2 deployment
 
 ```bash
 # Retry the wrapped command until it succeeds or reaches the retry limit.

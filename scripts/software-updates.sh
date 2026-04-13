@@ -75,10 +75,10 @@ printf '%s\n' '# Software Updates for Confidential Python Applications'
 printf '%s\n' ''
 printf '%s\n' 'This example demonstrates how to perform a **software update** of a confidential Python application using SCONE and `scone-td-build`. Two versions of the application are built and deployed:'
 printf '%s\n' ''
-printf '%s\n' '- **Version 1** — the initial confidential deployment'
-printf '%s\n' '- **Version 2** — the updated version, deployed via a Kubernetes rolling update'
+printf '%s\n' '- **Version 1** — the initial deployment'
+printf '%s\n' '- **Version 2** — the updated version'
 printf '%s\n' ''
-printf '%s\n' 'The demo shows that secrets (such as `API_PASSWORD`) are **preserved across the update**, since they live in a Kubernetes Secret that is not touched during the application upgrade.'
+printf '%s\n' 'The demo first runs both versions natively to confirm they work, then shows the full confidential flow where `API_PASSWORD` is **preserved across the update** because it lives in the CAS session shared by both versions.'
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
@@ -94,8 +94,8 @@ printf '%s\n' '├── scone.v2.template.yaml         # SCONE Register + Apply
 printf '%s\n' '├── environment-variables.md       # tplenv variable definitions'
 printf '%s\n' '├── registry.credentials.md        # tplenv registry credential definitions'
 printf '%s\n' '├── k8s/'
-printf '%s\n' '│   ├── manifest.v1.template.yaml  # Kubernetes Deployment template for Version 1'
-printf '%s\n' '│   └── manifest.v2.template.yaml  # Kubernetes Deployment template for Version 2'
+printf '%s\n' '│   ├── manifest.v1.template.yaml  # Kubernetes Job template for Version 1'
+printf '%s\n' '│   └── manifest.v2.template.yaml  # Kubernetes Job template for Version 2'
 printf '%s\n' '└── README.md'
 printf '%s\n' ''
 printf '%s\n' '---'
@@ -256,16 +256,12 @@ printf "${RESET}"
 printf "${ORANGE}"
 printf '%s\n' '# Generate a random API password and persist it to Values.yaml.'
 printf '%s\n' 'export API_PASSWORD=$(openssl rand -hex 16)'
-printf '%s\n' '# Load environment variables from the tplenv definition file.'
-printf '%s\n' 'eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)'
 printf '%s\n' '# Print a status message.'
 printf '%s\n' 'echo "API_PASSWORD checksum: $(echo -n "${API_PASSWORD}" | md5sum | cut -d'\'' '\'' -f1)"'
 printf "${RESET}"
 
 # Generate a random API password and persist it to Values.yaml.
 export API_PASSWORD=$(openssl rand -hex 16)
-# Load environment variables from the tplenv definition file.
-eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 # Print a status message.
 echo "API_PASSWORD checksum: $(echo -n "${API_PASSWORD}" | md5sum | cut -d' ' -f1)"
 
@@ -277,7 +273,7 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## 6. Render the Manifests'
 printf '%s\n' ''
-printf '%s\n' 'Render the Kubernetes job manifest and SCONE configuration for Version 1:'
+printf '%s\n' 'Render the Kubernetes job manifests and SCONE configurations for both versions:'
 printf '%s\n' ''
 printf "${RESET}"
 
@@ -286,20 +282,112 @@ printf '%s\n' '# Render the Version 1 job manifest.'
 printf '%s\n' 'tplenv --file k8s/manifest.v1.template.yaml --create-values-file --output k8s/manifest.v1.yaml --indent'
 printf '%s\n' '# Render the Version 1 SCONE configuration.'
 printf '%s\n' 'tplenv --file scone.v1.template.yaml --create-values-file --output scone.v1.yaml --indent'
+printf '%s\n' '# Render the Version 2 job manifest.'
+printf '%s\n' 'tplenv --file k8s/manifest.v2.template.yaml --create-values-file --output k8s/manifest.v2.yaml --indent'
+printf '%s\n' '# Render the Version 2 SCONE configuration.'
+printf '%s\n' 'tplenv --file scone.v2.template.yaml --create-values-file --output scone.v2.yaml --indent'
 printf "${RESET}"
 
 # Render the Version 1 job manifest.
 tplenv --file k8s/manifest.v1.template.yaml --create-values-file --output k8s/manifest.v1.yaml --indent
 # Render the Version 1 SCONE configuration.
 tplenv --file scone.v1.template.yaml --create-values-file --output scone.v1.yaml --indent
+# Render the Version 2 job manifest.
+tplenv --file k8s/manifest.v2.template.yaml --create-values-file --output k8s/manifest.v2.yaml --indent
+# Render the Version 2 SCONE configuration.
+tplenv --file scone.v2.template.yaml --create-values-file --output scone.v2.yaml --indent
 
 printf "${VIOLET}"
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
-printf '%s\n' '## Part 1 — Deploy Version 1'
+printf '%s\n' '## Part 0 — Native Run'
 printf '%s\n' ''
-printf '%s\n' '### Step 7. Generate the signing key'
+printf '%s\n' 'Run both versions natively first to confirm the application works before adding SCONE protection.'
+printf '%s\n' ''
+printf '%s\n' '### Step 7. Deploy and verify native Version 1'
+printf '%s\n' ''
+printf "${RESET}"
+
+printf "${ORANGE}"
+printf '%s\n' '# Remove any previous job with the same name to allow a clean re-run.'
+printf '%s\n' 'kubectl delete job python-hello-user --namespace ${NAMESPACE} --ignore-not-found'
+printf '%s\n' '# Apply the native Version 1 job manifest.'
+printf '%s\n' 'kubectl apply -f k8s/manifest.v1.yaml --namespace ${NAMESPACE}'
+printf '%s\n' '# Wait for the job to complete.'
+printf '%s\n' 'kubectl wait --for=condition=complete job/python-hello-user -n ${NAMESPACE} --timeout=300s'
+printf '%s\n' '# Show logs from the native Version 1 job.'
+printf '%s\n' 'kubectl logs -n ${NAMESPACE} job/python-hello-user'
+printf "${RESET}"
+
+# Remove any previous job with the same name to allow a clean re-run.
+kubectl delete job python-hello-user --namespace ${NAMESPACE} --ignore-not-found
+# Apply the native Version 1 job manifest.
+kubectl apply -f k8s/manifest.v1.yaml --namespace ${NAMESPACE}
+# Wait for the job to complete.
+kubectl wait --for=condition=complete job/python-hello-user -n ${NAMESPACE} --timeout=300s
+# Show logs from the native Version 1 job.
+kubectl logs -n ${NAMESPACE} job/python-hello-user
+
+printf "${VIOLET}"
+printf '%s\n' ''
+printf '%s\n' 'You should see:'
+printf '%s\n' ''
+printf '%s\n' 'Version 1: Hello, '\''myself'\'' - thanks for passing along the API_PASSWORD'
+printf '%s\n' 'The checksum of API_PASSWORD is '\''<checksum>'\'''
+printf '%s\n' 'Version 1 completed successfully.'
+printf '%s\n' ''
+printf '%s\n' '### Step 8. Deploy and verify native Version 2'
+printf '%s\n' ''
+printf "${RESET}"
+
+printf "${ORANGE}"
+printf '%s\n' '# Remove the Version 1 job.'
+printf '%s\n' 'kubectl delete job python-hello-user --namespace ${NAMESPACE} --ignore-not-found'
+printf '%s\n' '# Apply the native Version 2 job manifest.'
+printf '%s\n' 'kubectl apply -f k8s/manifest.v2.yaml --namespace ${NAMESPACE}'
+printf '%s\n' '# Wait for the job to complete.'
+printf '%s\n' 'kubectl wait --for=condition=complete job/python-hello-user -n ${NAMESPACE} --timeout=300s'
+printf '%s\n' '# Show logs from the native Version 2 job.'
+printf '%s\n' 'kubectl logs -n ${NAMESPACE} job/python-hello-user'
+printf "${RESET}"
+
+# Remove the Version 1 job.
+kubectl delete job python-hello-user --namespace ${NAMESPACE} --ignore-not-found
+# Apply the native Version 2 job manifest.
+kubectl apply -f k8s/manifest.v2.yaml --namespace ${NAMESPACE}
+# Wait for the job to complete.
+kubectl wait --for=condition=complete job/python-hello-user -n ${NAMESPACE} --timeout=300s
+# Show logs from the native Version 2 job.
+kubectl logs -n ${NAMESPACE} job/python-hello-user
+
+printf "${VIOLET}"
+printf '%s\n' ''
+printf '%s\n' 'You should see:'
+printf '%s\n' ''
+printf '%s\n' 'Version 2 (updated): Hello, '\''myself'\'' - software update successful!'
+printf '%s\n' 'The checksum of API_PASSWORD is '\''<checksum>'\'''
+printf '%s\n' 'Version 2 completed successfully.'
+printf '%s\n' ''
+printf '%s\n' 'Clean up the native jobs before moving on to the SCONE deployment:'
+printf '%s\n' ''
+printf "${RESET}"
+
+printf "${ORANGE}"
+printf '%s\n' '# Remove the native job before the SCONE run.'
+printf '%s\n' 'kubectl delete job python-hello-user --namespace ${NAMESPACE} --ignore-not-found'
+printf "${RESET}"
+
+# Remove the native job before the SCONE run.
+kubectl delete job python-hello-user --namespace ${NAMESPACE} --ignore-not-found
+
+printf "${VIOLET}"
+printf '%s\n' ''
+printf '%s\n' '---'
+printf '%s\n' ''
+printf '%s\n' '## Part 1 — Deploy Version 1 (SCONE)'
+printf '%s\n' ''
+printf '%s\n' '### Step 9. Generate the signing key'
 printf '%s\n' ''
 printf '%s\n' 'When protecting binaries for confidential execution, `scone-td-build` signs them with a key stored in `identity.pem`:'
 printf '%s\n' ''
@@ -331,7 +419,7 @@ fi
 
 printf "${VIOLET}"
 printf '%s\n' ''
-printf '%s\n' '### Step 8. Build the confidential image and session for Version 1'
+printf '%s\n' '### Step 10. Build the confidential image and session for Version 1'
 printf '%s\n' ''
 printf "${RESET}"
 
@@ -355,7 +443,7 @@ printf '%s\n' '- Registers and pushes the Version 1 confidential image (`${DESTI
 printf '%s\n' '- Creates a CAS session'
 printf '%s\n' '- Produces `manifest.prod.sanitized.yaml` referencing the confidential image'
 printf '%s\n' ''
-printf '%s\n' '### Step 9. Deploy Version 1'
+printf '%s\n' '### Step 11. Deploy Version 1 (SCONE)'
 printf '%s\n' ''
 printf "${RESET}"
 
@@ -373,7 +461,7 @@ kubectl apply -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}
 
 printf "${VIOLET}"
 printf '%s\n' ''
-printf '%s\n' '### Step 10. Verify the Version 1 deployment'
+printf '%s\n' '### Step 12. Verify the Version 1 deployment'
 printf '%s\n' ''
 printf "${RESET}"
 
@@ -403,25 +491,7 @@ printf '%s\n' '## Part 2 — Software Update to Version 2'
 printf '%s\n' ''
 printf '%s\n' '`API_PASSWORD` is **not modified** during this update. The same value is preserved in the CAS session and injected into both v1 and v2 jobs.'
 printf '%s\n' ''
-printf '%s\n' '### Step 11. Render the manifests for Version 2'
-printf '%s\n' ''
-printf "${RESET}"
-
-printf "${ORANGE}"
-printf '%s\n' '# Render the Version 2 job manifest.'
-printf '%s\n' 'tplenv --file k8s/manifest.v2.template.yaml --create-values-file --output k8s/manifest.v2.yaml --indent'
-printf '%s\n' '# Render the Version 2 SCONE configuration.'
-printf '%s\n' 'tplenv --file scone.v2.template.yaml --create-values-file --output scone.v2.yaml --indent'
-printf "${RESET}"
-
-# Render the Version 2 job manifest.
-tplenv --file k8s/manifest.v2.template.yaml --create-values-file --output k8s/manifest.v2.yaml --indent
-# Render the Version 2 SCONE configuration.
-tplenv --file scone.v2.template.yaml --create-values-file --output scone.v2.yaml --indent
-
-printf "${VIOLET}"
-printf '%s\n' ''
-printf '%s\n' '### Step 12. Build the confidential image and update the session for Version 2'
+printf '%s\n' '### Step 13. Build the confidential image and update the session for Version 2'
 printf '%s\n' ''
 printf "${RESET}"
 
@@ -441,7 +511,7 @@ printf '%s\n' '- Registers and pushes the Version 2 confidential image (`${DESTI
 printf '%s\n' '- Updates the existing CAS session (same session name as Version 1)'
 printf '%s\n' '- Produces `manifest.prod.sanitized.yaml` referencing the Version 2 confidential image'
 printf '%s\n' ''
-printf '%s\n' '### Step 13. Apply the update'
+printf '%s\n' '### Step 14. Apply the update'
 printf '%s\n' ''
 printf '%s\n' 'Delete the v1 job and apply the v2 job:'
 printf '%s\n' ''
@@ -465,7 +535,7 @@ kubectl wait --for=condition=complete job/python-hello-user -n ${NAMESPACE} --ti
 
 printf "${VIOLET}"
 printf '%s\n' ''
-printf '%s\n' '### Step 14. Verify the Version 2 deployment'
+printf '%s\n' '### Step 15. Verify the Version 2 deployment'
 printf '%s\n' ''
 printf "${RESET}"
 
