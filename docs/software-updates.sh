@@ -334,30 +334,26 @@ printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
-printf '%s\n' '## 5. Create the API Credentials Secret'
+printf '%s\n' '## 5. Generate the API Credentials'
 printf '%s\n' ''
-printf '%s\n' 'The `API_USER` and `API_PASSWORD` are injected into the application from a Kubernetes Secret. The secret is created once and **persists across software updates**:'
+printf '%s\n' '`API_USER` and `API_PASSWORD` are injected as plain environment variables and encrypted by `scone-td-build` into the CAS session — they are never visible in Kubernetes. Generate a random password once and save it to `Values.yaml` so both Version 1 and Version 2 share it:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Generate a random API password.
+# Generate a random API password and persist it to Values.yaml.
 EOF
 )"
 pe "$(cat <<'EOF'
-API_PASSWORD=$(openssl rand -hex 16)
+export API_PASSWORD=$(openssl rand -hex 16)
 EOF
 )"
 pe "$(cat <<'EOF'
-# Create the Kubernetes secret with the API credentials.
+# Load environment variables from the tplenv definition file.
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl create secret generic api-credentials \
-  --namespace ${NAMESPACE} \
-  --from-literal=api-user=myself \
-  --from-literal=api-password="${API_PASSWORD}" \
-  --dry-run=client -o yaml | kubectl apply -f -
+eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -365,13 +361,13 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-echo "API credentials secret created. Password checksum: $(echo -n "${API_PASSWORD}" | md5sum | cut -d' ' -f1)"
+echo "API_PASSWORD checksum: $(echo -n "${API_PASSWORD}" | md5sum | cut -d' ' -f1)"
 EOF
 )"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' 'Note the printed checksum. After the software update (Part 2 below), the application should print the **same checksum**, confirming the secret was preserved.'
+printf '%s\n' 'Note the printed checksum. After the software update (Part 2 below), the application should print the **same checksum**, confirming the secret was preserved across versions.'
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
@@ -650,14 +646,6 @@ EOF
 )"
 pe "$(cat <<'EOF'
 kubectl wait --for=delete pod --namespace ${NAMESPACE} -l app=python-hello-user --timeout=300s
-EOF
-)"
-pe "$(cat <<'EOF'
-# Delete the API credentials secret.
-EOF
-)"
-pe "$(cat <<'EOF'
-kubectl delete secret api-credentials --namespace ${NAMESPACE} --ignore-not-found
 EOF
 )"
 pe "$(cat <<'EOF'

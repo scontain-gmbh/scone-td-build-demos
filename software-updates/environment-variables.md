@@ -16,3 +16,7 @@ This file defines the environment variables used to configure the `software-upda
     We recommend using confidential nodes and setting `${SCONE_ENCLAVE}` to `true`.
 12. Set the local signer key in `${SIGNER}`.
     This should already be set to the output of `scone self show-session-signing-key`.
+13. The API user injected into the application is stored in `${API_USER}`.
+    The default value is `myself`.
+14. The API password injected into the application is stored in `${API_PASSWORD}`.
+    Generate a random value with `openssl rand -hex 16` and set it once — both versions will share it so the checksum is preserved across the update.

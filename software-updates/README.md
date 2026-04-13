@@ -120,24 +120,20 @@ fi
 
 ---
 
-## 5. Create the API Credentials Secret
+## 5. Generate the API Credentials
 
-The `API_USER` and `API_PASSWORD` are injected into the application from a Kubernetes Secret. The secret is created once and **persists across software updates**:
+`API_USER` and `API_PASSWORD` are injected as plain environment variables and encrypted by `scone-td-build` into the CAS session — they are never visible in Kubernetes. Generate a random password once and save it to `Values.yaml` so both Version 1 and Version 2 share it:
 
 ```bash
-# Generate a random API password.
-API_PASSWORD=$(openssl rand -hex 16)
-# Create the Kubernetes secret with the API credentials.
-kubectl create secret generic api-credentials \
-  --namespace ${NAMESPACE} \
-  --from-literal=api-user=myself \
-  --from-literal=api-password="${API_PASSWORD}" \
-  --dry-run=client -o yaml | kubectl apply -f -
+# Generate a random API password and persist it to Values.yaml.
+export API_PASSWORD=$(openssl rand -hex 16)
+# Load environment variables from the tplenv definition file.
+eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 # Print a status message.
-echo "API credentials secret created. Password checksum: $(echo -n "${API_PASSWORD}" | md5sum | cut -d' ' -f1)"
+echo "API_PASSWORD checksum: $(echo -n "${API_PASSWORD}" | md5sum | cut -d' ' -f1)"
 ```
 
-Note the printed checksum. After the software update (Part 2 below), the application should print the **same checksum**, confirming the secret was preserved.
+Note the printed checksum. After the software update (Part 2 below), the application should print the **same checksum**, confirming the secret was preserved across versions.
 
 ---
 
@@ -283,8 +279,6 @@ Remove all deployed resources when you are finished:
 kubectl delete deployment python-hello-user --namespace ${NAMESPACE} --ignore-not-found
 # Wait for the pods to be terminated.
 kubectl wait --for=delete pod --namespace ${NAMESPACE} -l app=python-hello-user --timeout=300s
-# Delete the API credentials secret.
-kubectl delete secret api-credentials --namespace ${NAMESPACE} --ignore-not-found
 # Return to the previous working directory.
 popd
 ```
