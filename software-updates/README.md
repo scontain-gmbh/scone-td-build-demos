@@ -111,8 +111,6 @@ if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2
 else
   # Print a status message.
   echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
-  # Load environment variables from the tplenv definition file.
-  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES})
   # Create the Docker registry pull secret.
   kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
 fi
@@ -139,10 +137,10 @@ Note the printed checksum. After the software update (Part 2 below), the applica
 
 ## 6. Render the Manifests
 
-Render the Kubernetes deployment manifest and SCONE configuration for Version 1:
+Render the Kubernetes job manifest and SCONE configuration for Version 1:
 
 ```bash
-# Render the Version 1 deployment manifest.
+# Render the Version 1 job manifest.
 tplenv --file k8s/manifest.v1.template.yaml --create-values-file --output k8s/manifest.v1.yaml --indent
 # Render the Version 1 SCONE configuration.
 tplenv --file scone.v1.template.yaml --create-values-file --output scone.v1.yaml --indent
@@ -187,6 +185,8 @@ This command:
 ### Step 9. Deploy Version 1
 
 ```bash
+# Remove any previous job with the same name to allow a clean re-run.
+kubectl delete job python-hello-user --namespace ${NAMESPACE} --ignore-not-found
 # Apply the Kubernetes manifest.
 kubectl apply -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}
 ```
@@ -194,32 +194,30 @@ kubectl apply -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}
 ### Step 10. Verify the Version 1 deployment
 
 ```bash
-# Wait for the deployment rollout to complete.
-kubectl rollout status deployment/python-hello-user -n ${NAMESPACE} --timeout=300s
-# Show logs from the Kubernetes workload.
-kubectl logs -n ${NAMESPACE} -l app=python-hello-user --tail=20
+# Wait for the job to complete.
+kubectl wait --for=condition=complete job/python-hello-user -n ${NAMESPACE} --timeout=300s
+# Retry the wrapped command until it succeeds or reaches the retry limit.
+retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} job/python-hello-user
 ```
 
 You should see output such as:
 
 ```
 Version 1: Hello, 'myself' - thanks for passing along the API_PASSWORD
-The checksum of the original API_PASSWORD is '<checksum>'
-Version 1: Hello, user 'myself'!
-The checksum of the current password is '<checksum>'
-Running Version 1. Update by re-applying the v2 confidential manifest.
+The checksum of API_PASSWORD is '<checksum>'
+Version 1 completed successfully.
 ```
 
 ---
 
 ## Part 2 — Software Update to Version 2
 
-The API credentials Secret is **not modified** during this update. The same `api-credentials` Kubernetes Secret is mounted into both v1 and v2 pods.
+`API_PASSWORD` is **not modified** during this update. The same value is preserved in the CAS session and injected into both v1 and v2 jobs.
 
 ### Step 11. Render the manifests for Version 2
 
 ```bash
-# Render the Version 2 deployment manifest.
+# Render the Version 2 job manifest.
 tplenv --file k8s/manifest.v2.template.yaml --create-values-file --output k8s/manifest.v2.yaml --indent
 # Render the Version 2 SCONE configuration.
 tplenv --file scone.v2.template.yaml --create-values-file --output scone.v2.yaml --indent
@@ -240,30 +238,30 @@ This command:
 
 ### Step 13. Apply the update
 
-Applying the new manifest triggers a Kubernetes **rolling update** — the v1 pods are replaced by v2 pods without downtime:
+Delete the v1 job and apply the v2 job:
 
 ```bash
+# Remove the v1 job before deploying v2.
+kubectl delete job python-hello-user --namespace ${NAMESPACE} --ignore-not-found
 # Apply the updated Kubernetes manifest.
 kubectl apply -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}
-# Wait for the rolling update to complete.
-kubectl rollout status deployment/python-hello-user -n ${NAMESPACE} --timeout=300s
+# Wait for the v2 job to complete.
+kubectl wait --for=condition=complete job/python-hello-user -n ${NAMESPACE} --timeout=300s
 ```
 
 ### Step 14. Verify the Version 2 deployment
 
 ```bash
-# Show logs from the Kubernetes workload.
-kubectl logs -n ${NAMESPACE} -l app=python-hello-user --tail=20
+# Retry the wrapped command until it succeeds or reaches the retry limit.
+retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} job/python-hello-user
 ```
 
 You should see output such as:
 
 ```
 Version 2 (updated): Hello, 'myself' - software update successful!
-The checksum of the original API_PASSWORD is '<checksum>'
-Version 2: Hello, user 'myself'!
-The checksum of the current password is '<checksum>'
-Running Version 2.
+The checksum of API_PASSWORD is '<checksum>'
+Version 2 completed successfully.
 ```
 
 The **checksum must match** the one printed by Version 1 and the one printed in Step 5, confirming that `API_PASSWORD` was preserved across the software update.
@@ -275,10 +273,8 @@ The **checksum must match** the one printed by Version 1 and the one printed in 
 Remove all deployed resources when you are finished:
 
 ```bash
-# Delete the Kubernetes deployment.
-kubectl delete deployment python-hello-user --namespace ${NAMESPACE} --ignore-not-found
-# Wait for the pods to be terminated.
-kubectl wait --for=delete pod --namespace ${NAMESPACE} -l app=python-hello-user --timeout=300s
+# Delete the Kubernetes job.
+kubectl delete job python-hello-user --namespace ${NAMESPACE} --ignore-not-found
 # Return to the previous working directory.
 popd
 ```

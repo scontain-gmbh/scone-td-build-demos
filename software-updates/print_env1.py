@@ -1,44 +1,19 @@
 import os
-import time
 import hashlib
 
 # Get the environment variables.
-# The value of API_USER is set in the Kubernetes Secret and therefore
-# visible to the administrator deploying the application.
+# The value of API_USER is set in the manifest and encrypted into the CAS session.
 user = os.environ.get('API_USER', None)
-# The value of API_PASSWORD is stored in a Kubernetes Secret. In a
-# confidential SCONE deployment, the enclave protects the secret in memory.
+# The value of API_PASSWORD is set in the manifest and encrypted into the CAS session.
+# In a confidential SCONE deployment, the enclave protects the secret in memory.
 pw = os.environ.get('API_PASSWORD', None)
-# Exit with error if either one is not defined.
+
 if user is None or pw is None:
     print("Not all required environment variables are defined.")
     exit(1)
 
-# We can print API_USER since it is not confidential.
-print(f"Version 1: Hello, '{user}' - thanks for passing along the API_PASSWORD", flush=True)
-
-# We print a checksum of API_PASSWORD so we can verify it stays the same
-# after a software update, without revealing the actual secret value.
 pw_checksum = hashlib.md5(pw.encode('utf-8')).hexdigest()
-print(f"The checksum of the original API_PASSWORD is '{pw_checksum}'")
 
-while True:
-    new_user = os.environ.get('API_USER', None)
-    print(f"Version 1: Hello, user '{new_user}'!", flush=True)
-    if new_user != user:
-        print("Integrity violation: "
-              f"The value of API_USER changed from '{user}' to '{new_user}'!")
-        exit(1)
-
-    new_pw = os.environ.get('API_PASSWORD', None)
-    new_pw_checksum = None
-    if new_pw:
-        new_pw_checksum = hashlib.md5(new_pw.encode('utf-8')).hexdigest()
-    print(f"The checksum of the current password is '{new_pw_checksum}'", flush=True)
-    if new_pw_checksum != pw_checksum:
-        print("Integrity violation: "
-              f"The checksum of API_PASSWORD changed from '{pw_checksum}' to '{new_pw_checksum}'!")
-        exit(1)
-
-    print("Running Version 1. Update by re-applying the v2 confidential manifest.", flush=True)
-    time.sleep(10)
+print(f"Version 1: Hello, '{user}' - thanks for passing along the API_PASSWORD", flush=True)
+print(f"The checksum of API_PASSWORD is '{pw_checksum}'", flush=True)
+print("Version 1 completed successfully.", flush=True)

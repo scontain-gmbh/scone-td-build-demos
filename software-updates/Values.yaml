@@ -13,5 +13,9 @@ environment:
   REGISTRY: registry.scontain.com
   SIGNER: |-
     -----BEGIN PUBLIC KEY-----
-    MCowBQYDK2VwAyEAvSRST+dhEaX42c6VkY1Sv+KVelnSup96M6TMHOlqcrg=
+    MCowBQYDK2VwAyEAjKxqirtu/hSYLcI2zpPq7Xaq7cfBQ2qtbl5N2Gb/Hdc=
     -----END PUBLIC KEY-----
+  REGISTRY_USER: ''
+  REGISTRY_TOKEN: ''
+  API_USER: myself
+  API_PASSWORD: changeme
