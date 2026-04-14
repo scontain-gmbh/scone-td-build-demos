@@ -1,15 +1,18 @@
-apiVersion: batch/v1
-kind: Job
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: python-hello-user
   namespace: ${NAMESPACE}
 spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: python-hello-user
   template:
     metadata:
       labels:
         app: python-hello-user
     spec:
-      restartPolicy: Never
       imagePullSecrets:
         - name: ${IMAGE_PULL_SECRET_NAME}
       containers:
@@ -20,7 +23,10 @@ spec:
             - name: API_USER
               value: ${API_USER}
             - name: API_PASSWORD
-              value: ${API_PASSWORD}
+              valueFrom:
+                secretKeyRef:
+                  name: api-credentials
+                  key: API_PASSWORD
           resources:
             requests:
               memory: "256Mi"
@@ -28,3 +34,11 @@ spec:
             limits:
               memory: "760Mi"
               cpu: "500m"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-credentials
+  namespace: ${NAMESPACE}
+stringData:
+  API_PASSWORD: "native-test-password"
