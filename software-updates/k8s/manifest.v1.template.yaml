@@ -34,11 +34,3 @@ spec:
             limits:
               memory: "760Mi"
               cpu: "500m"
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: api-credentials
-  namespace: ${NAMESPACE}
-stringData:
-  API_PASSWORD: "native-test-password"
