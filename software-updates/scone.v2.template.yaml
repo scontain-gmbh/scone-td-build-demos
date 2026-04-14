@@ -21,10 +21,11 @@ apiVersion: scone.cloud/v1
 kind: Apply
 metadata:
   name: software-updates-demo
+  namespace: ${SESSION_NAMESPACE}
 spec:
   file:
-    - "k8s/manifest.v2.yaml"
     - "k8s/scone-secret.yaml"
+    - "k8s/manifest.v2.yaml"
   output_manifest_file: "manifest.prod.sanitized.yaml"
   output_session_file: "manifest.prod.session.yaml"
   cas_address:
