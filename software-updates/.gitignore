@@ -5,3 +5,5 @@ software-updates-demo.json
 identity.pem
 manifest.prod.sanitized.yaml
 manifest.prod.session.yaml
+k8s/manifest.v1.yaml
+k8s/manifest.v2.yaml
