@@ -3,13 +3,13 @@ kind: Register
 metadata:
   name: netshield
 spec:
-  protected_image: ${CLIENT_IMAGE}
+  source-image: ${CLIENT_IMAGE}
   unprotected_image: ${CLIENT_IMAGE}
   enforce: ["/usr/local/bin/client-rust"]
   push_scone_image: true
-  cvm: ${CVM_MODE}
-  version: ${SCONE_RUNTIME_VERSION}
-  manifest_env:
+  tee-type: ${TEE_TYPE}
+  scone-version: ${SCONE_RUNTIME_VERSION}
+  container-env:
     - {name: SCONE_VERSION, value: "1"}
     - {name: SCONE_SYSLIBS, value: "1"}
     - {name: SCONE_PRODUCTION, value: "0"}
@@ -20,13 +20,13 @@ kind: Register
 metadata:
   name: netshield
 spec:
-  protected_image: ${SERVER_IMAGE}
+  source-image: ${SERVER_IMAGE}
   unprotected_image: ${SERVER_IMAGE}
   enforce: ["/usr/local/bin/server-rust"]
   push_scone_image: true
-  cvm: ${CVM_MODE}
-  version: ${SCONE_RUNTIME_VERSION}
-  manifest_env:
+  tee-type: ${TEE_TYPE}
+  scone-version: ${SCONE_RUNTIME_VERSION}
+  container-env:
     - {name: SCONE_VERSION, value: "1"}
     - {name: SCONE_SYSLIBS, value: "1"}
     - {name: SCONE_PRODUCTION, value: "0"}
@@ -39,20 +39,20 @@ metadata:
 spec:
   file:
     - "${SCRIPT_DIR}/manifest.yaml"
-  output_manifest_file: "${SCRIPT_DIR}/manifest.prod.sanitized.yaml"
-  output_session_file: "${SCRIPT_DIR}/manifest.prod.session.yaml"
-  cas_address:
+  output-manifest: "${SCRIPT_DIR}/manifest.prod.sanitized.yaml"
+  output-session: "${SCRIPT_DIR}/manifest.prod.session.yaml"
+  cas-endpoint:
     address: ${CAS_NAME}.${CAS_NAMESPACE}
-  session_env:
+  scone-session-env:
     - {name: SCONE_VERSION, value: "1"}
-  manifest_env:
+  container-env:
     - {name: SCONE_VERSION, value: "1"}
     - {name: SCONE_SYSLIBS, value: "1"}
     - {name: SCONE_PRODUCTION, value: "0"}
     - {name: SCONE_HEAP, value: "2G"}
   permissive: true
   spol: true
-  cvm: ${CVM_MODE}
+  tee-type: ${TEE_TYPE}
   scone_enclave: ${SCONE_ENCLAVE}
   access_policy:
     read:

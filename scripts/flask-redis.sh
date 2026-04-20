@@ -648,7 +648,7 @@ printf '%s\n' 'tplenv --file scone.template.yaml --create-values-file --output s
 printf '%s\n' '# Remove `flask-redis-demo.json` if it exists.'
 printf '%s\n' 'rm flask-redis-demo.json || true'
 printf '%s\n' '# Generate the confidential image and sanitized manifest from the SCONE configuration.'
-printf '%s\n' 'scone-td-build from -y scone.yaml'
+printf '%s\n' 'scone-td-build apply -f scone.yaml'
 printf "${RESET}"
 
 # Render the template with the selected values.
@@ -656,7 +656,7 @@ tplenv --file scone.template.yaml --create-values-file --output scone.yaml
 # Remove `flask-redis-demo.json` if it exists.
 rm flask-redis-demo.json || true
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
-scone-td-build from -y scone.yaml
+scone-td-build apply -f scone.yaml
 
 printf "${VIOLET}"
 printf '%s\n' ''

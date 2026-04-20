@@ -1,0 +1,32 @@
+apiVersion: scone.cloud/v1
+kind: Register
+metadata:
+  name: hello-world
+spec:
+  source-image: ${IMAGE_NAME}
+  unprotected_image: rust:latest
+  destination_image: ${DESTINATION_IMAGE_NAME}
+  push_scone_image: true
+  container-env:
+    - {name: SCONE_PRODUCTION, value: "0"}
+  scone-version: ${SCONE_RUNTIME_VERSION}
+  tee-type: ${TEE_TYPE}
+---
+apiVersion: scone.cloud/v1
+kind: Apply
+metadata:
+  name: hello-world
+spec:
+  file:
+    - "manifest.job.yaml"
+  output-manifest: "manifest.job.sanitized.yaml"
+  cas-endpoint:
+    address: ${CAS_NAME}.${CAS_NAMESPACE}
+  container-env:
+    - {name: SCONE_SYSLIBS, value: "1"}
+    - {name: SCONE_PRODUCTION, value: "0"}
+    - {name: SCONE_VERSION, value: "1"}
+  permissive: true
+  spol: true
+  tee-type: ${TEE_TYPE}
+  scone_enclave: ${SCONE_ENCLAVE}

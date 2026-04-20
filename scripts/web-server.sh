@@ -286,31 +286,17 @@ fi
 
 printf "${VIOLET}"
 printf '%s\n' ''
-printf '%s\n' 'Register the image with `scone-td-build`:'
+printf '%s\n' 'Register and transform the image with `scone-td-build`:'
 printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Register the image for confidential execution.'
-printf '%s\n' 'scone-td-build register \'
-printf '%s\n' '  --protected-image ${IMAGE_NAME} \'
-printf '%s\n' '  --unprotected-image ${IMAGE_NAME} \'
-printf '%s\n' '  --destination-image ${DESTINATION_IMAGE_NAME} \'
-printf '%s\n' '  --push \'
-printf '%s\n' '  -s ./storage.json \'
-printf '%s\n' '  --enforce /app/web-server \'
-printf '%s\n' '  --version ${SCONE_RUNTIME_VERSION}'
+printf '%s\n' '# Register the image and transform the manifest for confidential execution.'
+printf '%s\n' 'scone-td-build apply -f scone.yaml'
 printf "${RESET}"
 
-# Register the image for confidential execution.
-scone-td-build register \
-  --protected-image ${IMAGE_NAME} \
-  --unprotected-image ${IMAGE_NAME} \
-  --destination-image ${DESTINATION_IMAGE_NAME} \
-  --push \
-  -s ./storage.json \
-  --enforce /app/web-server \
-  --version ${SCONE_RUNTIME_VERSION}
+# Register the image and transform the manifest for confidential execution.
+scone-td-build apply -f scone.yaml
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -388,41 +374,7 @@ rm /tmp/pf-8000.pid
 
 printf "${VIOLET}"
 printf '%s\n' ''
-printf '%s\n' '## 7. Convert the Manifest'
-printf '%s\n' ''
-printf '%s\n' 'If you want to inspect registration details, see [register-image](../../../register-image.md).'
-printf '%s\n' ''
-printf "${RESET}"
-
-printf "${ORANGE}"
-printf '%s\n' '# Convert the native manifest into a confidential manifest.'
-printf '%s\n' 'scone-td-build apply \'
-printf '%s\n' '  -f manifest.yaml \'
-printf '%s\n' '  -c ${CAS_NAME}.${CAS_NAMESPACE} \'
-printf '%s\n' '  -s ./storage.json \'
-printf '%s\n' '  --spol \'
-printf '%s\n' '  --manifest-env SCONE_SYSLIBS=1 \'
-printf '%s\n' '  --manifest-env SCONE_VERSION=1 \'
-printf '%s\n' '  --session-env SCONE_VERSION=1 \'
-printf '%s\n' '  --output-manifest-file manifest.sanitized.yaml \'
-printf '%s\n' '  --version ${SCONE_RUNTIME_VERSION} -p'
-printf "${RESET}"
-
-# Convert the native manifest into a confidential manifest.
-scone-td-build apply \
-  -f manifest.yaml \
-  -c ${CAS_NAME}.${CAS_NAMESPACE} \
-  -s ./storage.json \
-  --spol \
-  --manifest-env SCONE_SYSLIBS=1 \
-  --manifest-env SCONE_VERSION=1 \
-  --session-env SCONE_VERSION=1 \
-  --output-manifest-file manifest.sanitized.yaml \
-  --version ${SCONE_RUNTIME_VERSION} -p
-
-printf "${VIOLET}"
-printf '%s\n' ''
-printf '%s\n' '## 8. Deploy the Confidential Manifest'
+printf '%s\n' '## 7. Deploy the Confidential Manifest'
 printf '%s\n' ''
 printf "${RESET}"
 
@@ -438,7 +390,7 @@ printf "${VIOLET}"
 printf '%s\n' ''
 printf '%s\n' 'For the next step, you need a Kubernetes cluster with SGX resources and a running LAS.'
 printf '%s\n' ''
-printf '%s\n' '## 9. Run the Demo'
+printf '%s\n' '## 8. Run the Demo'
 printf '%s\n' ''
 printf "${RESET}"
 
@@ -484,7 +436,7 @@ retry-spinner -- curl http://localhost:8000/gen
 
 printf "${VIOLET}"
 printf '%s\n' ''
-printf '%s\n' '## 10. Uninstall the Demo'
+printf '%s\n' '## 9. Uninstall the Demo'
 printf '%s\n' ''
 printf "${RESET}"
 

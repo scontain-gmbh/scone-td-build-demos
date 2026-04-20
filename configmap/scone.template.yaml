@@ -3,14 +3,14 @@ kind: Register
 metadata:
   name: configmap-example
 spec:
-  protected_image: ${DEMO_IMAGE}
+  source-image: ${DEMO_IMAGE}
   unprotected_image: ${DEMO_IMAGE}
   destination_image: ${DESTINATION_IMAGE_NAME}
   enforce: ["/usr/local/bin/folder-reader"]
   push_scone_image: true
-  version: ${SCONE_RUNTIME_VERSION}
-  cvm: ${CVM_MODE}
-  manifest_env:
+  scone-version: ${SCONE_RUNTIME_VERSION}
+  tee-type: ${TEE_TYPE}
+  container-env:
     - {name: SCONE_VERSION, value: "1"}
     - {name: SCONE_SYSLIBS, value: "1"}
     - {name: SCONE_PRODUCTION, value: "0"}
@@ -23,20 +23,20 @@ metadata:
 spec:
   file:
     - "manifests/manifest.yaml"
-  output_manifest_file: "manifests/manifest.prod.sanitized.yaml"
-  output_session_file: "manifests/manifest.prod.session.yaml"
-  cas_address:
+  output-manifest: "manifests/manifest.prod.sanitized.yaml"
+  output-session: "manifests/manifest.prod.session.yaml"
+  cas-endpoint:
     address: ${CAS_NAME}.${CAS_NAMESPACE}
-  session_env:
+  scone-session-env:
     - {name: SCONE_VERSION, value: "1"}
-  manifest_env:
+  container-env:
     - {name: SCONE_VERSION, value: "1"}
     - {name: SCONE_SYSLIBS, value: "1"}
     - {name: SCONE_PRODUCTION, value: "0"}
     - {name: SCONE_HEAP, value: "2G"}
   permissive: true
   spol: true
-  cvm: ${CVM_MODE}
+  tee-type: ${TEE_TYPE}
   scone_enclave: ${SCONE_ENCLAVE}
   access_policy:
     read:

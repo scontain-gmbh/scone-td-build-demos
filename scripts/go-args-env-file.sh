@@ -339,11 +339,11 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Generate the confidential image and sanitized manifest from the SCONE configuration.'
-printf '%s\n' 'scone-td-build from -y manifests/scone.yaml'
+printf '%s\n' 'scone-td-build apply -f manifests/scone.yaml'
 printf "${RESET}"
 
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
-scone-td-build from -y manifests/scone.yaml
+scone-td-build apply -f manifests/scone.yaml
 
 printf "${VIOLET}"
 printf '%s\n' ''

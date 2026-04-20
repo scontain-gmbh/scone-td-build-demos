@@ -7,7 +7,7 @@ environment:
   SCONE_ENCLAVE: 'false'
   REGISTRY: registry.scontain.com
   IMAGE_NAME: registry.scontain.com/k8s-scone-images/flask-redis:latest
-  NAMESPACE: scone-tools
+  NAMESPACE: default
   SIGNER: |-
     -----BEGIN PUBLIC KEY-----
     MCowBQYDK2VwAyEAvSRST+dhEaX42c6VkY1Sv+KVelnSup96M6TMHOlqcrg=

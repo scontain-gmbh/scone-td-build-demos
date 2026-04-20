@@ -309,37 +309,19 @@ printf "${VIOLET}"
 printf '%s\n' ''
 printf '%s\n' 'If attestation fails, inspect the command output for detected vulnerabilities and suggested tolerance flags.'
 printf '%s\n' ''
-printf '%s\n' '## 7. Register the Confidential Image'
+printf '%s\n' '## 7. Register and Transform the Confidential Image'
 printf '%s\n' ''
-printf '%s\n' 'Register the image for confidential execution:'
-printf '%s\n' ''
-printf "${RESET}"
-
-printf "${ORANGE}"
-printf '%s\n' '# Register the image for confidential execution.'
-printf '%s\n' 'scone-td-build register --protected-image $IMAGE_NAME --unprotected-image rust:latest --manifest-env SCONE_PRODUCTION=0 -s ./storage.json --destination-image ${DESTINATION_IMAGE_NAME} --push --version ${SCONE_RUNTIME_VERSION} ${CVM_MODE}'
-printf "${RESET}"
-
-# Register the image for confidential execution.
-scone-td-build register --protected-image $IMAGE_NAME --unprotected-image rust:latest --manifest-env SCONE_PRODUCTION=0 -s ./storage.json --destination-image ${DESTINATION_IMAGE_NAME} --push --version ${SCONE_RUNTIME_VERSION} ${CVM_MODE}
-
-printf "${VIOLET}"
-printf '%s\n' ''
-printf '%s\n' 'This creates a protected image (or uses `--destination-image` if provided) and decouples your deployment from upstream image changes.'
-printf '%s\n' ''
-printf '%s\n' '## 8. Transform the Kubernetes Manifest'
-printf '%s\n' ''
-printf '%s\n' 'Convert the native manifest into a sanitized confidential manifest:'
+printf '%s\n' 'Register the image and convert the manifest for confidential execution:'
 printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Convert the native manifest into a confidential manifest.'
-printf '%s\n' 'scone-td-build apply -f manifest.job.yaml -c ${CAS_NAME}.${CAS_NAMESPACE} -p -s ./storage.json --manifest-env SCONE_SYSLIBS=1 --manifest-env SCONE_PRODUCTION=0 --spol --manifest-env SCONE_VERSION=1 --output-manifest-file manifest.job.sanitized.yaml ${CVM_MODE} ${SCONE_ENCLAVE}'
+printf '%s\n' '# Register the image and transform the manifest for confidential execution.'
+printf '%s\n' 'scone-td-build apply -f scone.yaml'
 printf "${RESET}"
 
-# Convert the native manifest into a confidential manifest.
-scone-td-build apply -f manifest.job.yaml -c ${CAS_NAME}.${CAS_NAMESPACE} -p -s ./storage.json --manifest-env SCONE_SYSLIBS=1 --manifest-env SCONE_PRODUCTION=0 --spol --manifest-env SCONE_VERSION=1 --output-manifest-file manifest.job.sanitized.yaml ${CVM_MODE} ${SCONE_ENCLAVE}
+# Register the image and transform the manifest for confidential execution.
+scone-td-build apply -f scone.yaml
 
 printf "${VIOLET}"
 printf '%s\n' ''

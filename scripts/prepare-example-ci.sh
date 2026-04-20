@@ -173,12 +173,11 @@ all_values_files=(
   "${repo_root}/java-args-env-file/Values.yaml"
 )
 
-flag_mode_files=(
-  "${repo_root}/hello-world/Values.yaml"
-  "${repo_root}/web-server/Values.yaml"
-)
+flag_mode_files=()
 
 boolean_mode_files=(
+  "${repo_root}/hello-world/Values.yaml"
+  "${repo_root}/web-server/Values.yaml"
   "${repo_root}/configmap/Values.yaml"
   "${repo_root}/network-policy/Values.yaml"
   "${repo_root}/go-args-env-file/Values.yaml"
@@ -191,11 +190,13 @@ if [[ "$mode" == "sgx" ]]; then
   flag_scone_enclave="''"
   boolean_cvm_mode="'false'"
   boolean_scone_enclave="'false'"
+  tee_type="'sgx'"
 else
   flag_cvm_mode="--cvm"
   flag_scone_enclave="--scone-enclave"
   boolean_cvm_mode="'true'"
   boolean_scone_enclave="'true'"
+  tee_type="'cvm'"
 fi
 
 for values_file in "${flag_mode_files[@]}"; do
@@ -206,6 +207,10 @@ done
 for values_file in "${boolean_mode_files[@]}"; do
   upsert_scalar "$values_file" "CVM_MODE" "$boolean_cvm_mode"
   upsert_scalar "$values_file" "SCONE_ENCLAVE" "$boolean_scone_enclave"
+done
+
+for values_file in "${all_values_files[@]}"; do
+  upsert_scalar "$values_file" "TEE_TYPE" "$tee_type"
 done
 
 for values_file in "${all_values_files[@]}"; do
