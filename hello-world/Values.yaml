@@ -3,7 +3,7 @@ environment:
   IMAGE_PULL_SECRET_NAME: sconeapps
   CAS_NAMESPACE: default
   CAS_NAME: cas
-  DESTINATION_IMAGE_NAME: registry.scontain.com/workshop/hello-world:protected
+  DESTINATION_IMAGE_NAME: registry.scontain.com/k8s-scone-images/hello-world:protected
   CVM_MODE: 'false'
   SCONE_ENCLAVE: 'false'
   TEE_TYPE: 'sgx'

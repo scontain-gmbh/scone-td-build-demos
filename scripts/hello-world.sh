@@ -316,10 +316,14 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
+printf '%s\n' '# Render the scone template with the selected values.'
+printf '%s\n' 'tplenv --file scone.template.yaml --create-values-file --output scone.yaml'
 printf '%s\n' '# Register the image and transform the manifest for confidential execution.'
 printf '%s\n' 'scone-td-build apply -f scone.yaml'
 printf "${RESET}"
 
+# Render the scone template with the selected values.
+tplenv --file scone.template.yaml --create-values-file --output scone.yaml
 # Register the image and transform the manifest for confidential execution.
 scone-td-build apply -f scone.yaml
 
