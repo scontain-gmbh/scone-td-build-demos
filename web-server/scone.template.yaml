@@ -23,6 +23,7 @@ spec:
     address: ${CAS_NAME}.${CAS_NAMESPACE}
   container-env:
     - {name: SCONE_SYSLIBS, value: "1"}
+    - {name: SCONE_PRODUCTION, value: "0"}
     - {name: SCONE_VERSION, value: "1"}
   scone-session-env:
     - {name: SCONE_VERSION, value: "1"}
