@@ -333,7 +333,21 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## 8. Prepare and Apply the SCONE Manifest'
 printf '%s\n' ''
-printf '%s\n' 'Build the confidential image and generate the SCONE session from `manifests/scone.yaml`:'
+printf '%s\n' 'First, attest the CAS so the local SCONE CLI has the correct session encryption key. The `|| echo` makes this non-fatal because the public CAS may already be cached as trustworthy from an earlier run.'
+printf '%s\n' ''
+printf "${RESET}"
+
+printf "${ORANGE}"
+printf '%s\n' '# Attest the CAS instance before sending encrypted policies.'
+printf '%s\n' 'kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S || echo "Attestation failed: This is OK if you first attested using *scone cas attest ..."'
+printf "${RESET}"
+
+# Attest the CAS instance before sending encrypted policies.
+kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S || echo "Attestation failed: This is OK if you first attested using *scone cas attest ..."
+
+printf "${VIOLET}"
+printf '%s\n' ''
+printf '%s\n' 'Then build the confidential image and generate the SCONE session from `manifests/scone.yaml`:'
 printf '%s\n' ''
 printf "${RESET}"
 
