@@ -278,7 +278,17 @@ printf '%s\n' 'Your containers should print content from the mounted ConfigMap f
 printf '%s\n' ''
 printf '%s\n' '## 8. Prepare and Apply the SCONE Manifest'
 printf '%s\n' ''
+printf '%s\n' 'First, attest the CAS so the local SCONE CLI has the correct session encryption key. The `|| echo` makes this non-fatal because the public CAS may already be cached as trustworthy from an earlier run.'
+printf '%s\n' ''
 printf "${RESET}"
+
+printf "${ORANGE}"
+printf '%s\n' '# Attest the CAS instance before sending encrypted policies.'
+printf '%s\n' 'kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S || echo "Attestation failed: This is OK if you first attested using *scone cas attest ..."'
+printf "${RESET}"
+
+# Attest the CAS instance before sending encrypted policies.
+kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S || echo "Attestation failed: This is OK if you first attested using *scone cas attest ..."
 
 printf "${ORANGE}"
 printf '%s\n' '# Generate the confidential image and sanitized manifest from the SCONE configuration.'
