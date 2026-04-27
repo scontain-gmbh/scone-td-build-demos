@@ -666,13 +666,13 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Push every confidential image referenced by the sanitized manifest.'
-printf '%s\n' "grep -oP 'image: \K\S+' manifest.prod.sanitized.yaml | sort -u | while read -r img; do"
+printf '%s\n' "awk '\$1 == \"image:\" { print \$2 }' manifest.prod.sanitized.yaml | sort -u | while read -r img; do"
 printf '%s\n' '  docker push "${img}"'
 printf '%s\n' 'done'
 printf "${RESET}"
 
 # Push every confidential image referenced by the sanitized manifest.
-grep -oP 'image: \K\S+' manifest.prod.sanitized.yaml | sort -u | while read -r img; do
+awk '$1 == "image:" { print $2 }' manifest.prod.sanitized.yaml | sort -u | while read -r img; do
   docker push "${img}"
 done
 
