@@ -91,18 +91,15 @@ If the pull secret does not exist yet, create it using registry credentials.
 - `$REGISTRY_TOKEN` - Registry pull token (see <https://sconedocs.github.io/registry/>)
 
 ```bash
-# Check whether the pull secret already exists.
-if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
-  # Print a status message.
-  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"
-else
-  # Print a status message.
-  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
-  # Load environment variables from the tplenv definition file.
-  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES})
-  # Create the Docker registry pull secret.
-  kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
-fi
+# Load registry credentials.
+eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
+# Create or refresh the Docker registry pull secret idempotently.
+kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \
+  --docker-server="$REGISTRY" \
+  --docker-username="$REGISTRY_USER" \
+  --docker-password="$REGISTRY_TOKEN" \
+  --dry-run=client -o yaml \
+  | kubectl apply -n "${NAMESPACE}" -f -
 ```
 
 ## 5. Run the Native Hello-World Application
