@@ -601,7 +601,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl logs -n ${NAMESPACE} -l app=flask-api --tail=50
+kubectl logs -n ${NAMESPACE} deployment/flask-api --tail=50
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -609,7 +609,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl logs -n ${NAMESPACE} -l app=redis --tail=20
+kubectl logs -n ${NAMESPACE} deployment/redis --tail=20
 EOF
 )"
 
@@ -962,7 +962,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl logs -n ${NAMESPACE} -l app=flask-api --tail=50
+kubectl logs -n ${NAMESPACE} deployment/flask-api --tail=50
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -970,7 +970,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl logs -n ${NAMESPACE} -l app=redis --tail=20
+kubectl logs -n ${NAMESPACE} deployment/redis --tail=20
 EOF
 )"
 
