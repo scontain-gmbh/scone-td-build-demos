@@ -426,9 +426,9 @@ printf '%s\n' 'kubectl rollout status deployment/flask-api -n ${NAMESPACE} --wat
 printf '%s\n' ''
 printf '%s\n' '# Check logs'
 printf '%s\n' '# Show logs from the Kubernetes workload.'
-printf '%s\n' 'kubectl logs -n ${NAMESPACE} -l app=flask-api --tail=50'
+printf '%s\n' 'kubectl logs -n ${NAMESPACE} deployment/flask-api --tail=50'
 printf '%s\n' '# Show logs from the Kubernetes workload.'
-printf '%s\n' 'kubectl logs -n ${NAMESPACE} -l app=redis --tail=20'
+printf '%s\n' 'kubectl logs -n ${NAMESPACE} deployment/redis --tail=20'
 printf "${RESET}"
 
 # Watch all resources come up
@@ -445,9 +445,9 @@ kubectl rollout status deployment/flask-api -n ${NAMESPACE} --watch=true  --time
 
 # Check logs
 # Show logs from the Kubernetes workload.
-kubectl logs -n ${NAMESPACE} -l app=flask-api --tail=50
+kubectl logs -n ${NAMESPACE} deployment/flask-api --tail=50
 # Show logs from the Kubernetes workload.
-kubectl logs -n ${NAMESPACE} -l app=redis --tail=20
+kubectl logs -n ${NAMESPACE} deployment/redis --tail=20
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -637,24 +637,6 @@ scone-td-build from -y scone.yaml
 
 printf "${VIOLET}"
 printf '%s\n' ''
-printf '%s\n' 'Push every confidential image referenced by the sanitized manifest. CVM-mode `scone-td-build` ignores `destination_image` (scontain/k8s-scone#194), so the protected images live only in the local docker daemon until they are pushed manually.'
-printf '%s\n' ''
-printf "${RESET}"
-
-printf "${ORANGE}"
-printf '%s\n' '# Push every confidential image referenced by the sanitized manifest.'
-printf '%s\n' "grep -oP 'image: \K\S+' manifest.prod.sanitized.yaml | sort -u | while read -r img; do"
-printf '%s\n' '  docker push "${img}"'
-printf '%s\n' 'done'
-printf "${RESET}"
-
-# Push every confidential image referenced by the sanitized manifest.
-grep -oP 'image: \K\S+' manifest.prod.sanitized.yaml | sort -u | while read -r img; do
-  docker push "${img}"
-done
-
-printf "${VIOLET}"
-printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '### Step 11. Deploy the confidential version'
@@ -694,9 +676,9 @@ printf '%s\n' 'kubectl rollout status deployment/flask-api -n ${NAMESPACE} --tim
 printf '%s\n' ''
 printf '%s\n' '# Check logs'
 printf '%s\n' '# Show logs from the Kubernetes workload.'
-printf '%s\n' 'kubectl logs -n ${NAMESPACE} -l app=flask-api --tail=50'
+printf '%s\n' 'kubectl logs -n ${NAMESPACE} deployment/flask-api --tail=50'
 printf '%s\n' '# Show logs from the Kubernetes workload.'
-printf '%s\n' 'kubectl logs -n ${NAMESPACE} -l app=redis --tail=20'
+printf '%s\n' 'kubectl logs -n ${NAMESPACE} deployment/redis --tail=20'
 printf "${RESET}"
 
 # Watch all resources come up
@@ -713,9 +695,9 @@ kubectl rollout status deployment/flask-api -n ${NAMESPACE} --timeout=300s
 
 # Check logs
 # Show logs from the Kubernetes workload.
-kubectl logs -n ${NAMESPACE} -l app=flask-api --tail=50
+kubectl logs -n ${NAMESPACE} deployment/flask-api --tail=50
 # Show logs from the Kubernetes workload.
-kubectl logs -n ${NAMESPACE} -l app=redis --tail=20
+kubectl logs -n ${NAMESPACE} deployment/redis --tail=20
 
 printf "${VIOLET}"
 printf '%s\n' ''

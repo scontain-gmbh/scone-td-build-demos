@@ -218,9 +218,9 @@ kubectl rollout status deployment/flask-api -n ${NAMESPACE} --watch=true  --time
 
 # Check logs
 # Show logs from the Kubernetes workload.
-kubectl logs -n ${NAMESPACE} -l app=flask-api --tail=50
+kubectl logs -n ${NAMESPACE} deployment/flask-api --tail=50
 # Show logs from the Kubernetes workload.
-kubectl logs -n ${NAMESPACE} -l app=redis --tail=20
+kubectl logs -n ${NAMESPACE} deployment/redis --tail=20
 ```
 
 ---
@@ -355,9 +355,9 @@ kubectl rollout status deployment/flask-api -n ${NAMESPACE} --timeout=300s
 
 # Check logs
 # Show logs from the Kubernetes workload.
-kubectl logs -n ${NAMESPACE} -l app=flask-api --tail=50
+kubectl logs -n ${NAMESPACE} deployment/flask-api --tail=50
 # Show logs from the Kubernetes workload.
-kubectl logs -n ${NAMESPACE} -l app=redis --tail=20
+kubectl logs -n ${NAMESPACE} deployment/redis --tail=20
 ```
 
 ---
