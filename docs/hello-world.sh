@@ -267,51 +267,24 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Check whether the pull secret already exists.
+# Load registry credentials.
 EOF
 )"
 pe "$(cat <<'EOF'
-if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
+eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
 EOF
 )"
 pe "$(cat <<'EOF'
-  # Print a status message.
+# Create or refresh the Docker registry pull secret idempotently.
 EOF
 )"
 pe "$(cat <<'EOF'
-  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"
-EOF
-)"
-pe "$(cat <<'EOF'
-else
-EOF
-)"
-pe "$(cat <<'EOF'
-  # Print a status message.
-EOF
-)"
-pe "$(cat <<'EOF'
-  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
-EOF
-)"
-pe "$(cat <<'EOF'
-  # Load environment variables from the tplenv definition file.
-EOF
-)"
-pe "$(cat <<'EOF'
-  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
-EOF
-)"
-pe "$(cat <<'EOF'
-  # Create the Docker registry pull secret.
-EOF
-)"
-pe "$(cat <<'EOF'
-  kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
-EOF
-)"
-pe "$(cat <<'EOF'
-fi
+kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \
+  --docker-server="$REGISTRY" \
+  --docker-username="$REGISTRY_USER" \
+  --docker-password="$REGISTRY_TOKEN" \
+  --dry-run=client -o yaml \
+  | kubectl apply -n "${NAMESPACE}" -f -
 EOF
 )"
 
