@@ -660,6 +660,8 @@ scone-td-build from -y scone.yaml
 
 printf "${VIOLET}"
 printf '%s\n' ''
+printf '%s\n' '`push_scone_image: true` in the templates pushes the confidential images automatically (`scontain/k8s-scone#194` fixed).'
+printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '### Step 11. Deploy the confidential version'
