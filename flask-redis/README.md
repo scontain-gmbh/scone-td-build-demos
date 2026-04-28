@@ -337,14 +337,7 @@ rm flask-redis-demo.json || true
 scone-td-build from -y scone.yaml
 ```
 
-Push every confidential image referenced by the sanitized manifest. This works around [`scontain/k8s-scone#194`](https://github.com/scontain/k8s-scone/issues/194): in CVM mode `scone-td-build` currently ignores `destination_image` / `push_scone_image: true` on the protected Register, so the confidential image is built locally but never pushed. Once the upstream fix lands this block can be dropped.
-
-```bash
-# Push every confidential image referenced by the sanitized manifest.
-awk '$1 == "image:" { print $2 }' manifest.prod.sanitized.yaml | sort -u | while read -r img; do
-  docker push "${img}"
-done
-```
+`push_scone_image: true` in the templates pushes the confidential images automatically (`scontain/k8s-scone#194` fixed).
 
 ---
 
