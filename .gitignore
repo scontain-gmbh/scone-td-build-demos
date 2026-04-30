@@ -11,3 +11,4 @@ manifest.prod.session.yaml
 manifest.prod.sanitized.yaml
 scone.yaml
 docs/superpowers/
+.worktrees/
