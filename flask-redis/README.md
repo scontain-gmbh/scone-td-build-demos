@@ -337,6 +337,8 @@ rm flask-redis-demo.json || true
 scone-td-build from -y scone.yaml
 ```
 
+`push_scone_image: true` in the templates pushes the confidential images automatically (`scontain/k8s-scone#194` fixed).
+
 ---
 
 ### Step 11. Deploy the confidential version

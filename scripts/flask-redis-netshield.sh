@@ -426,9 +426,9 @@ printf '%s\n' 'kubectl rollout status deployment/flask-api -n ${NAMESPACE} --wat
 printf '%s\n' ''
 printf '%s\n' '# Check logs'
 printf '%s\n' '# Show logs from the Kubernetes workload.'
-printf '%s\n' 'kubectl logs -n ${NAMESPACE} -l app=flask-api --tail=50'
+printf '%s\n' 'kubectl logs -n ${NAMESPACE} deployment/flask-api --tail=50'
 printf '%s\n' '# Show logs from the Kubernetes workload.'
-printf '%s\n' 'kubectl logs -n ${NAMESPACE} -l app=redis --tail=20'
+printf '%s\n' 'kubectl logs -n ${NAMESPACE} deployment/redis --tail=20'
 printf "${RESET}"
 
 # Watch all resources come up
@@ -445,9 +445,9 @@ kubectl rollout status deployment/flask-api -n ${NAMESPACE} --watch=true  --time
 
 # Check logs
 # Show logs from the Kubernetes workload.
-kubectl logs -n ${NAMESPACE} -l app=flask-api --tail=50
+kubectl logs -n ${NAMESPACE} deployment/flask-api --tail=50
 # Show logs from the Kubernetes workload.
-kubectl logs -n ${NAMESPACE} -l app=redis --tail=20
+kubectl logs -n ${NAMESPACE} deployment/redis --tail=20
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -676,9 +676,9 @@ printf '%s\n' 'kubectl rollout status deployment/flask-api -n ${NAMESPACE} --tim
 printf '%s\n' ''
 printf '%s\n' '# Check logs'
 printf '%s\n' '# Show logs from the Kubernetes workload.'
-printf '%s\n' 'kubectl logs -n ${NAMESPACE} -l app=flask-api --tail=50'
+printf '%s\n' 'kubectl logs -n ${NAMESPACE} deployment/flask-api --tail=50'
 printf '%s\n' '# Show logs from the Kubernetes workload.'
-printf '%s\n' 'kubectl logs -n ${NAMESPACE} -l app=redis --tail=20'
+printf '%s\n' 'kubectl logs -n ${NAMESPACE} deployment/redis --tail=20'
 printf "${RESET}"
 
 # Watch all resources come up
@@ -695,9 +695,9 @@ kubectl rollout status deployment/flask-api -n ${NAMESPACE} --timeout=300s
 
 # Check logs
 # Show logs from the Kubernetes workload.
-kubectl logs -n ${NAMESPACE} -l app=flask-api --tail=50
+kubectl logs -n ${NAMESPACE} deployment/flask-api --tail=50
 # Show logs from the Kubernetes workload.
-kubectl logs -n ${NAMESPACE} -l app=redis --tail=20
+kubectl logs -n ${NAMESPACE} deployment/redis --tail=20
 
 printf "${VIOLET}"
 printf '%s\n' ''
