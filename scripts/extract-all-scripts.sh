@@ -53,6 +53,7 @@ files=(
   "go-args-env-file/README.md scripts/go-args-env-file.sh"
   "java-args-env-file/README.md scripts/java-args-env-file.sh"
   "software-updates/README.md scripts/software-updates.sh"
+  "image-signing/README.md scripts/image-signing.sh"
 )
 
 generated_scripts=()
