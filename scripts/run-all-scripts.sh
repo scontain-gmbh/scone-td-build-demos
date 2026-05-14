@@ -132,6 +132,7 @@ scripts=(
   "go-args-env-file.sh"
   "java-args-env-file.sh"
   "software-updates.sh"
+  "image-signing.sh"
 )
 
 for ((i = 0; i < ${#scripts[@]}; i++)); do

@@ -1,17 +1,60 @@
 #!/usr/bin/env bash
 # Generated file. Do not edit manually.
 
-set -euo pipefail
+set -Eeuo pipefail
 
-VIOLET='\033[38;5;141m'
-ORANGE='\033[38;5;208m'
-RESET='\033[0m'
+TYPE_SPEED="${TYPE_SPEED:-25}"
+PAUSE_AFTER_CMD="${PAUSE_AFTER_CMD:-0.6}"
+SHELLRC="${SHELLRC:-/dev/null}"
+PROMPT="${PROMPT:-$'\[\e[1;32m\]demo\[\e[0m\]:\[\e[1;34m\]~\[\e[0m\]\$ '}"
+COLUMNS="${COLUMNS:-100}"
+LINES="${LINES:-26}"
+ORANGE="${ORANGE:-\033[38;5;208m}"
+LILAC="${LILAC:-\033[38;5;141m}"
+RESET="${RESET:-\033[0m}"
+
+slow_type() {
+  local text="$*"
+  local delay
+  delay=$(awk "BEGIN { print 1 / $TYPE_SPEED }")
+  for ((i=0; i<${#text}; i++)); do
+    printf "%s" "${text:i:1}"
+    sleep "$delay"
+  done
+}
+
+pe() {
+  local cmd="$*"
+  printf "%b" "$ORANGE"
+  slow_type "$cmd"
+  printf "%b" "$RESET"
+  printf "\n"
+
+  if [[ -n "${PE_BUFFER:-}" ]]; then
+    PE_BUFFER+=$'\n'
+  fi
+  PE_BUFFER+="$cmd"
+
+  # Execute only when buffered lines form a complete shell command.
+  if bash -n <(printf '%s\n' "$PE_BUFFER") 2>/dev/null; then
+    eval "$PE_BUFFER"
+    PE_BUFFER=""
+  fi
+
+  sleep "$PAUSE_AFTER_CMD"
+}
+
+export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
+export COLUMNS LINES
+export PS1="$PROMPT"
+stty cols "$COLUMNS" rows "$LINES"
 
 show_help() {
   cat <<USAGE
 Usage: $0 [--help] [--non-interactive]
 
-Runs shell commands extracted from image-signing/README.md.
+Runs a demo-style shell script generated from image-signing/README.md.
 
 Options:
   --help             Show this help message and exit.
@@ -55,9 +98,7 @@ if [[ $# -gt 0 ]]; then
   exit 1
 fi
 
-if ! $NON_INTERACTIVE; then
-  CONFIRM_ALL_ENVIRONMENT_VARIABLES="--force"
-fi
+unset CONFIRM_ALL_ENVIRONMENT_VARIABLES || true
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 expected_workdir="$(cd "${script_dir}/.." && pwd)"
@@ -70,7 +111,7 @@ if [[ "$(pwd)" != "$expected_workdir" ]]; then
   exit 1
 fi
 
-printf "${VIOLET}"
+printf "%b" "$LILAC"
 printf '%s\n' '# SCONE: Image Signing'
 printf '%s\n' ''
 printf '%s\n' 'This example shows how to sign and encrypt a confidential container image using a Sigstore private'
@@ -99,21 +140,26 @@ printf '%s\n' '## 2. Set Up Environment Variables'
 printf '%s\n' ''
 printf '%s\n' 'We assume you start in `scone-td-build-demos`:'
 printf '%s\n' ''
-printf "${RESET}"
+printf "%b" "$RESET"
 
-printf "${ORANGE}"
-printf '%s\n' '# Enter `image-signing` and remember the previous directory.'
-printf '%s\n' 'pushd image-signing'
-printf '%s\n' '# Remove `storage.json` if it exists.'
-printf '%s\n' 'rm -f storage.json || true'
-printf "${RESET}"
-
+pe "$(cat <<'EOF'
 # Enter `image-signing` and remember the previous directory.
+EOF
+)"
+pe "$(cat <<'EOF'
 pushd image-signing
+EOF
+)"
+pe "$(cat <<'EOF'
 # Remove `storage.json` if it exists.
+EOF
+)"
+pe "$(cat <<'EOF'
 rm -f storage.json || true
+EOF
+)"
 
-printf "${VIOLET}"
+printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' 'This example uses the following variables.'
 printf '%s\n' ''
@@ -135,161 +181,209 @@ printf '%s\n' '- `$NAMESPACE` - Kubernetes namespace where the demo runs (defaul
 printf '%s\n' ''
 printf '%s\n' 'Defaults are stored in `Values.yaml`. We use [`tplenv`](https://github.com/scontainug/tplenv) to confirm or override values:'
 printf '%s\n' ''
-printf "${RESET}"
+printf "%b" "$RESET"
 
-printf "${ORANGE}"
-printf '%s\n' '# Load environment variables from the tplenv definition file.'
-printf '%s\n' 'eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)'
-printf "${RESET}"
-
+pe "$(cat <<'EOF'
 # Load environment variables from the tplenv definition file.
+EOF
+)"
+pe "$(cat <<'EOF'
 eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+EOF
+)"
 
-printf "${VIOLET}"
+printf "%b" "$LILAC"
 printf '%s\n' ''
-printf "${RESET}"
+printf "%b" "$RESET"
 
-printf "${ORANGE}"
-printf '%s\n' '# Create the Kubernetes namespace if it does not already exist.'
-printf '%s\n' 'kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"'
-printf "${RESET}"
-
+pe "$(cat <<'EOF'
 # Create the Kubernetes namespace if it does not already exist.
+EOF
+)"
+pe "$(cat <<'EOF'
 kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
+EOF
+)"
 
-printf "${VIOLET}"
+printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' 'Generate the job manifest with the selected image and pull-secret values:'
 printf '%s\n' ''
-printf "${RESET}"
+printf "%b" "$RESET"
 
-printf "${ORANGE}"
-printf '%s\n' '# Render the template with the selected values.'
-printf '%s\n' 'tplenv --file manifest.job.template.yaml --create-values-file --output manifest.job.yaml'
-printf "${RESET}"
-
+pe "$(cat <<'EOF'
 # Render the template with the selected values.
+EOF
+)"
+pe "$(cat <<'EOF'
 tplenv --file manifest.job.template.yaml --create-values-file --output manifest.job.yaml
+EOF
+)"
 
-printf "${VIOLET}"
+printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '## 3. Deploy Key Management Infrastructure'
 printf '%s\n' ''
 printf '%s\n' 'The signing and encryption flow requires a Key Broker Service (KBS) and a key provider running in'
 printf '%s\n' 'the cluster. The key provider exposes a gRPC endpoint that `skopeo` uses during image encryption.'
 printf '%s\n' ''
-printf "${RESET}"
+printf "%b" "$RESET"
 
-printf "${ORANGE}"
-printf '%s\n' '# Deploy the Key Broker Service.'
-printf '%s\n' 'kubectl apply -f k8s/kbs.yaml'
-printf '%s\n' '# Deploy the key provider.'
-printf '%s\n' 'kubectl apply -f k8s/key-provider.yaml'
-printf '%s\n' '# Wait for KBS to be ready.'
-printf '%s\n' 'kubectl wait --for=condition=available deployment/kbs -n trustee --timeout=120s'
-printf '%s\n' '# Wait for the key provider to be ready.'
-printf '%s\n' 'kubectl wait --for=condition=available deployment/keyprovider -n trustee --timeout=120s'
-printf '%s\n' '# Kill any existing listener on port 50000 before starting the port-forward.'
-printf '%s\n' 'lsof -i :50000 -t 2>/dev/null | xargs -r kill 2>/dev/null || true'
-printf '%s\n' '# Forward the key provider port to localhost so skopeo can reach it.'
-printf '%s\n' 'kubectl port-forward -n trustee svc/keyprovider 50000:50000 &'
-printf '%s\n' 'export PORT_FORWARD_PID=$!'
-printf '%s\n' '# Give the port-forward a moment to establish the connection.'
-printf '%s\n' 'sleep 3'
-printf "${RESET}"
-
+pe "$(cat <<'EOF'
 # Deploy the Key Broker Service.
+EOF
+)"
+pe "$(cat <<'EOF'
 kubectl apply -f k8s/kbs.yaml
+EOF
+)"
+pe "$(cat <<'EOF'
 # Deploy the key provider.
+EOF
+)"
+pe "$(cat <<'EOF'
 kubectl apply -f k8s/key-provider.yaml
+EOF
+)"
+pe "$(cat <<'EOF'
 # Wait for KBS to be ready.
+EOF
+)"
+pe "$(cat <<'EOF'
 kubectl wait --for=condition=available deployment/kbs -n trustee --timeout=120s
+EOF
+)"
+pe "$(cat <<'EOF'
 # Wait for the key provider to be ready.
+EOF
+)"
+pe "$(cat <<'EOF'
 kubectl wait --for=condition=available deployment/keyprovider -n trustee --timeout=120s
+EOF
+)"
+pe "$(cat <<'EOF'
 # Kill any existing listener on port 50000 before starting the port-forward.
+EOF
+)"
+pe "$(cat <<'EOF'
 lsof -i :50000 -t 2>/dev/null | xargs -r kill 2>/dev/null || true
+EOF
+)"
+pe "$(cat <<'EOF'
 # Forward the key provider port to localhost so skopeo can reach it.
+EOF
+)"
+pe "$(cat <<'EOF'
 kubectl port-forward -n trustee svc/keyprovider 50000:50000 &
+EOF
+)"
+pe "$(cat <<'EOF'
 export PORT_FORWARD_PID=$!
+EOF
+)"
+pe "$(cat <<'EOF'
 # Give the port-forward a moment to establish the connection.
+EOF
+)"
+pe "$(cat <<'EOF'
 sleep 3
+EOF
+)"
 
-printf "${VIOLET}"
+printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '## 4. Generate Signing Keys'
 printf '%s\n' ''
 printf '%s\n' 'Generate an Ed25519 key pair. The private key signs the image; the public key can be distributed'
 printf '%s\n' 'to verify signatures without exposing the private key.'
 printf '%s\n' ''
-printf "${RESET}"
+printf "%b" "$RESET"
 
-printf "${ORANGE}"
-printf '%s\n' '# Generate the Ed25519 signing key pair in the format expected by skopeo.'
-printf '%s\n' 'skopeo generate-sigstore-key --output-prefix ./config/image-signing-key --passphrase-file ./config/empty-passphrase.txt'
-printf "${RESET}"
-
+pe "$(cat <<'EOF'
 # Generate the Ed25519 signing key pair in the format expected by skopeo.
+EOF
+)"
+pe "$(cat <<'EOF'
 skopeo generate-sigstore-key --output-prefix ./config/image-signing-key --passphrase-file ./config/empty-passphrase.txt
+EOF
+)"
 
-printf "${VIOLET}"
+printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' 'Configure the registry to store signatures as sigstore OCI attachments:'
 printf '%s\n' ''
-printf "${RESET}"
+printf "%b" "$RESET"
 
-printf "${ORANGE}"
-printf '%s\n' '# Configure sigstore attachments for the registry (user-level, no sudo required).'
-printf '%s\n' 'mkdir -p ~/.config/containers/registries.d'
-printf '%s\n' 'cat <<EOF > ~/.config/containers/registries.d/default.yaml'
-printf '%s\n' 'docker:'
-printf '%s\n' '    ${REGISTRY}:'
-printf '%s\n' '        use-sigstore-attachments: true'
-printf '%s\n' 'EOF'
-printf "${RESET}"
-
+pe "$(cat <<'EOF'
 # Configure sigstore attachments for the registry (user-level, no sudo required).
+EOF
+)"
+pe "$(cat <<'EOF'
 mkdir -p ~/.config/containers/registries.d
+EOF
+)"
+pe "$(cat <<'EOF'
 cat <<EOF > ~/.config/containers/registries.d/default.yaml
+EOF
+)"
+pe "$(cat <<'EOF'
 docker:
+EOF
+)"
+pe "$(cat <<'EOF'
     ${REGISTRY}:
+EOF
+)"
+pe "$(cat <<'EOF'
         use-sigstore-attachments: true
 EOF
+)"
+pe "$(cat <<'EOF'
+EOF
+EOF
+)"
 
-printf "${VIOLET}"
+printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '## 5. Build the Native Container Image'
 printf '%s\n' ''
 printf '%s\n' 'Create the Rust project (or reuse an existing one):'
 printf '%s\n' ''
-printf "${RESET}"
+printf "%b" "$RESET"
 
-printf "${ORANGE}"
-printf '%s\n' '# Create the Rust project in `hello-world` if it does not already exist.'
-printf '%s\n' 'cargo new hello-world || echo "hello-world already exists - using existing one"'
-printf "${RESET}"
-
+pe "$(cat <<'EOF'
 # Create the Rust project in `hello-world` if it does not already exist.
+EOF
+)"
+pe "$(cat <<'EOF'
 cargo new hello-world || echo "hello-world already exists - using existing one"
+EOF
+)"
 
-printf "${VIOLET}"
+printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' 'Build and push the image:'
 printf '%s\n' ''
-printf "${RESET}"
+printf "%b" "$RESET"
 
-printf "${ORANGE}"
-printf '%s\n' '# Build the container image.'
-printf '%s\n' 'docker build -t $IMAGE_NAME .'
-printf '%s\n' '# Push the container image to the registry.'
-printf '%s\n' 'docker push $IMAGE_NAME'
-printf "${RESET}"
-
+pe "$(cat <<'EOF'
 # Build the container image.
+EOF
+)"
+pe "$(cat <<'EOF'
 docker build -t $IMAGE_NAME .
+EOF
+)"
+pe "$(cat <<'EOF'
 # Push the container image to the registry.
+EOF
+)"
+pe "$(cat <<'EOF'
 docker push $IMAGE_NAME
+EOF
+)"
 
-printf "${VIOLET}"
+printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '## 6. Create a Pull Secret'
 printf '%s\n' ''
@@ -299,107 +393,144 @@ printf '%s\n' '- `$REGISTRY` - Registry hostname (default: `registry.scontain.co
 printf '%s\n' '- `$REGISTRY_USER` - Registry login name'
 printf '%s\n' '- `$REGISTRY_TOKEN` - Registry pull token (see <https://sconedocs.github.io/registry/>)'
 printf '%s\n' ''
-printf "${RESET}"
+printf "%b" "$RESET"
 
-printf "${ORANGE}"
-printf '%s\n' '# Check whether the pull secret already exists.'
-printf '%s\n' 'if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then'
-printf '%s\n' '  # Print a status message.'
-printf '%s\n' '  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"'
-printf '%s\n' 'else'
-printf '%s\n' '  # Print a status message.'
-printf '%s\n' '  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."'
-printf '%s\n' '  # Load environment variables from the tplenv definition file.'
-printf '%s\n' '  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})'
-printf '%s\n' '  # Create the Docker registry pull secret.'
-printf '%s\n' '  kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN'
-printf '%s\n' 'fi'
-printf "${RESET}"
-
+pe "$(cat <<'EOF'
 # Check whether the pull secret already exists.
+EOF
+)"
+pe "$(cat <<'EOF'
 if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
+EOF
+)"
+pe "$(cat <<'EOF'
   # Print a status message.
+EOF
+)"
+pe "$(cat <<'EOF'
   echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"
+EOF
+)"
+pe "$(cat <<'EOF'
 else
+EOF
+)"
+pe "$(cat <<'EOF'
   # Print a status message.
+EOF
+)"
+pe "$(cat <<'EOF'
   echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
+EOF
+)"
+pe "$(cat <<'EOF'
   # Load environment variables from the tplenv definition file.
+EOF
+)"
+pe "$(cat <<'EOF'
   eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
+EOF
+)"
+pe "$(cat <<'EOF'
   # Create the Docker registry pull secret.
+EOF
+)"
+pe "$(cat <<'EOF'
   kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
+EOF
+)"
+pe "$(cat <<'EOF'
 fi
+EOF
+)"
 
-printf "${VIOLET}"
+printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '## 7. Run the Native Application'
 printf '%s\n' ''
-printf "${RESET}"
+printf "%b" "$RESET"
 
-printf "${ORANGE}"
-printf '%s\n' '# Delete the Kubernetes resource if it exists.'
-printf '%s\n' 'kubectl delete job image-signing -n ${NAMESPACE} || echo "ok - no previous job that we need to delete"'
-printf '%s\n' '# Apply the Kubernetes manifest.'
-printf '%s\n' 'kubectl apply -f manifest.job.yaml -n ${NAMESPACE}'
-printf "${RESET}"
-
+pe "$(cat <<'EOF'
 # Delete the Kubernetes resource if it exists.
+EOF
+)"
+pe "$(cat <<'EOF'
 kubectl delete job image-signing -n ${NAMESPACE} || echo "ok - no previous job that we need to delete"
+EOF
+)"
+pe "$(cat <<'EOF'
 # Apply the Kubernetes manifest.
+EOF
+)"
+pe "$(cat <<'EOF'
 kubectl apply -f manifest.job.yaml -n ${NAMESPACE}
+EOF
+)"
 
-printf "${VIOLET}"
+printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' 'Wait for completion and stream logs:'
 printf '%s\n' ''
-printf "${RESET}"
+printf "%b" "$RESET"
 
-printf "${ORANGE}"
-printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
-printf '%s\n' 'kubectl wait --for=condition=complete job/image-signing -n ${NAMESPACE} --timeout=300s'
-printf '%s\n' '# Show logs from the Kubernetes workload.'
-printf '%s\n' 'kubectl logs job/image-signing -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps'
-printf "${RESET}"
-
+pe "$(cat <<'EOF'
 # Wait for the Kubernetes resource to reach the expected state.
+EOF
+)"
+pe "$(cat <<'EOF'
 kubectl wait --for=condition=complete job/image-signing -n ${NAMESPACE} --timeout=300s
+EOF
+)"
+pe "$(cat <<'EOF'
 # Show logs from the Kubernetes workload.
+EOF
+)"
+pe "$(cat <<'EOF'
 kubectl logs job/image-signing -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps
+EOF
+)"
 
-printf "${VIOLET}"
+printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' 'Clean up:'
 printf '%s\n' ''
-printf "${RESET}"
+printf "%b" "$RESET"
 
-printf "${ORANGE}"
-printf '%s\n' '# Delete the Kubernetes resource if it exists.'
-printf '%s\n' 'kubectl delete job image-signing -n ${NAMESPACE}'
-printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
-printf '%s\n' 'kubectl wait --for=delete pod -l app=image-signing -n ${NAMESPACE} --timeout=300s'
-printf "${RESET}"
-
+pe "$(cat <<'EOF'
 # Delete the Kubernetes resource if it exists.
+EOF
+)"
+pe "$(cat <<'EOF'
 kubectl delete job image-signing -n ${NAMESPACE}
+EOF
+)"
+pe "$(cat <<'EOF'
 # Wait for the Kubernetes resource to reach the expected state.
+EOF
+)"
+pe "$(cat <<'EOF'
 kubectl wait --for=delete pod -l app=image-signing -n ${NAMESPACE} --timeout=300s
+EOF
+)"
 
-printf "${VIOLET}"
+printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '## 8. Attest SCONE CAS'
 printf '%s\n' ''
 printf '%s\n' 'Before sending encrypted policies to CAS, attest CAS via the Kubernetes API:'
 printf '%s\n' ''
-printf "${RESET}"
+printf "%b" "$RESET"
 
-printf "${ORANGE}"
-printf '%s\n' '# Attest the CAS instance before sending encrypted policies.'
-printf '%s\n' 'kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S || echo "Attestation failed: This is OK if you first attested using *scone cas attest ..."'
-printf "${RESET}"
-
+pe "$(cat <<'EOF'
 # Attest the CAS instance before sending encrypted policies.
+EOF
+)"
+pe "$(cat <<'EOF'
 kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S || echo "Attestation failed: This is OK if you first attested using *scone cas attest ..."
+EOF
+)"
 
-printf "${VIOLET}"
+printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' 'If attestation fails, inspect the command output for detected vulnerabilities and suggested tolerance flags.'
 printf '%s\n' ''
@@ -410,25 +541,13 @@ printf '%s\n' 'then uses `skopeo` to encrypt the layers with the attestation-age
 printf '%s\n' 'Sigstore signature. When `--destination-image` is set the result is pushed directly to'
 printf '%s\n' '`${DESTINATION_IMAGE_NAME}` (no `-encrypted` suffix is added).'
 printf '%s\n' ''
-printf "${RESET}"
+printf "%b" "$RESET"
 
-printf "${ORANGE}"
-printf '%s\n' '# Register, sign, and encrypt the confidential image.'
-printf '%s\n' 'OCICRYPT_KEYPROVIDER_CONFIG=./config/ocicrypt.conf \'
-printf '%s\n' '  scone-td-build register \'
-printf '%s\n' '    --protected-image $IMAGE_NAME \'
-printf '%s\n' '    --unprotected-image rust:latest \'
-printf '%s\n' '    --manifest-env SCONE_PRODUCTION=0 \'
-printf '%s\n' '    -s ./storage.json \'
-printf '%s\n' '    --destination-image ${DESTINATION_IMAGE_NAME} \'
-printf '%s\n' '    --signing-key ./config/image-signing-key.private \'
-printf '%s\n' '    --signing-passphrase-file ./config/empty-passphrase.txt \'
-printf '%s\n' '    --repo-credentials ${REPO_CREDENTIALS} \'
-printf '%s\n' '    --version ${SCONE_RUNTIME_VERSION} \'
-printf '%s\n' '    ${CVM_MODE}'
-printf "${RESET}"
-
+pe "$(cat <<'EOF'
 # Register, sign, and encrypt the confidential image.
+EOF
+)"
+pe "$(cat <<'EOF'
 OCICRYPT_KEYPROVIDER_CONFIG=./config/ocicrypt.conf \
   scone-td-build register \
     --protected-image $IMAGE_NAME \
@@ -441,24 +560,27 @@ OCICRYPT_KEYPROVIDER_CONFIG=./config/ocicrypt.conf \
     --repo-credentials ${REPO_CREDENTIALS} \
     --version ${SCONE_RUNTIME_VERSION} \
     ${CVM_MODE}
+EOF
+)"
 
-printf "${VIOLET}"
+printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '## 10. Verify Image Signature'
 printf '%s\n' ''
 printf '%s\n' 'Inspect the signed and encrypted image to confirm the Sigstore signature is attached:'
 printf '%s\n' ''
-printf "${RESET}"
+printf "%b" "$RESET"
 
-printf "${ORANGE}"
-printf '%s\n' '# Inspect the signed and encrypted image.'
-printf '%s\n' 'skopeo inspect docker://${DESTINATION_IMAGE_NAME}'
-printf "${RESET}"
-
+pe "$(cat <<'EOF'
 # Inspect the signed and encrypted image.
+EOF
+)"
+pe "$(cat <<'EOF'
 skopeo inspect docker://${DESTINATION_IMAGE_NAME}
+EOF
+)"
 
-printf "${VIOLET}"
+printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '## 11. Transform and Deploy the Signed Confidential Application'
 printf '%s\n' ''
@@ -482,29 +604,42 @@ printf '%s\n' '> ```'
 printf '%s\n' ''
 printf '%s\n' '## 12. Uninstall `image-signing`'
 printf '%s\n' ''
-printf "${RESET}"
+printf "%b" "$RESET"
 
-printf "${ORANGE}"
-printf '%s\n' '# Stop the key provider port-forward.'
-printf '%s\n' 'kill ${PORT_FORWARD_PID} 2>/dev/null || true'
-printf '%s\n' '# Delete the key provider.'
-printf '%s\n' 'kubectl delete -f k8s/key-provider.yaml'
-printf '%s\n' '# Delete the Key Broker Service.'
-printf '%s\n' 'kubectl delete -f k8s/kbs.yaml'
-printf '%s\n' '# Return to the previous working directory.'
-printf '%s\n' 'popd'
-printf "${RESET}"
-
+pe "$(cat <<'EOF'
 # Stop the key provider port-forward.
+EOF
+)"
+pe "$(cat <<'EOF'
 kill ${PORT_FORWARD_PID} 2>/dev/null || true
+EOF
+)"
+pe "$(cat <<'EOF'
 # Delete the key provider.
+EOF
+)"
+pe "$(cat <<'EOF'
 kubectl delete -f k8s/key-provider.yaml
+EOF
+)"
+pe "$(cat <<'EOF'
 # Delete the Key Broker Service.
+EOF
+)"
+pe "$(cat <<'EOF'
 kubectl delete -f k8s/kbs.yaml
+EOF
+)"
+pe "$(cat <<'EOF'
 # Return to the previous working directory.
+EOF
+)"
+pe "$(cat <<'EOF'
 popd
+EOF
+)"
 
-printf "${VIOLET}"
+printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '## Automation'
 printf '%s\n' ''
@@ -519,5 +654,5 @@ printf '%s\n' ''
 printf '%s\n' 'This uses values from `image-signing/Values.yaml` and skips interactive prompts. By default, this variable is set to `--force`, which prompts for confirmation of current values.'
 printf '%s\n' ''
 printf '%s\n' 'If you update commands in this document, run `./scripts/extract-all-scripts.sh` to regenerate `./scripts/image-signing.sh`.'
-printf "${RESET}"
+printf "%b" "$RESET"
 
