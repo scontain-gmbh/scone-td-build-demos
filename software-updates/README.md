@@ -49,7 +49,7 @@ Assume you start in `scone-td-build-demos` and switch into this demo directory:
 # Enter `software-updates` and remember the previous directory.
 pushd software-updates
 # Remove generated state files from any previous run.
-rm -f software-updates-demo.json scone.v1.yaml scone.v2.yaml manifest.prod.sanitized.yaml manifest.prod.session.yaml || true
+rm -f software-updates-demo.json scone.v1.yaml scone.v2.yaml k8s/manifest.v1.yaml k8s/manifest.v2.yaml manifest.prod.sanitized.yaml manifest.prod.session.yaml || true
 ```
 
 Set `SIGNER` for policy signing and generate a unique CAS session namespace for this run:
@@ -116,6 +116,8 @@ if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2
 else
   # Print a status message.
   echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
+  # Load registry credentials from the tplenv definition file.
+  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
   # Create the Docker registry pull secret.
   kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
 fi
@@ -132,6 +134,10 @@ Render the Kubernetes deployment manifests and SCONE configurations for both ver
 tplenv --file scone.v1.template.yaml --create-values-file --output scone.v1.yaml --indent
 # Render the Version 2 SCONE configuration.
 tplenv --file scone.v2.template.yaml --create-values-file --output scone.v2.yaml --indent
+# Render the Version 1 Kubernetes manifest.
+tplenv --file k8s/manifest.v1.template.yaml --create-values-file --output k8s/manifest.v1.yaml --indent
+# Render the Version 2 Kubernetes manifest.
+tplenv --file k8s/manifest.v2.template.yaml --create-values-file --output k8s/manifest.v2.yaml --indent
 ```
 
 ---

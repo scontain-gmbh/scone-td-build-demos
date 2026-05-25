@@ -172,7 +172,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-rm -f software-updates-demo.json scone.v1.yaml scone.v2.yaml manifest.prod.sanitized.yaml manifest.prod.session.yaml || true
+rm -f software-updates-demo.json scone.v1.yaml scone.v2.yaml k8s/manifest.v1.yaml k8s/manifest.v2.yaml manifest.prod.sanitized.yaml manifest.prod.session.yaml || true
 EOF
 )"
 
@@ -327,6 +327,14 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
+  # Load registry credentials from the tplenv definition file.
+EOF
+)"
+pe "$(cat <<'EOF'
+  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
+EOF
+)"
+pe "$(cat <<'EOF'
   # Create the Docker registry pull secret.
 EOF
 )"
@@ -363,6 +371,22 @@ EOF
 )"
 pe "$(cat <<'EOF'
 tplenv --file scone.v2.template.yaml --create-values-file --output scone.v2.yaml --indent
+EOF
+)"
+pe "$(cat <<'EOF'
+# Render the Version 1 Kubernetes manifest.
+EOF
+)"
+pe "$(cat <<'EOF'
+tplenv --file k8s/manifest.v1.template.yaml --create-values-file --output k8s/manifest.v1.yaml --indent
+EOF
+)"
+pe "$(cat <<'EOF'
+# Render the Version 2 Kubernetes manifest.
+EOF
+)"
+pe "$(cat <<'EOF'
+tplenv --file k8s/manifest.v2.template.yaml --create-values-file --output k8s/manifest.v2.yaml --indent
 EOF
 )"
 

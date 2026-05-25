@@ -122,13 +122,13 @@ printf "${ORANGE}"
 printf '%s\n' '# Enter `software-updates` and remember the previous directory.'
 printf '%s\n' 'pushd software-updates'
 printf '%s\n' '# Remove generated state files from any previous run.'
-printf '%s\n' 'rm -f software-updates-demo.json scone.v1.yaml scone.v2.yaml manifest.prod.sanitized.yaml manifest.prod.session.yaml || true'
+printf '%s\n' 'rm -f software-updates-demo.json scone.v1.yaml scone.v2.yaml k8s/manifest.v1.yaml k8s/manifest.v2.yaml manifest.prod.sanitized.yaml manifest.prod.session.yaml || true'
 printf "${RESET}"
 
 # Enter `software-updates` and remember the previous directory.
 pushd software-updates
 # Remove generated state files from any previous run.
-rm -f software-updates-demo.json scone.v1.yaml scone.v2.yaml manifest.prod.sanitized.yaml manifest.prod.session.yaml || true
+rm -f software-updates-demo.json scone.v1.yaml scone.v2.yaml k8s/manifest.v1.yaml k8s/manifest.v2.yaml manifest.prod.sanitized.yaml manifest.prod.session.yaml || true
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -236,6 +236,8 @@ printf '%s\n' '  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"'
 printf '%s\n' 'else'
 printf '%s\n' '  # Print a status message.'
 printf '%s\n' '  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."'
+printf '%s\n' '  # Load registry credentials from the tplenv definition file.'
+printf '%s\n' '  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})'
 printf '%s\n' '  # Create the Docker registry pull secret.'
 printf '%s\n' '  kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN'
 printf '%s\n' 'fi'
@@ -248,6 +250,8 @@ if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2
 else
   # Print a status message.
   echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
+  # Load registry credentials from the tplenv definition file.
+  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
   # Create the Docker registry pull secret.
   kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
 fi
@@ -267,12 +271,20 @@ printf '%s\n' '# Render the Version 1 SCONE configuration.'
 printf '%s\n' 'tplenv --file scone.v1.template.yaml --create-values-file --output scone.v1.yaml --indent'
 printf '%s\n' '# Render the Version 2 SCONE configuration.'
 printf '%s\n' 'tplenv --file scone.v2.template.yaml --create-values-file --output scone.v2.yaml --indent'
+printf '%s\n' '# Render the Version 1 Kubernetes manifest.'
+printf '%s\n' 'tplenv --file k8s/manifest.v1.template.yaml --create-values-file --output k8s/manifest.v1.yaml --indent'
+printf '%s\n' '# Render the Version 2 Kubernetes manifest.'
+printf '%s\n' 'tplenv --file k8s/manifest.v2.template.yaml --create-values-file --output k8s/manifest.v2.yaml --indent'
 printf "${RESET}"
 
 # Render the Version 1 SCONE configuration.
 tplenv --file scone.v1.template.yaml --create-values-file --output scone.v1.yaml --indent
 # Render the Version 2 SCONE configuration.
 tplenv --file scone.v2.template.yaml --create-values-file --output scone.v2.yaml --indent
+# Render the Version 1 Kubernetes manifest.
+tplenv --file k8s/manifest.v1.template.yaml --create-values-file --output k8s/manifest.v1.yaml --indent
+# Render the Version 2 Kubernetes manifest.
+tplenv --file k8s/manifest.v2.template.yaml --create-values-file --output k8s/manifest.v2.yaml --indent
 
 printf "${VIOLET}"
 printf '%s\n' ''
