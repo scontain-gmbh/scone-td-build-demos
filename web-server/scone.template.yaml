@@ -4,10 +4,10 @@ metadata:
   name: web-server
 spec:
   source-image: ${IMAGE_NAME}
-  unprotected_image: ${IMAGE_NAME}
-  destination_image: ${DESTINATION_IMAGE_NAME}
-  push_scone_image: true
-  enforce: ["/app/web-server"]
+  reference-image: ${IMAGE_NAME}
+  output-image: ${DESTINATION_IMAGE_NAME}
+  push-image: true
+  protected-binaries: ["/app/web-server"]
   scone-version: ${SCONE_RUNTIME_VERSION}
   tee-type: ${TEE_TYPE}
 ---
@@ -25,10 +25,10 @@ spec:
     - {name: SCONE_SYSLIBS, value: "1"}
     - {name: SCONE_PRODUCTION, value: "0"}
     - {name: SCONE_VERSION, value: "1"}
-  scone-session-env:
+  cas-policy-env:
     - {name: SCONE_VERSION, value: "1"}
   permissive: true
-  spol: true
+  encrypted-cas-policy: true
   tee-type: ${TEE_TYPE}
   scone_enclave: ${SCONE_ENCLAVE}
   scone-version: ${SCONE_RUNTIME_VERSION}

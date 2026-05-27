@@ -4,10 +4,10 @@ metadata:
   name: flask-redis-demo
 spec:
   source-image: redis:7-alpine
-  unprotected_image: redis:7-alpine
-  destination_image: ${IMAGE_NAME}-redis-scone
-  enforce: ["/usr/local/bin/redis-server"]
-  push_scone_image: true
+  reference-image: redis:7-alpine
+  output-image: ${IMAGE_NAME}-redis-scone
+  protected-binaries: ["/usr/local/bin/redis-server"]
+  push-image: true
   tee-type: ${TEE_TYPE}
   scone-version: ${SCONE_RUNTIME_VERSION}
   container-env:
@@ -22,9 +22,9 @@ metadata:
   name: flask-redis-demo
 spec:
   source-image: ${IMAGE_NAME}
-  unprotected_image: ${IMAGE_NAME}
-  enforce: ["/usr/local/bin/python"]
-  push_scone_image: true
+  reference-image: ${IMAGE_NAME}
+  protected-binaries: ["/usr/local/bin/python"]
+  push-image: true
   tee-type: ${TEE_TYPE}
   scone-version: ${SCONE_RUNTIME_VERSION}
   container-env:
@@ -47,7 +47,7 @@ spec:
   output-session: "manifest.prod.session.yaml"
   cas-endpoint:
     address: cas.default
-  scone-session-env:
+  cas-policy-env:
     - {name: SCONE_VERSION, value: "1"}
   container-env:
     - {name: SCONE_VERSION, value: "1"}
@@ -56,7 +56,7 @@ spec:
     - {name: SCONE_HEAP, value: "2G"}
     - {name: SCONE_ALLOW_DLOPEN, value: "2" }
   permissive: true
-  spol: true
+  encrypted-cas-policy: true
   tee-type: ${TEE_TYPE}
   scone_enclave: ${SCONE_ENCLAVE}
   access_policy:

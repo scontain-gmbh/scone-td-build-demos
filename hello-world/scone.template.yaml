@@ -4,9 +4,9 @@ metadata:
   name: hello-world
 spec:
   source-image: ${IMAGE_NAME}
-  unprotected_image: rust:latest
-  destination_image: ${DESTINATION_IMAGE_NAME}
-  push_scone_image: true
+  reference-image: rust:latest
+  output-image: ${DESTINATION_IMAGE_NAME}
+  push-image: true
   container-env:
     - {name: SCONE_PRODUCTION, value: "0"}
   scone-version: ${SCONE_RUNTIME_VERSION}
@@ -26,7 +26,8 @@ spec:
     - {name: SCONE_SYSLIBS, value: "1"}
     - {name: SCONE_PRODUCTION, value: "0"}
     - {name: SCONE_VERSION, value: "1"}
+    - {name: SCONE_HEAP, value: "1G"}
   permissive: true
-  spol: true
+  encrypted-cas-policy: true
   tee-type: ${TEE_TYPE}
   scone_enclave: ${SCONE_ENCLAVE}

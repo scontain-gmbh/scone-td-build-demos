@@ -4,9 +4,9 @@ metadata:
   name: netshield
 spec:
   source-image: ${CLIENT_IMAGE}
-  unprotected_image: ${CLIENT_IMAGE}
-  enforce: ["/usr/local/bin/client-rust"]
-  push_scone_image: true
+  reference-image: ${CLIENT_IMAGE}
+  protected-binaries: ["/usr/local/bin/client-rust"]
+  push-image: true
   tee-type: ${TEE_TYPE}
   scone-version: ${SCONE_RUNTIME_VERSION}
   container-env:
@@ -21,9 +21,9 @@ metadata:
   name: netshield
 spec:
   source-image: ${SERVER_IMAGE}
-  unprotected_image: ${SERVER_IMAGE}
-  enforce: ["/usr/local/bin/server-rust"]
-  push_scone_image: true
+  reference-image: ${SERVER_IMAGE}
+  protected-binaries: ["/usr/local/bin/server-rust"]
+  push-image: true
   tee-type: ${TEE_TYPE}
   scone-version: ${SCONE_RUNTIME_VERSION}
   container-env:
@@ -43,7 +43,7 @@ spec:
   output-session: "${SCRIPT_DIR}/manifest.prod.session.yaml"
   cas-endpoint:
     address: ${CAS_NAME}.${CAS_NAMESPACE}
-  scone-session-env:
+  cas-policy-env:
     - {name: SCONE_VERSION, value: "1"}
   container-env:
     - {name: SCONE_VERSION, value: "1"}
@@ -51,7 +51,7 @@ spec:
     - {name: SCONE_PRODUCTION, value: "0"}
     - {name: SCONE_HEAP, value: "2G"}
   permissive: true
-  spol: true
+  encrypted-cas-policy: true
   tee-type: ${TEE_TYPE}
   scone_enclave: ${SCONE_ENCLAVE}
   access_policy:
