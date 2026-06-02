@@ -416,6 +416,7 @@ printf '%s\n' '  --spol \'
 printf '%s\n' '  --manifest-env SCONE_SYSLIBS=1 \'
 printf '%s\n' '  --manifest-env SCONE_PRODUCTION=0 \'
 printf '%s\n' '  --manifest-env SCONE_VERSION=1 \'
+printf '%s\n' '  --manifest-env SCONE_HEAP=760M \'
 printf '%s\n' '  --session-env SCONE_VERSION=1 \'
 printf '%s\n' '  --output-manifest-file manifest.sanitized.yaml \'
 printf '%s\n' '  --version ${SCONE_RUNTIME_VERSION} -p \'
@@ -431,6 +432,7 @@ scone-td-build apply \
   --manifest-env SCONE_SYSLIBS=1 \
   --manifest-env SCONE_PRODUCTION=0 \
   --manifest-env SCONE_VERSION=1 \
+  --manifest-env SCONE_HEAP=760M \
   --session-env SCONE_VERSION=1 \
   --output-manifest-file manifest.sanitized.yaml \
   --version ${SCONE_RUNTIME_VERSION} -p \
