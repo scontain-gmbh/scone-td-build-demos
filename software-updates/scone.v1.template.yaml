@@ -38,6 +38,7 @@ spec:
     - {name: SCONE_PRODUCTION, value: "0"}
     - {name: SCONE_HEAP, value: "760M"}
     - {name: SCONE_ALLOW_DLOPEN, value: "2"}
+  version: ${SCONE_RUNTIME_VERSION}
   permissive: true
   spol: true
   cvm: ${CVM_MODE}
