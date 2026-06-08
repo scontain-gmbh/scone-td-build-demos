@@ -1,14 +1,15 @@
 ## Add `software-updates` demo
 
-Adds a new example showing how to perform a confidential software update using `scone-td-build`. Two versions of a Python application are built and deployed as Kubernetes Jobs. The demo shows that `API_PASSWORD` is preserved across the update because it lives in the CAS session shared by both versions.
+Adds a new example showing how to perform a confidential software update using `scone-td-build`. Two versions of a Python application are built and deployed as a Kubernetes Deployment. The demo shows that `API_PASSWORD` is preserved across the update because CAS generates it on first session creation via a `SconeSecret` — nobody sets it, and CAS auto-migrates the secret when the session is updated under the same namespace.
 
 ### What's included
 
-- `print_env1.py` / `print_env2.py` — minimal Python scripts that print `API_USER` and an `md5` checksum of `API_PASSWORD`, then exit
+- `print_env1.py` / `print_env2.py` — minimal Python scripts that print `API_USER` and an `md5` checksum of `API_PASSWORD`, running in a loop
 - `Dockerfile` — builds either version via `--build-arg VERSION=1|2`
-- `k8s/manifest.v1.template.yaml` / `k8s/manifest.v2.template.yaml` — Kubernetes `Job` templates for each version
-- `scone.v1.template.yaml` / `scone.v2.template.yaml` — SCONE `Register` + `Apply` CRD templates; both share the same session name so v2 updates the existing CAS session in-place
-- `environment-variables.md` — tplenv variable definitions including `API_USER` and `API_PASSWORD`
+- `k8s/manifest.v1.template.yaml` / `k8s/manifest.v2.template.yaml` — Kubernetes `Deployment` templates for each version; `API_PASSWORD` is injected via `secretKeyRef` from a `SconeSecret`
+- `k8s/scone-secret.yaml` — `SconeSecret` CR that tells CAS to generate `API_PASSWORD`
+- `scone.v1.template.yaml` / `scone.v2.template.yaml` — SCONE `Register` + `Apply` CRD templates; both share the same session namespace so v2 updates the existing CAS session in-place
+- `environment-variables.md` — tplenv variable definitions (`API_USER`, image names, namespace, etc.; no `API_PASSWORD` — CAS generates it)
 - `registry.credentials.md` — registry credential definitions (SIGNER, REGISTRY_USER, REGISTRY_TOKEN kept out of `Values.yaml`)
 - `Values.yaml` — default values following the same structure as other demos (`NAMESPACE: default`, no secrets stored)
 - Entry added to root `README.md`
@@ -18,12 +19,11 @@ Adds a new example showing how to perform a confidential software update using `
 ### Demo flow
 
 1. Build and push native images for both versions
-2. **Part 0 — Native run**: deploy v1 and v2 as plain Jobs to confirm the app works before adding SCONE protection
-3. **Part 1 — SCONE v1**: build the confidential image, create the CAS session, deploy and verify
-4. **Part 2 — Software update**: build the confidential v2 image (updates the existing CAS session), redeploy, and verify the `API_PASSWORD` checksum matches v1
+2. **Part 1 — SCONE v1**: build the confidential image, create the CAS session (CAS generates `API_PASSWORD`), deploy the Deployment and verify
+3. **Part 2 — Software update**: build the confidential v2 image (updates the existing CAS session), redeploy via rolling update, and verify the `API_PASSWORD` checksum matches v1
 
 ### Key design decisions
 
-- Uses Kubernetes `Job` (not `Deployment`) since the app runs once and exits — consistent with other simple demos
-- `API_USER` and `API_PASSWORD` are plain env vars in the manifest; `scone-td-build` encrypts them into the CAS session (`secretKeyRef` is not supported)
-- Both SCONE configs share `metadata.name: software-updates-demo` so the v2 build updates the existing session rather than creating a new one, preserving the secret
+- Uses Kubernetes `Deployment` (not `Job`) since the app runs in a continuous loop — v2 replaces v1 via a rolling update
+- `API_PASSWORD` is CAS-generated via `SconeSecret`; it is injected into the pod through `secretKeyRef` and never appears in any manifest or Kubernetes Secret visible to a cluster administrator
+- Both SCONE configs share `metadata.name: software-updates-demo` so the v2 build updates the existing session rather than creating a new one, and CAS auto-migrates the generated secret to the new session
