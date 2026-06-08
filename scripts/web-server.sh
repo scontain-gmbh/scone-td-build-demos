@@ -359,8 +359,8 @@ printf '%s\n' '# Apply the Kubernetes manifest.'
 printf '%s\n' 'kubectl apply -f manifest.yaml -n ${NAMESPACE}'
 printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
 printf '%s\n' 'kubectl wait --for=condition=Ready pod -l app="web-server" -n ${NAMESPACE} --timeout=240s'
-printf '%s\n' '# Start a local port-forward to the Kubernetes workload.'
-printf '%s\n' 'kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} & echo $! > /tmp/pf-8000.pid'
+printf '%s\n' '# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.'
+printf '%s\n' 'while true; do kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-8000.pid'
 printf '%s\n' ''
 printf '%s\n' '# Retry the wrapped command until it succeeds or reaches the retry limit.'
 printf '%s\n' 'retry-spinner -- curl http://localhost:8000/env/MY_POD_IP'
@@ -382,7 +382,7 @@ kubectl apply -f manifest.yaml -n ${NAMESPACE}
 # Wait for the Kubernetes resource to reach the expected state.
 kubectl wait --for=condition=Ready pod -l app="web-server" -n ${NAMESPACE} --timeout=240s
 # Start a local port-forward to the Kubernetes workload.
-kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} & echo $! > /tmp/pf-8000.pid
+while true; do kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-8000.pid
 
 # Retry the wrapped command until it succeeds or reaches the retry limit.
 retry-spinner -- curl http://localhost:8000/env/MY_POD_IP
@@ -466,8 +466,8 @@ printf '%s\n' 'kubectl wait --for=condition=Ready pod -l app="web-server" -n ${N
 printf '%s\n' '# A ready pod does not always mean the port is immediately available.'
 printf '%s\n' '# Wait briefly for the service to become reachable.'
 printf '%s\n' 'sleep 20'
-printf '%s\n' '# Start a local port-forward to the Kubernetes workload.'
-printf '%s\n' 'kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} & echo $! > /tmp/pf-8000.pid'
+printf '%s\n' '# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.'
+printf '%s\n' 'while true; do kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-8000.pid'
 printf "${RESET}"
 
 # Wait for the Kubernetes resource to reach the expected state.
@@ -476,7 +476,7 @@ kubectl wait --for=condition=Ready pod -l app="web-server" -n ${NAMESPACE} --tim
 # Wait briefly for the service to become reachable.
 sleep 20
 # Start a local port-forward to the Kubernetes workload.
-kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} & echo $! > /tmp/pf-8000.pid
+while true; do kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-8000.pid
 
 printf "${VIOLET}"
 printf '%s\n' ''

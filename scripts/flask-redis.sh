@@ -485,8 +485,8 @@ printf '%s\n' '    | select(any(.status.conditions[]; .type=="Ready" and .status
 printf '%s\n' '    | .metadata.name'\'' | head -n1)'
 printf '%s\n' ''
 printf '%s\n' ''
-printf '%s\n' '# Start a local port-forward to the Kubernetes workload.'
-printf '%s\n' 'kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 & echo $! > /tmp/pf-14996.pid'
+printf '%s\n' '# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.'
+printf '%s\n' 'while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid'
 printf "${RESET}"
 
 # Stop the previous background process if it is still running.
@@ -501,7 +501,7 @@ POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \
 
 
 # Start a local port-forward to the Kubernetes workload.
-kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 & echo $! > /tmp/pf-14996.pid
+while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -755,8 +755,8 @@ printf '%s\n' '    | select(.status.phase=="Running")'
 printf '%s\n' '    | select(any(.status.conditions[]; .type=="Ready" and .status=="True"))'
 printf '%s\n' '    | .metadata.name'\'' | head -n1)'
 printf '%s\n' ''
-printf '%s\n' '# Start a local port-forward to the Kubernetes workload.'
-printf '%s\n' 'kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 & echo $! > /tmp/pf-14996.pid'
+printf '%s\n' '# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.'
+printf '%s\n' 'while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid'
 printf "${RESET}"
 
 # Stop the previous background process if it is still running.
@@ -770,7 +770,7 @@ POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \
     | .metadata.name' | head -n1)
 
 # Start a local port-forward to the Kubernetes workload.
-kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 & echo $! > /tmp/pf-14996.pid
+while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid
 
 printf "${VIOLET}"
 printf '%s\n' ''

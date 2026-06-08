@@ -248,8 +248,8 @@ POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \
     | .metadata.name' | head -n1)
 
 
-# Start a local port-forward to the Kubernetes workload.
-kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 & echo $! > /tmp/pf-14996.pid
+# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.
+while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid
 ```
 
 Then send requests against `https://localhost:14996`:
@@ -396,8 +396,8 @@ POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \
     | select(any(.status.conditions[]; .type=="Ready" and .status=="True"))
     | .metadata.name' | head -n1)
 
-# Start a local port-forward to the Kubernetes workload.
-kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 & echo $! > /tmp/pf-14996.pid
+# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.
+while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid
 ```
 
 Then send requests against `https://localhost:14996`:
