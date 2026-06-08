@@ -114,8 +114,8 @@ kubectl apply -f manifest.job.yaml -n ${NAMESPACE}
 Wait for completion and stream logs:
 
 ```bash
-# Wait for the job to complete or fail; either terminal state unblocks immediately.
-kubectl wait --for=condition=complete --for=condition=failed job/hello-world -n ${NAMESPACE} --timeout=300s
+# Wait for the job to complete; || true lets us reach the failure check even on timeout or failure.
+kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s || true
 # Exit non-zero early if the job failed rather than completed.
 kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.failed}' | grep -q '^[1-9]' && { echo "Job hello-world failed"; exit 1; } || true
 # Show logs from the Kubernetes workload.
@@ -167,8 +167,8 @@ scone-td-build apply -f manifest.job.yaml -c ${CAS_NAME}.${CAS_NAMESPACE} -p -s 
 ```bash
 # Apply the Kubernetes manifest.
 kubectl apply -f manifest.job.sanitized.yaml -n ${NAMESPACE}
-# Wait for the job to complete or fail; either terminal state unblocks immediately.
-kubectl wait --for=condition=complete --for=condition=failed job/hello-world -n ${NAMESPACE} --timeout=300s
+# Wait for the job to complete; || true lets us reach the failure check even on timeout or failure.
+kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s || true
 # Exit non-zero early if the job failed rather than completed.
 kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.failed}' | grep -q '^[1-9]' && { echo "Job hello-world failed"; exit 1; } || true
 # Show logs from the Kubernetes workload.

@@ -258,16 +258,16 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Wait for the job to complete or fail; either terminal state unblocks immediately.'
-printf '%s\n' 'kubectl wait --for=condition=complete --for=condition=failed job/hello-world -n ${NAMESPACE} --timeout=300s'
+printf '%s\n' '# Wait for the job to complete; || true lets us reach the failure check even on timeout or failure.'
+printf '%s\n' 'kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s || true'
 printf '%s\n' '# Exit non-zero early if the job failed rather than completed.'
 printf '%s\n' 'kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='\''{.status.failed}'\'' | grep -q '\''^[1-9]'\'' && { echo "Job hello-world failed"; exit 1; } || true'
 printf '%s\n' '# Show logs from the Kubernetes workload.'
 printf '%s\n' 'kubectl logs job/hello-world -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps'
 printf "${RESET}"
 
-# Wait for the job to complete or fail; either terminal state unblocks immediately.
-kubectl wait --for=condition=complete --for=condition=failed job/hello-world -n ${NAMESPACE} --timeout=300s
+# Wait for the job to complete; || true lets us reach the failure check even on timeout or failure.
+kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s || true
 # Exit non-zero early if the job failed rather than completed.
 kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.failed}' | grep -q '^[1-9]' && { echo "Job hello-world failed"; exit 1; } || true
 # Show logs from the Kubernetes workload.
@@ -352,8 +352,8 @@ printf "${RESET}"
 printf "${ORANGE}"
 printf '%s\n' '# Apply the Kubernetes manifest.'
 printf '%s\n' 'kubectl apply -f manifest.job.sanitized.yaml -n ${NAMESPACE}'
-printf '%s\n' '# Wait for the job to complete or fail; either terminal state unblocks immediately.'
-printf '%s\n' 'kubectl wait --for=condition=complete --for=condition=failed job/hello-world -n ${NAMESPACE} --timeout=300s'
+printf '%s\n' '# Wait for the job to complete; || true lets us reach the failure check even on timeout or failure.'
+printf '%s\n' 'kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s || true'
 printf '%s\n' '# Exit non-zero early if the job failed rather than completed.'
 printf '%s\n' 'kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='\''{.status.failed}'\'' | grep -q '\''^[1-9]'\'' && { echo "Job hello-world failed"; exit 1; } || true'
 printf '%s\n' '# Show logs from the Kubernetes workload.'
@@ -362,8 +362,8 @@ printf "${RESET}"
 
 # Apply the Kubernetes manifest.
 kubectl apply -f manifest.job.sanitized.yaml -n ${NAMESPACE}
-# Wait for the job to complete or fail; either terminal state unblocks immediately.
-kubectl wait --for=condition=complete --for=condition=failed job/hello-world -n ${NAMESPACE} --timeout=300s
+# Wait for the job to complete; || true lets us reach the failure check even on timeout or failure.
+kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s || true
 # Exit non-zero early if the job failed rather than completed.
 kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.failed}' | grep -q '^[1-9]' && { echo "Job hello-world failed"; exit 1; } || true
 # Show logs from the Kubernetes workload.
