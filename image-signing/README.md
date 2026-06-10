@@ -84,10 +84,9 @@ kubectl apply -f k8s/key-provider.yaml
 kubectl wait --for=condition=available deployment/kbs -n trustee --timeout=120s
 # Wait for the key provider to be ready.
 kubectl wait --for=condition=available deployment/keyprovider -n trustee --timeout=120s
-# Kill any existing listener on port 50000 before starting the port-forward.
-lsof -i :50000 -t 2>/dev/null | xargs -r kill 2>/dev/null || true
 # Forward the key provider port to localhost so skopeo can reach it.
-kubectl port-forward -n trustee svc/keyprovider 50000:50000 &
+# Self-restarting loop avoids killing unrelated processes that may already use port 50000.
+while true; do kubectl port-forward -n trustee svc/keyprovider 50000:50000 2>/dev/null; sleep 2; done &
 export PORT_FORWARD_PID=$!
 # Give the port-forward a moment to establish the connection.
 sleep 3
