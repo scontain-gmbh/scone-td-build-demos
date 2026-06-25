@@ -318,11 +318,51 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Wait for the Kubernetes resource to reach the expected state.
+# Wait for the job to reach a terminal state. This kubectl version only honors the
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s
+# last --for flag when it's passed more than once, so race two single-condition
+EOF
+)"
+pe "$(cat <<'EOF'
+# waits instead of relying on one `--for` call to catch both Complete and Failed.
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s &
+EOF
+)"
+pe "$(cat <<'EOF'
+complete_pid=$!
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl wait --for=condition=failed job/hello-world -n ${NAMESPACE} --timeout=300s &
+EOF
+)"
+pe "$(cat <<'EOF'
+failed_pid=$!
+EOF
+)"
+pe "$(cat <<'EOF'
+wait -n "${complete_pid}" "${failed_pid}" || true
+EOF
+)"
+pe "$(cat <<'EOF'
+kill "${complete_pid}" "${failed_pid}" 2>/dev/null || true
+EOF
+)"
+pe "$(cat <<'EOF'
+wait "${complete_pid}" "${failed_pid}" 2>/dev/null || true
+EOF
+)"
+pe "$(cat <<'EOF'
+# Exit non-zero early if the job failed rather than completed.
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.failed}' | grep -q '^[1-9]' && { echo "Job hello-world failed"; exit 1; } || true
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -427,11 +467,51 @@ kubectl apply -f manifest.job.sanitized.yaml -n ${NAMESPACE}
 EOF
 )"
 pe "$(cat <<'EOF'
-# Wait for the Kubernetes resource to reach the expected state.
+# Wait for the job to reach a terminal state. This kubectl version only honors the
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s
+# last --for flag when it's passed more than once, so race two single-condition
+EOF
+)"
+pe "$(cat <<'EOF'
+# waits instead of relying on one `--for` call to catch both Complete and Failed.
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s &
+EOF
+)"
+pe "$(cat <<'EOF'
+complete_pid=$!
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl wait --for=condition=failed job/hello-world -n ${NAMESPACE} --timeout=300s &
+EOF
+)"
+pe "$(cat <<'EOF'
+failed_pid=$!
+EOF
+)"
+pe "$(cat <<'EOF'
+wait -n "${complete_pid}" "${failed_pid}" || true
+EOF
+)"
+pe "$(cat <<'EOF'
+kill "${complete_pid}" "${failed_pid}" 2>/dev/null || true
+EOF
+)"
+pe "$(cat <<'EOF'
+wait "${complete_pid}" "${failed_pid}" 2>/dev/null || true
+EOF
+)"
+pe "$(cat <<'EOF'
+# Exit non-zero early if the job failed rather than completed.
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.failed}' | grep -q '^[1-9]' && { echo "Job hello-world failed"; exit 1; } || true
 EOF
 )"
 pe "$(cat <<'EOF'

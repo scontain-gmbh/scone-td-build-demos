@@ -249,7 +249,7 @@ Send test requests:
 # Retry the wrapped command until it succeeds or reaches the retry limit.
 retry-spinner --retries 40 --wait 10 -- curl http://localhost:8000/path
 # Retry the wrapped command until it succeeds or reaches the retry limit.
-retry-spinner -- curl http://localhost:8000/gen
+retry-spinner --retries 40 --wait 10 -- curl http://localhost:8000/gen
 # Run the demo test script.
 ./test.sh
 ```

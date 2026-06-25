@@ -454,11 +454,11 @@ kubectl wait --for=condition=Ready pod -l app="web-server" -n ${NAMESPACE} --tim
 EOF
 )"
 pe "$(cat <<'EOF'
-# Start a local port-forward to the Kubernetes workload.
+# Start a self-restarting port-forward; the loop recreates it if the pod bounces.
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} & echo $! > /tmp/pf-8000.pid
+while true; do kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-8000.pid
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -591,11 +591,11 @@ sleep 20
 EOF
 )"
 pe "$(cat <<'EOF'
-# Start a local port-forward to the Kubernetes workload.
+# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} & echo $! > /tmp/pf-8000.pid
+while true; do kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-8000.pid
 EOF
 )"
 
@@ -618,7 +618,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-retry-spinner -- curl http://localhost:8000/gen
+retry-spinner --retries 40 --wait 10 -- curl http://localhost:8000/gen
 EOF
 )"
 pe "$(cat <<'EOF'

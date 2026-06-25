@@ -114,8 +114,16 @@ kubectl apply -f manifest.job.yaml -n ${NAMESPACE}
 Wait for completion and stream logs:
 
 ```bash
-# Wait for the job to complete; || true lets us reach the failure check even on timeout or failure.
-kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s || true
+# Wait for the job to reach a terminal state. This kubectl version only honors the
+# last --for flag when it's passed more than once, so race two single-condition
+# waits instead of relying on one `--for` call to catch both Complete and Failed.
+kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s &
+complete_pid=$!
+kubectl wait --for=condition=failed job/hello-world -n ${NAMESPACE} --timeout=300s &
+failed_pid=$!
+wait -n "${complete_pid}" "${failed_pid}" || true
+kill "${complete_pid}" "${failed_pid}" 2>/dev/null || true
+wait "${complete_pid}" "${failed_pid}" 2>/dev/null || true
 # Exit non-zero early if the job failed rather than completed.
 kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.failed}' | grep -q '^[1-9]' && { echo "Job hello-world failed"; exit 1; } || true
 # Show logs from the Kubernetes workload.
@@ -167,8 +175,16 @@ scone-td-build apply -f manifest.job.yaml -c ${CAS_NAME}.${CAS_NAMESPACE} -p -s 
 ```bash
 # Apply the Kubernetes manifest.
 kubectl apply -f manifest.job.sanitized.yaml -n ${NAMESPACE}
-# Wait for the job to complete; || true lets us reach the failure check even on timeout or failure.
-kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s || true
+# Wait for the job to reach a terminal state. This kubectl version only honors the
+# last --for flag when it's passed more than once, so race two single-condition
+# waits instead of relying on one `--for` call to catch both Complete and Failed.
+kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s &
+complete_pid=$!
+kubectl wait --for=condition=failed job/hello-world -n ${NAMESPACE} --timeout=300s &
+failed_pid=$!
+wait -n "${complete_pid}" "${failed_pid}" || true
+kill "${complete_pid}" "${failed_pid}" 2>/dev/null || true
+wait "${complete_pid}" "${failed_pid}" 2>/dev/null || true
 # Exit non-zero early if the job failed rather than completed.
 kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.failed}' | grep -q '^[1-9]' && { echo "Job hello-world failed"; exit 1; } || true
 # Show logs from the Kubernetes workload.

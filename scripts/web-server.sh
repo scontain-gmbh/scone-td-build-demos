@@ -359,7 +359,7 @@ printf '%s\n' '# Apply the Kubernetes manifest.'
 printf '%s\n' 'kubectl apply -f manifest.yaml -n ${NAMESPACE}'
 printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
 printf '%s\n' 'kubectl wait --for=condition=Ready pod -l app="web-server" -n ${NAMESPACE} --timeout=240s'
-printf '%s\n' '# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.'
+printf '%s\n' '# Start a self-restarting port-forward; the loop recreates it if the pod bounces.'
 printf '%s\n' 'while true; do kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-8000.pid'
 printf '%s\n' ''
 printf '%s\n' '# Retry the wrapped command until it succeeds or reaches the retry limit.'
@@ -381,7 +381,7 @@ printf "${RESET}"
 kubectl apply -f manifest.yaml -n ${NAMESPACE}
 # Wait for the Kubernetes resource to reach the expected state.
 kubectl wait --for=condition=Ready pod -l app="web-server" -n ${NAMESPACE} --timeout=240s
-# Start a local port-forward to the Kubernetes workload.
+# Start a self-restarting port-forward; the loop recreates it if the pod bounces.
 while true; do kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-8000.pid
 
 # Retry the wrapped command until it succeeds or reaches the retry limit.
@@ -475,7 +475,7 @@ kubectl wait --for=condition=Ready pod -l app="web-server" -n ${NAMESPACE} --tim
 # A ready pod does not always mean the port is immediately available.
 # Wait briefly for the service to become reachable.
 sleep 20
-# Start a local port-forward to the Kubernetes workload.
+# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.
 while true; do kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-8000.pid
 
 printf "${VIOLET}"
@@ -488,7 +488,7 @@ printf "${ORANGE}"
 printf '%s\n' '# Retry the wrapped command until it succeeds or reaches the retry limit.'
 printf '%s\n' 'retry-spinner --retries 40 --wait 10 -- curl http://localhost:8000/path'
 printf '%s\n' '# Retry the wrapped command until it succeeds or reaches the retry limit.'
-printf '%s\n' 'retry-spinner -- curl http://localhost:8000/gen'
+printf '%s\n' 'retry-spinner --retries 40 --wait 10 -- curl http://localhost:8000/gen'
 printf '%s\n' '# Run the demo test script.'
 printf '%s\n' './test.sh'
 printf "${RESET}"
@@ -496,7 +496,7 @@ printf "${RESET}"
 # Retry the wrapped command until it succeeds or reaches the retry limit.
 retry-spinner --retries 40 --wait 10 -- curl http://localhost:8000/path
 # Retry the wrapped command until it succeeds or reaches the retry limit.
-retry-spinner -- curl http://localhost:8000/gen
+retry-spinner --retries 40 --wait 10 -- curl http://localhost:8000/gen
 # Run the demo test script.
 ./test.sh
 

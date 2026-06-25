@@ -693,11 +693,11 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-# Start a local port-forward to the Kubernetes workload.
+# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 & echo $! > /tmp/pf-14996.pid
+while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid
 EOF
 )"
 
@@ -1089,11 +1089,11 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-# Start a local port-forward to the Kubernetes workload.
+# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 & echo $! > /tmp/pf-14996.pid
+while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid
 EOF
 )"
 
@@ -1112,7 +1112,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/keys
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/keys
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -1128,7 +1128,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk -X POST https://localhost:14996/client/abc123 \
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk -X POST https://localhost:14996/client/abc123 \
   -F fname=John \
   -F lname=Doe \
   -F address="123 Main St" \
@@ -1151,7 +1151,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/client/abc123
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/client/abc123
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -1167,7 +1167,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/score/abc123
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/score/abc123
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -1183,7 +1183,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/memory
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/memory
 EOF
 )"
 

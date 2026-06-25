@@ -500,7 +500,7 @@ POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \
     | .metadata.name' | head -n1)
 
 
-# Start a local port-forward to the Kubernetes workload.
+# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.
 while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid
 
 printf "${VIOLET}"
@@ -769,7 +769,7 @@ POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \
     | select(any(.status.conditions[]; .type=="Ready" and .status=="True"))
     | .metadata.name' | head -n1)
 
-# Start a local port-forward to the Kubernetes workload.
+# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.
 while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid
 
 printf "${VIOLET}"
@@ -781,11 +781,11 @@ printf "${RESET}"
 printf "${ORANGE}"
 printf '%s\n' '# List all stored keys'
 printf '%s\n' '# Request the list of stored keys from the service.'
-printf '%s\n' 'curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/keys'
+printf '%s\n' 'curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/keys'
 printf '%s\n' ''
 printf '%s\n' '# Create a client record'
 printf '%s\n' '# Create a test client record through the API.'
-printf '%s\n' 'curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk -X POST https://localhost:14996/client/abc123 \'
+printf '%s\n' 'curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk -X POST https://localhost:14996/client/abc123 \'
 printf '%s\n' '  -F fname=John \'
 printf '%s\n' '  -F lname=Doe \'
 printf '%s\n' '  -F address="123 Main St" \'
@@ -796,24 +796,24 @@ printf '%s\n' '  -F email="john@example.com"'
 printf '%s\n' ''
 printf '%s\n' '# Retrieve a client'
 printf '%s\n' '# Fetch the stored client record from the API.'
-printf '%s\n' 'curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/client/abc123'
+printf '%s\n' 'curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/client/abc123'
 printf '%s\n' ''
 printf '%s\n' '# Get credit score'
 printf '%s\n' '# Request the credit score for the test client.'
-printf '%s\n' 'curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/score/abc123'
+printf '%s\n' 'curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/score/abc123'
 printf '%s\n' ''
 printf '%s\n' '# Memory dump (debug)'
 printf '%s\n' '# Request the debug memory dump from the API.'
-printf '%s\n' 'curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/memory'
+printf '%s\n' 'curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/memory'
 printf "${RESET}"
 
 # List all stored keys
 # Request the list of stored keys from the service.
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/keys
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/keys
 
 # Create a client record
 # Create a test client record through the API.
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk -X POST https://localhost:14996/client/abc123 \
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk -X POST https://localhost:14996/client/abc123 \
   -F fname=John \
   -F lname=Doe \
   -F address="123 Main St" \
@@ -824,15 +824,15 @@ curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time
 
 # Retrieve a client
 # Fetch the stored client record from the API.
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/client/abc123
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/client/abc123
 
 # Get credit score
 # Request the credit score for the test client.
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/score/abc123
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/score/abc123
 
 # Memory dump (debug)
 # Request the debug memory dump from the API.
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/memory
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/memory
 
 printf "${VIOLET}"
 printf '%s\n' ''
