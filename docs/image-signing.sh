@@ -262,19 +262,15 @@ kubectl wait --for=condition=available deployment/keyprovider -n trustee --timeo
 EOF
 )"
 pe "$(cat <<'EOF'
-# Kill any existing listener on port 50000 before starting the port-forward.
-EOF
-)"
-pe "$(cat <<'EOF'
-lsof -i :50000 -t 2>/dev/null | xargs -r kill 2>/dev/null || true
-EOF
-)"
-pe "$(cat <<'EOF'
 # Forward the key provider port to localhost so skopeo can reach it.
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl port-forward -n trustee svc/keyprovider 50000:50000 &
+# Self-restarting loop avoids killing unrelated processes that may already use port 50000.
+EOF
+)"
+pe "$(cat <<'EOF'
+while true; do kubectl port-forward -n trustee svc/keyprovider 50000:50000 2>/dev/null; sleep 2; done &
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -319,11 +315,19 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
+# Uses a demo-specific file rather than `default.yaml`, since `registries.d` merges
+EOF
+)"
+pe "$(cat <<'EOF'
+# every file in the directory; this avoids overwriting any existing registry config.
+EOF
+)"
+pe "$(cat <<'EOF'
 mkdir -p ~/.config/containers/registries.d
 EOF
 )"
 pe "$(cat <<'EOF'
-cat <<EOF > ~/.config/containers/registries.d/default.yaml
+cat <<EOF > ~/.config/containers/registries.d/image-signing-demo.yaml
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -619,15 +623,37 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl delete -f k8s/key-provider.yaml
+kubectl delete -f k8s/key-provider.yaml --ignore-not-found
 EOF
 )"
 pe "$(cat <<'EOF'
-# Delete the Key Broker Service.
+# Delete only the Key Broker Service resources, not the `trustee` namespace itself:
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl delete -f k8s/kbs.yaml
+# other workloads (CoCo/KBS, other demos) may already share that namespace.
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl delete -n trustee --ignore-not-found \
+  deployment/kbs \
+  service/kbs \
+  configmap/kbs-config \
+  configmap/kbs-policy \
+  configmap/dcap-attestation-conf \
+  secret/kbs-admin-public-key
+EOF
+)"
+pe "$(cat <<'EOF'
+# Remove the sigstore-attachments config this demo added; it's a separate file in
+EOF
+)"
+pe "$(cat <<'EOF'
+# registries.d, so this never touches any other registries.d configuration.
+EOF
+)"
+pe "$(cat <<'EOF'
+rm -f ~/.config/containers/registries.d/image-signing-demo.yaml
 EOF
 )"
 pe "$(cat <<'EOF'

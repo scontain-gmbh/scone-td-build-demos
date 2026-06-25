@@ -189,10 +189,9 @@ printf '%s\n' '# Wait for KBS to be ready.'
 printf '%s\n' 'kubectl wait --for=condition=available deployment/kbs -n trustee --timeout=120s'
 printf '%s\n' '# Wait for the key provider to be ready.'
 printf '%s\n' 'kubectl wait --for=condition=available deployment/keyprovider -n trustee --timeout=120s'
-printf '%s\n' '# Kill any existing listener on port 50000 before starting the port-forward.'
-printf '%s\n' 'lsof -i :50000 -t 2>/dev/null | xargs -r kill 2>/dev/null || true'
 printf '%s\n' '# Forward the key provider port to localhost so skopeo can reach it.'
-printf '%s\n' 'kubectl port-forward -n trustee svc/keyprovider 50000:50000 &'
+printf '%s\n' '# Self-restarting loop avoids killing unrelated processes that may already use port 50000.'
+printf '%s\n' 'while true; do kubectl port-forward -n trustee svc/keyprovider 50000:50000 2>/dev/null; sleep 2; done &'
 printf '%s\n' 'export PORT_FORWARD_PID=$!'
 printf '%s\n' '# Give the port-forward a moment to establish the connection.'
 printf '%s\n' 'sleep 3'
@@ -206,10 +205,9 @@ kubectl apply -f k8s/key-provider.yaml
 kubectl wait --for=condition=available deployment/kbs -n trustee --timeout=120s
 # Wait for the key provider to be ready.
 kubectl wait --for=condition=available deployment/keyprovider -n trustee --timeout=120s
-# Kill any existing listener on port 50000 before starting the port-forward.
-lsof -i :50000 -t 2>/dev/null | xargs -r kill 2>/dev/null || true
 # Forward the key provider port to localhost so skopeo can reach it.
-kubectl port-forward -n trustee svc/keyprovider 50000:50000 &
+# Self-restarting loop avoids killing unrelated processes that may already use port 50000.
+while true; do kubectl port-forward -n trustee svc/keyprovider 50000:50000 2>/dev/null; sleep 2; done &
 export PORT_FORWARD_PID=$!
 # Give the port-forward a moment to establish the connection.
 sleep 3
@@ -239,8 +237,10 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Configure sigstore attachments for the registry (user-level, no sudo required).'
+printf '%s\n' '# Uses a demo-specific file rather than `default.yaml`, since `registries.d` merges'
+printf '%s\n' '# every file in the directory; this avoids overwriting any existing registry config.'
 printf '%s\n' 'mkdir -p ~/.config/containers/registries.d'
-printf '%s\n' 'cat <<EOF > ~/.config/containers/registries.d/default.yaml'
+printf '%s\n' 'cat <<EOF > ~/.config/containers/registries.d/image-signing-demo.yaml'
 printf '%s\n' 'docker:'
 printf '%s\n' '    ${REGISTRY}:'
 printf '%s\n' '        use-sigstore-attachments: true'
@@ -248,8 +248,10 @@ printf '%s\n' 'EOF'
 printf "${RESET}"
 
 # Configure sigstore attachments for the registry (user-level, no sudo required).
+# Uses a demo-specific file rather than `default.yaml`, since `registries.d` merges
+# every file in the directory; this avoids overwriting any existing registry config.
 mkdir -p ~/.config/containers/registries.d
-cat <<EOF > ~/.config/containers/registries.d/default.yaml
+cat <<EOF > ~/.config/containers/registries.d/image-signing-demo.yaml
 docker:
     ${REGISTRY}:
         use-sigstore-attachments: true
@@ -488,9 +490,19 @@ printf "${ORANGE}"
 printf '%s\n' '# Stop the key provider port-forward.'
 printf '%s\n' 'kill ${PORT_FORWARD_PID} 2>/dev/null || true'
 printf '%s\n' '# Delete the key provider.'
-printf '%s\n' 'kubectl delete -f k8s/key-provider.yaml'
-printf '%s\n' '# Delete the Key Broker Service.'
-printf '%s\n' 'kubectl delete -f k8s/kbs.yaml'
+printf '%s\n' 'kubectl delete -f k8s/key-provider.yaml --ignore-not-found'
+printf '%s\n' '# Delete only the Key Broker Service resources, not the `trustee` namespace itself:'
+printf '%s\n' '# other workloads (CoCo/KBS, other demos) may already share that namespace.'
+printf '%s\n' 'kubectl delete -n trustee --ignore-not-found \'
+printf '%s\n' '  deployment/kbs \'
+printf '%s\n' '  service/kbs \'
+printf '%s\n' '  configmap/kbs-config \'
+printf '%s\n' '  configmap/kbs-policy \'
+printf '%s\n' '  configmap/dcap-attestation-conf \'
+printf '%s\n' '  secret/kbs-admin-public-key'
+printf '%s\n' '# Remove the sigstore-attachments config this demo added; it'\''s a separate file in'
+printf '%s\n' '# registries.d, so this never touches any other registries.d configuration.'
+printf '%s\n' 'rm -f ~/.config/containers/registries.d/image-signing-demo.yaml'
 printf '%s\n' '# Return to the previous working directory.'
 printf '%s\n' 'popd'
 printf "${RESET}"
@@ -498,9 +510,19 @@ printf "${RESET}"
 # Stop the key provider port-forward.
 kill ${PORT_FORWARD_PID} 2>/dev/null || true
 # Delete the key provider.
-kubectl delete -f k8s/key-provider.yaml
-# Delete the Key Broker Service.
-kubectl delete -f k8s/kbs.yaml
+kubectl delete -f k8s/key-provider.yaml --ignore-not-found
+# Delete only the Key Broker Service resources, not the `trustee` namespace itself:
+# other workloads (CoCo/KBS, other demos) may already share that namespace.
+kubectl delete -n trustee --ignore-not-found \
+  deployment/kbs \
+  service/kbs \
+  configmap/kbs-config \
+  configmap/kbs-policy \
+  configmap/dcap-attestation-conf \
+  secret/kbs-admin-public-key
+# Remove the sigstore-attachments config this demo added; it's a separate file in
+# registries.d, so this never touches any other registries.d configuration.
+rm -f ~/.config/containers/registries.d/image-signing-demo.yaml
 # Return to the previous working directory.
 popd
 

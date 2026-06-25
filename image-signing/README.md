@@ -106,8 +106,10 @@ Configure the registry to store signatures as sigstore OCI attachments:
 
 ```bash
 # Configure sigstore attachments for the registry (user-level, no sudo required).
+# Uses a demo-specific file rather than `default.yaml`, since `registries.d` merges
+# every file in the directory; this avoids overwriting any existing registry config.
 mkdir -p ~/.config/containers/registries.d
-cat <<EOF > ~/.config/containers/registries.d/default.yaml
+cat <<EOF > ~/.config/containers/registries.d/image-signing-demo.yaml
 docker:
     ${REGISTRY}:
         use-sigstore-attachments: true
@@ -251,9 +253,19 @@ skopeo inspect docker://${DESTINATION_IMAGE_NAME}
 # Stop the key provider port-forward.
 kill ${PORT_FORWARD_PID} 2>/dev/null || true
 # Delete the key provider.
-kubectl delete -f k8s/key-provider.yaml
-# Delete the Key Broker Service.
-kubectl delete -f k8s/kbs.yaml
+kubectl delete -f k8s/key-provider.yaml --ignore-not-found
+# Delete only the Key Broker Service resources, not the `trustee` namespace itself:
+# other workloads (CoCo/KBS, other demos) may already share that namespace.
+kubectl delete -n trustee --ignore-not-found \
+  deployment/kbs \
+  service/kbs \
+  configmap/kbs-config \
+  configmap/kbs-policy \
+  configmap/dcap-attestation-conf \
+  secret/kbs-admin-public-key
+# Remove the sigstore-attachments config this demo added; it's a separate file in
+# registries.d, so this never touches any other registries.d configuration.
+rm -f ~/.config/containers/registries.d/image-signing-demo.yaml
 # Return to the previous working directory.
 popd
 ```
