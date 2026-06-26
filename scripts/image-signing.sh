@@ -389,17 +389,23 @@ printf "${VIOLET}"
 printf '%s\n' ''
 printf '%s\n' '## 8. Attest SCONE CAS'
 printf '%s\n' ''
-printf '%s\n' 'Before sending encrypted policies to CAS, attest CAS via the Kubernetes API:'
+printf '%s\n' 'Before sending encrypted policies to CAS, attest CAS via the Kubernetes API. The kubectl path'
+printf '%s\n' 'covers in-cluster CAS; if it fails (typical when `${CAS_NAME}.${CAS_NAMESPACE}` resolves to an'
+printf '%s\n' 'external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.'
 printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Attest the CAS instance before sending encrypted policies.'
-printf '%s\n' 'kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S || echo "Attestation failed: This is OK if you first attested using *scone cas attest ..."'
+printf '%s\n' 'kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S \'
+printf '%s\n' '    || scone cas attest ${CAS_NAME}.${CAS_NAMESPACE} -C -G -S \'
+printf '%s\n' '        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any'
 printf "${RESET}"
 
 # Attest the CAS instance before sending encrypted policies.
-kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S || echo "Attestation failed: This is OK if you first attested using *scone cas attest ..."
+kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S \
+    || scone cas attest ${CAS_NAME}.${CAS_NAMESPACE} -C -G -S \
+        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -411,6 +417,10 @@ printf '%s\n' 'The `--signing-key` flag activates the encrypted-image flow: `sco
 printf '%s\n' 'then uses `skopeo` to encrypt the layers with the attestation-agent key provider and embed a'
 printf '%s\n' 'Sigstore signature. When `--destination-image` is set the result is pushed directly to'
 printf '%s\n' '`${DESTINATION_IMAGE_NAME}` (no `-encrypted` suffix is added).'
+printf '%s\n' ''
+printf '%s\n' '`${REPO_CREDENTIALS}` defaults to `${HOME}/.docker/config.json` in `Values.yaml`, and `tplenv`'
+printf '%s\n' 'exports it as a literal, single-quoted string, so `$HOME` is never expanded by the shell on its'
+printf '%s\n' 'own. `$(eval echo ${REPO_CREDENTIALS})` forces that expansion before it reaches `register`.'
 printf '%s\n' ''
 printf "${RESET}"
 
@@ -425,7 +435,7 @@ printf '%s\n' '    -s ./storage.json \'
 printf '%s\n' '    --destination-image ${DESTINATION_IMAGE_NAME} \'
 printf '%s\n' '    --signing-key ./config/image-signing-key.private \'
 printf '%s\n' '    --signing-passphrase-file ./config/empty-passphrase.txt \'
-printf '%s\n' '    --repo-credentials ${REPO_CREDENTIALS} \'
+printf '%s\n' '    --repo-credentials "$(eval echo ${REPO_CREDENTIALS})" \'
 printf '%s\n' '    --version ${SCONE_RUNTIME_VERSION} \'
 printf '%s\n' '    ${CVM_MODE}'
 printf "${RESET}"
@@ -440,7 +450,7 @@ OCICRYPT_KEYPROVIDER_CONFIG=./config/ocicrypt.conf \
     --destination-image ${DESTINATION_IMAGE_NAME} \
     --signing-key ./config/image-signing-key.private \
     --signing-passphrase-file ./config/empty-passphrase.txt \
-    --repo-credentials ${REPO_CREDENTIALS} \
+    --repo-credentials "$(eval echo ${REPO_CREDENTIALS})" \
     --version ${SCONE_RUNTIME_VERSION} \
     ${CVM_MODE}
 

@@ -186,11 +186,15 @@ kubectl wait --for=delete pod -l app=image-signing -n ${NAMESPACE} --timeout=300
 
 ## 8. Attest SCONE CAS
 
-Before sending encrypted policies to CAS, attest CAS via the Kubernetes API:
+Before sending encrypted policies to CAS, attest CAS via the Kubernetes API. The kubectl path
+covers in-cluster CAS; if it fails (typical when `${CAS_NAME}.${CAS_NAMESPACE}` resolves to an
+external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.
 
 ```bash
 # Attest the CAS instance before sending encrypted policies.
-kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S || echo "Attestation failed: This is OK if you first attested using *scone cas attest ..."
+kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S \
+    || scone cas attest ${CAS_NAME}.${CAS_NAMESPACE} -C -G -S \
+        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 ```
 
 If attestation fails, inspect the command output for detected vulnerabilities and suggested tolerance flags.
@@ -201,6 +205,10 @@ The `--signing-key` flag activates the encrypted-image flow: `scone-td-build` sc
 then uses `skopeo` to encrypt the layers with the attestation-agent key provider and embed a
 Sigstore signature. When `--destination-image` is set the result is pushed directly to
 `${DESTINATION_IMAGE_NAME}` (no `-encrypted` suffix is added).
+
+`${REPO_CREDENTIALS}` defaults to `${HOME}/.docker/config.json` in `Values.yaml`, and `tplenv`
+exports it as a literal, single-quoted string, so `$HOME` is never expanded by the shell on its
+own. `$(eval echo ${REPO_CREDENTIALS})` forces that expansion before it reaches `register`.
 
 ```bash
 # Register, sign, and encrypt the confidential image.
@@ -213,7 +221,7 @@ OCICRYPT_KEYPROVIDER_CONFIG=./config/ocicrypt.conf \
     --destination-image ${DESTINATION_IMAGE_NAME} \
     --signing-key ./config/image-signing-key.private \
     --signing-passphrase-file ./config/empty-passphrase.txt \
-    --repo-credentials ${REPO_CREDENTIALS} \
+    --repo-credentials "$(eval echo ${REPO_CREDENTIALS})" \
     --version ${SCONE_RUNTIME_VERSION} \
     ${CVM_MODE}
 ```
