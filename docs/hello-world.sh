@@ -318,43 +318,87 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Wait for the job to reach a terminal state. This kubectl version only honors the
+# Poll for a terminal state instead of `kubectl wait`: this kubectl version only
 EOF
 )"
 pe "$(cat <<'EOF'
-# last --for flag when it's passed more than once, so race two single-condition
+# honors the last --for flag when given more than once, so it can't watch for
 EOF
 )"
 pe "$(cat <<'EOF'
-# waits instead of relying on one `--for` call to catch both Complete and Failed.
+# both Complete and Failed in one call. Polling also lets us fail fast on the
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s &
+# first failed attempt rather than waiting through the full backoffLimit for
 EOF
 )"
 pe "$(cat <<'EOF'
-complete_pid=$!
+# the formal Failed condition, and `wait -n` (used in an earlier version of
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl wait --for=condition=failed job/hello-world -n ${NAMESPACE} --timeout=300s &
+# this check) isn't portable to bash 3.2 or zsh.
 EOF
 )"
 pe "$(cat <<'EOF'
-failed_pid=$!
+deadline=$((SECONDS + 300))
 EOF
 )"
 pe "$(cat <<'EOF'
-wait -n "${complete_pid}" "${failed_pid}" || true
+terminal=""
 EOF
 )"
 pe "$(cat <<'EOF'
-kill "${complete_pid}" "${failed_pid}" 2>/dev/null || true
+while [[ $SECONDS -lt $deadline ]]; do
 EOF
 )"
 pe "$(cat <<'EOF'
-wait "${complete_pid}" "${failed_pid}" 2>/dev/null || true
+  complete=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null)
+EOF
+)"
+pe "$(cat <<'EOF'
+  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.failed}' 2>/dev/null)
+EOF
+)"
+pe "$(cat <<'EOF'
+  if [[ "$complete" == "True" ]] || [[ "${failed:-0}" -ge 1 ]]; then
+EOF
+)"
+pe "$(cat <<'EOF'
+    terminal=1
+EOF
+)"
+pe "$(cat <<'EOF'
+    break
+EOF
+)"
+pe "$(cat <<'EOF'
+  fi
+EOF
+)"
+pe "$(cat <<'EOF'
+  sleep 2
+EOF
+)"
+pe "$(cat <<'EOF'
+done
+EOF
+)"
+pe "$(cat <<'EOF'
+if [[ -z "$terminal" ]]; then
+EOF
+)"
+pe "$(cat <<'EOF'
+  echo "Timed out waiting for job/hello-world to complete or fail" >&2
+EOF
+)"
+pe "$(cat <<'EOF'
+  exit 1
+EOF
+)"
+pe "$(cat <<'EOF'
+fi
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -467,43 +511,87 @@ kubectl apply -f manifest.job.sanitized.yaml -n ${NAMESPACE}
 EOF
 )"
 pe "$(cat <<'EOF'
-# Wait for the job to reach a terminal state. This kubectl version only honors the
+# Poll for a terminal state instead of `kubectl wait`: this kubectl version only
 EOF
 )"
 pe "$(cat <<'EOF'
-# last --for flag when it's passed more than once, so race two single-condition
+# honors the last --for flag when given more than once, so it can't watch for
 EOF
 )"
 pe "$(cat <<'EOF'
-# waits instead of relying on one `--for` call to catch both Complete and Failed.
+# both Complete and Failed in one call. Polling also lets us fail fast on the
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s &
+# first failed attempt rather than waiting through the full backoffLimit for
 EOF
 )"
 pe "$(cat <<'EOF'
-complete_pid=$!
+# the formal Failed condition, and `wait -n` (used in an earlier version of
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl wait --for=condition=failed job/hello-world -n ${NAMESPACE} --timeout=300s &
+# this check) isn't portable to bash 3.2 or zsh.
 EOF
 )"
 pe "$(cat <<'EOF'
-failed_pid=$!
+deadline=$((SECONDS + 300))
 EOF
 )"
 pe "$(cat <<'EOF'
-wait -n "${complete_pid}" "${failed_pid}" || true
+terminal=""
 EOF
 )"
 pe "$(cat <<'EOF'
-kill "${complete_pid}" "${failed_pid}" 2>/dev/null || true
+while [[ $SECONDS -lt $deadline ]]; do
 EOF
 )"
 pe "$(cat <<'EOF'
-wait "${complete_pid}" "${failed_pid}" 2>/dev/null || true
+  complete=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null)
+EOF
+)"
+pe "$(cat <<'EOF'
+  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.failed}' 2>/dev/null)
+EOF
+)"
+pe "$(cat <<'EOF'
+  if [[ "$complete" == "True" ]] || [[ "${failed:-0}" -ge 1 ]]; then
+EOF
+)"
+pe "$(cat <<'EOF'
+    terminal=1
+EOF
+)"
+pe "$(cat <<'EOF'
+    break
+EOF
+)"
+pe "$(cat <<'EOF'
+  fi
+EOF
+)"
+pe "$(cat <<'EOF'
+  sleep 2
+EOF
+)"
+pe "$(cat <<'EOF'
+done
+EOF
+)"
+pe "$(cat <<'EOF'
+if [[ -z "$terminal" ]]; then
+EOF
+)"
+pe "$(cat <<'EOF'
+  echo "Timed out waiting for job/hello-world to complete or fail" >&2
+EOF
+)"
+pe "$(cat <<'EOF'
+  exit 1
+EOF
+)"
+pe "$(cat <<'EOF'
+fi
 EOF
 )"
 pe "$(cat <<'EOF'

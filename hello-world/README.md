@@ -114,16 +114,27 @@ kubectl apply -f manifest.job.yaml -n ${NAMESPACE}
 Wait for completion and stream logs:
 
 ```bash
-# Wait for the job to reach a terminal state. This kubectl version only honors the
-# last --for flag when it's passed more than once, so race two single-condition
-# waits instead of relying on one `--for` call to catch both Complete and Failed.
-kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s &
-complete_pid=$!
-kubectl wait --for=condition=failed job/hello-world -n ${NAMESPACE} --timeout=300s &
-failed_pid=$!
-wait -n "${complete_pid}" "${failed_pid}" || true
-kill "${complete_pid}" "${failed_pid}" 2>/dev/null || true
-wait "${complete_pid}" "${failed_pid}" 2>/dev/null || true
+# Poll for a terminal state instead of `kubectl wait`: this kubectl version only
+# honors the last --for flag when given more than once, so it can't watch for
+# both Complete and Failed in one call. Polling also lets us fail fast on the
+# first failed attempt rather than waiting through the full backoffLimit for
+# the formal Failed condition, and `wait -n` (used in an earlier version of
+# this check) isn't portable to bash 3.2 or zsh.
+deadline=$((SECONDS + 300))
+terminal=""
+while [[ $SECONDS -lt $deadline ]]; do
+  complete=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null)
+  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.failed}' 2>/dev/null)
+  if [[ "$complete" == "True" ]] || [[ "${failed:-0}" -ge 1 ]]; then
+    terminal=1
+    break
+  fi
+  sleep 2
+done
+if [[ -z "$terminal" ]]; then
+  echo "Timed out waiting for job/hello-world to complete or fail" >&2
+  exit 1
+fi
 # Exit non-zero early if the job failed rather than completed.
 kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.failed}' | grep -q '^[1-9]' && { echo "Job hello-world failed"; exit 1; } || true
 # Show logs from the Kubernetes workload.
@@ -175,16 +186,27 @@ scone-td-build apply -f manifest.job.yaml -c ${CAS_NAME}.${CAS_NAMESPACE} -p -s 
 ```bash
 # Apply the Kubernetes manifest.
 kubectl apply -f manifest.job.sanitized.yaml -n ${NAMESPACE}
-# Wait for the job to reach a terminal state. This kubectl version only honors the
-# last --for flag when it's passed more than once, so race two single-condition
-# waits instead of relying on one `--for` call to catch both Complete and Failed.
-kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s &
-complete_pid=$!
-kubectl wait --for=condition=failed job/hello-world -n ${NAMESPACE} --timeout=300s &
-failed_pid=$!
-wait -n "${complete_pid}" "${failed_pid}" || true
-kill "${complete_pid}" "${failed_pid}" 2>/dev/null || true
-wait "${complete_pid}" "${failed_pid}" 2>/dev/null || true
+# Poll for a terminal state instead of `kubectl wait`: this kubectl version only
+# honors the last --for flag when given more than once, so it can't watch for
+# both Complete and Failed in one call. Polling also lets us fail fast on the
+# first failed attempt rather than waiting through the full backoffLimit for
+# the formal Failed condition, and `wait -n` (used in an earlier version of
+# this check) isn't portable to bash 3.2 or zsh.
+deadline=$((SECONDS + 300))
+terminal=""
+while [[ $SECONDS -lt $deadline ]]; do
+  complete=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null)
+  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.failed}' 2>/dev/null)
+  if [[ "$complete" == "True" ]] || [[ "${failed:-0}" -ge 1 ]]; then
+    terminal=1
+    break
+  fi
+  sleep 2
+done
+if [[ -z "$terminal" ]]; then
+  echo "Timed out waiting for job/hello-world to complete or fail" >&2
+  exit 1
+fi
 # Exit non-zero early if the job failed rather than completed.
 kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.failed}' | grep -q '^[1-9]' && { echo "Job hello-world failed"; exit 1; } || true
 # Show logs from the Kubernetes workload.
