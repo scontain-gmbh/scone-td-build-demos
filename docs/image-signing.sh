@@ -128,7 +128,8 @@ printf '%s\n' '- A Kubernetes cluster with SGX or CVM support'
 printf '%s\n' '- The Kubernetes command-line tool (`kubectl`)'
 printf '%s\n' '- Rust `cargo` (`curl --proto '\''=https'\'' --tlsv1.2 -sSf https://sh.rustup.rs | sh`)'
 printf '%s\n' '- `tplenv` (`cargo install tplenv`) and `retry-spinner` (`cargo install retry-spinner`)'
-printf '%s\n' '- `skopeo` for image inspection and signature verification'
+printf '%s\n' '- `skopeo` for image inspection and signing'
+printf '%s\n' '- [`cosign`](https://docs.sigstore.dev/cosign/system_config/installation/) to cryptographically verify the image signature'
 printf '%s\n' '- `openssl` for signing key generation'
 printf '%s\n' ''
 printf '%s\n' 'Follow the [Setup environment](https://github.com/scontain/scone) guide to install the required tools:'
@@ -551,10 +552,33 @@ printf '%s\n' '`${DESTINATION_IMAGE_NAME}` (no `-encrypted` suffix is added).'
 printf '%s\n' ''
 printf '%s\n' '`${REPO_CREDENTIALS}` defaults to `${HOME}/.docker/config.json` in `Values.yaml`, and `tplenv`'
 printf '%s\n' 'exports it as a literal, single-quoted string, so `$HOME` is never expanded by the shell on its'
-printf '%s\n' 'own. `$(eval echo ${REPO_CREDENTIALS})` forces that expansion before it reaches `register`.'
+printf '%s\n' 'own. Expanding it with `eval` would work too, but it treats the whole path as shell code, so a'
+printf '%s\n' 'path containing shell metacharacters (parentheses, semicolons, `$(...)`, etc.) either breaks or,'
+printf '%s\n' 'worse, gets executed. The substitution below only ever replaces a literal `${HOME}` or `~` prefix'
+printf '%s\n' 'with the real value of `$HOME`, so the rest of the path is never interpreted as code:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
+pe "$(cat <<'EOF'
+# Expand a literal ${HOME} or ~ prefix in REPO_CREDENTIALS without treating the rest of the
+EOF
+)"
+pe "$(cat <<'EOF'
+# path as shell code (a path with parentheses or other shell metacharacters must still work).
+EOF
+)"
+pe "$(cat <<'EOF'
+repo_credentials="${REPO_CREDENTIALS}"
+EOF
+)"
+pe "$(cat <<'EOF'
+repo_credentials="${repo_credentials/#\$\{HOME\}/$HOME}"
+EOF
+)"
+pe "$(cat <<'EOF'
+repo_credentials="${repo_credentials/#\~/$HOME}"
+EOF
+)"
 pe "$(cat <<'EOF'
 # Register, sign, and encrypt the confidential image.
 EOF
@@ -569,7 +593,7 @@ OCICRYPT_KEYPROVIDER_CONFIG=./config/ocicrypt.conf \
     --destination-image ${DESTINATION_IMAGE_NAME} \
     --signing-key ./config/image-signing-key.private \
     --signing-passphrase-file ./config/empty-passphrase.txt \
-    --repo-credentials "$(eval echo ${REPO_CREDENTIALS})" \
+    --repo-credentials "${repo_credentials}" \
     --version ${SCONE_RUNTIME_VERSION} \
     ${CVM_MODE}
 EOF
@@ -579,16 +603,31 @@ printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '## 10. Verify Image Signature'
 printf '%s\n' ''
-printf '%s\n' 'Inspect the signed and encrypted image to confirm the Sigstore signature is attached:'
+printf '%s\n' '`skopeo inspect` only reports image metadata, it never checks a signature against a key, so on'
+printf '%s\n' 'its own it cannot prove the image was actually signed with `./config/image-signing-key.private`'
+printf '%s\n' 'from Step 4. `cosign verify` (compatible with `skopeo`'\''s sigstore signatures) does the actual'
+printf '%s\n' 'cryptographic check against the matching public key:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Inspect the signed and encrypted image.
+# Inspect the signed and encrypted image (metadata only, does not verify anything).
 EOF
 )"
 pe "$(cat <<'EOF'
 skopeo inspect docker://${DESTINATION_IMAGE_NAME}
+EOF
+)"
+pe "$(cat <<'EOF'
+# Cryptographically verify the image was signed with our private key. --insecure-ignore-tlog is
+EOF
+)"
+pe "$(cat <<'EOF'
+# required because this key pair signs offline and never uploads to the public transparency log.
+EOF
+)"
+pe "$(cat <<'EOF'
+cosign verify --key ./config/image-signing-key.pub --insecure-ignore-tlog ${DESTINATION_IMAGE_NAME}
 EOF
 )"
 

@@ -14,7 +14,8 @@ registry.
 - The Kubernetes command-line tool (`kubectl`)
 - Rust `cargo` (`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`)
 - `tplenv` (`cargo install tplenv`) and `retry-spinner` (`cargo install retry-spinner`)
-- `skopeo` for image inspection and signature verification
+- `skopeo` for image inspection and signing
+- [`cosign`](https://docs.sigstore.dev/cosign/system_config/installation/) to cryptographically verify the image signature
 - `openssl` for signing key generation
 
 Follow the [Setup environment](https://github.com/scontain/scone) guide to install the required tools:
@@ -208,9 +209,17 @@ Sigstore signature. When `--destination-image` is set the result is pushed direc
 
 `${REPO_CREDENTIALS}` defaults to `${HOME}/.docker/config.json` in `Values.yaml`, and `tplenv`
 exports it as a literal, single-quoted string, so `$HOME` is never expanded by the shell on its
-own. `$(eval echo ${REPO_CREDENTIALS})` forces that expansion before it reaches `register`.
+own. Expanding it with `eval` would work too, but it treats the whole path as shell code, so a
+path containing shell metacharacters (parentheses, semicolons, `$(...)`, etc.) either breaks or,
+worse, gets executed. The substitution below only ever replaces a literal `${HOME}` or `~` prefix
+with the real value of `$HOME`, so the rest of the path is never interpreted as code:
 
 ```bash
+# Expand a literal ${HOME} or ~ prefix in REPO_CREDENTIALS without treating the rest of the
+# path as shell code (a path with parentheses or other shell metacharacters must still work).
+repo_credentials="${REPO_CREDENTIALS}"
+repo_credentials="${repo_credentials/#\$\{HOME\}/$HOME}"
+repo_credentials="${repo_credentials/#\~/$HOME}"
 # Register, sign, and encrypt the confidential image.
 OCICRYPT_KEYPROVIDER_CONFIG=./config/ocicrypt.conf \
   scone-td-build register \
@@ -221,18 +230,24 @@ OCICRYPT_KEYPROVIDER_CONFIG=./config/ocicrypt.conf \
     --destination-image ${DESTINATION_IMAGE_NAME} \
     --signing-key ./config/image-signing-key.private \
     --signing-passphrase-file ./config/empty-passphrase.txt \
-    --repo-credentials "$(eval echo ${REPO_CREDENTIALS})" \
+    --repo-credentials "${repo_credentials}" \
     --version ${SCONE_RUNTIME_VERSION} \
     ${CVM_MODE}
 ```
 
 ## 10. Verify Image Signature
 
-Inspect the signed and encrypted image to confirm the Sigstore signature is attached:
+`skopeo inspect` only reports image metadata, it never checks a signature against a key, so on
+its own it cannot prove the image was actually signed with `./config/image-signing-key.private`
+from Step 4. `cosign verify` (compatible with `skopeo`'s sigstore signatures) does the actual
+cryptographic check against the matching public key:
 
 ```bash
-# Inspect the signed and encrypted image.
+# Inspect the signed and encrypted image (metadata only, does not verify anything).
 skopeo inspect docker://${DESTINATION_IMAGE_NAME}
+# Cryptographically verify the image was signed with our private key. --insecure-ignore-tlog is
+# required because this key pair signs offline and never uploads to the public transparency log.
+cosign verify --key ./config/image-signing-key.pub --insecure-ignore-tlog ${DESTINATION_IMAGE_NAME}
 ```
 
 ## 11. Transform and Deploy the Signed Confidential Application
