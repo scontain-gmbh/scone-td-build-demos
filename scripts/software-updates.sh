@@ -132,23 +132,31 @@ rm -f software-updates-demo.json scone.v1.yaml scone.v2.yaml k8s/manifest.v1.yam
 
 printf "${VIOLET}"
 printf '%s\n' ''
-printf '%s\n' 'Set `SIGNER` for policy signing and generate a unique CAS session namespace for this run:'
+printf '%s\n' 'Set `SIGNER` for policy signing and the CAS session namespace shared by both v1 and v2 builds:'
 printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Export the required environment variable for the next steps.'
 printf '%s\n' 'export SIGNER="$(scone self show-session-signing-key)"'
-printf '%s\n' '# Generate a unique session namespace shared by both v1 and v2 builds.'
-printf '%s\n' 'export SESSION_NAMESPACE="software-update-$(openssl rand -hex 4)"'
+printf '%s\n' '# Fixed on purpose: CAS sessions are append-only (there'\''s no delete operation in the'
+printf '%s\n' '# CLI), so a fresh random namespace on every run would leave a new, never-cleaned-up'
+printf '%s\n' '# session behind each time. Reusing the same name means a rerun updates the existing'
+printf '%s\n' '# session in place (the same mechanism Part 2'\''s v1 -> v2 update already relies on)'
+printf '%s\n' '# instead of accumulating one per run.'
+printf '%s\n' 'export SESSION_NAMESPACE="software-update-demo"'
 printf '%s\n' '# Print a status message.'
 printf '%s\n' 'echo "SESSION_NAMESPACE=${SESSION_NAMESPACE}"'
 printf "${RESET}"
 
 # Export the required environment variable for the next steps.
 export SIGNER="$(scone self show-session-signing-key)"
-# Generate a unique session namespace shared by both v1 and v2 builds.
-export SESSION_NAMESPACE="software-update-$(openssl rand -hex 4)"
+# Fixed on purpose: CAS sessions are append-only (there's no delete operation in the
+# CLI), so a fresh random namespace on every run would leave a new, never-cleaned-up
+# session behind each time. Reusing the same name means a rerun updates the existing
+# session in place (the same mechanism Part 2's v1 -> v2 update already relies on)
+# instead of accumulating one per run.
+export SESSION_NAMESPACE="software-update-demo"
 # Print a status message.
 echo "SESSION_NAMESPACE=${SESSION_NAMESPACE}"
 
@@ -373,12 +381,30 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Show the most recent logs and note the API_PASSWORD checksum.'
-printf '%s\n' 'retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} deployment/python-hello-user --tail=10'
+printf '%s\n' '# Show the most recent logs and capture the Version 1 API_PASSWORD checksum, so Step 12'
+printf '%s\n' '# can check it against Version 2'\''s automatically instead of relying on a human comparing'
+printf '%s\n' '# two printed checksums by eye.'
+printf '%s\n' 'v1_log=$(retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} deployment/python-hello-user)'
+printf '%s\n' 'echo "$v1_log" | tail -10'
+printf '%s\n' 'v1_checksum=$(echo "$v1_log" | grep -m1 "checksum of the original API_PASSWORD" | grep -oE "'\''[^'\'']+'\''" | tr -d "'\''")'
+printf '%s\n' 'if [ -z "$v1_checksum" ]; then'
+printf '%s\n' '  echo "Could not find the Version 1 API_PASSWORD checksum in the logs" >&2'
+printf '%s\n' '  exit 1'
+printf '%s\n' 'fi'
+printf '%s\n' 'echo "Version 1 API_PASSWORD checksum: ${v1_checksum}"'
 printf "${RESET}"
 
-# Show the most recent logs and note the API_PASSWORD checksum.
-retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} deployment/python-hello-user --tail=10
+# Show the most recent logs and capture the Version 1 API_PASSWORD checksum, so Step 12
+# can check it against Version 2's automatically instead of relying on a human comparing
+# two printed checksums by eye.
+v1_log=$(retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} deployment/python-hello-user)
+echo "$v1_log" | tail -10
+v1_checksum=$(echo "$v1_log" | grep -m1 "checksum of the original API_PASSWORD" | grep -oE "'[^']+'" | tr -d "'")
+if [ -z "$v1_checksum" ]; then
+  echo "Could not find the Version 1 API_PASSWORD checksum in the logs" >&2
+  exit 1
+fi
+echo "Version 1 API_PASSWORD checksum: ${v1_checksum}"
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -389,8 +415,6 @@ printf '%s\n' 'The checksum of the original API_PASSWORD is '\''<checksum>'\'''
 printf '%s\n' 'Hello, user '\''myself'\''!'
 printf '%s\n' 'The checksum of the current password is '\''<checksum>'\'''
 printf '%s\n' 'Running Version 1. Update by applying the v2 confidential manifest.'
-printf '%s\n' ''
-printf '%s\n' 'Note the checksum — it must match after the software update.'
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
@@ -443,12 +467,40 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Show the most recent logs from Version 2.'
-printf '%s\n' 'retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} deployment/python-hello-user --tail=10'
+printf '%s\n' '# Show the most recent logs from Version 2 and check its API_PASSWORD checksum against'
+printf '%s\n' '# Version 1'\''s captured in Step 9. This is the actual cross-version check: each program'
+printf '%s\n' '# only ever compares against its own startup value, so without this the demo would pass'
+printf '%s\n' '# even if CAS had regenerated API_PASSWORD during the update.'
+printf '%s\n' 'v2_log=$(retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} deployment/python-hello-user)'
+printf '%s\n' 'echo "$v2_log" | tail -10'
+printf '%s\n' 'v2_checksum=$(echo "$v2_log" | grep -m1 "checksum of the original API_PASSWORD" | grep -oE "'\''[^'\'']+'\''" | tr -d "'\''")'
+printf '%s\n' 'if [ -z "$v2_checksum" ]; then'
+printf '%s\n' '  echo "Could not find the Version 2 API_PASSWORD checksum in the logs" >&2'
+printf '%s\n' '  exit 1'
+printf '%s\n' 'fi'
+printf '%s\n' 'if [ "$v2_checksum" != "$v1_checksum" ]; then'
+printf '%s\n' '  echo "API_PASSWORD checksum changed across the update: Version 1 was '\''${v1_checksum}'\'', Version 2 is '\''${v2_checksum}'\''" >&2'
+printf '%s\n' '  exit 1'
+printf '%s\n' 'fi'
+printf '%s\n' 'echo "API_PASSWORD checksum verified unchanged across the update: ${v2_checksum}"'
 printf "${RESET}"
 
-# Show the most recent logs from Version 2.
-retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} deployment/python-hello-user --tail=10
+# Show the most recent logs from Version 2 and check its API_PASSWORD checksum against
+# Version 1's captured in Step 9. This is the actual cross-version check: each program
+# only ever compares against its own startup value, so without this the demo would pass
+# even if CAS had regenerated API_PASSWORD during the update.
+v2_log=$(retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} deployment/python-hello-user)
+echo "$v2_log" | tail -10
+v2_checksum=$(echo "$v2_log" | grep -m1 "checksum of the original API_PASSWORD" | grep -oE "'[^']+'" | tr -d "'")
+if [ -z "$v2_checksum" ]; then
+  echo "Could not find the Version 2 API_PASSWORD checksum in the logs" >&2
+  exit 1
+fi
+if [ "$v2_checksum" != "$v1_checksum" ]; then
+  echo "API_PASSWORD checksum changed across the update: Version 1 was '${v1_checksum}', Version 2 is '${v2_checksum}'" >&2
+  exit 1
+fi
+echo "API_PASSWORD checksum verified unchanged across the update: ${v2_checksum}"
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -460,13 +512,13 @@ printf '%s\n' 'Hello, user '\''myself'\''!'
 printf '%s\n' 'The checksum of the current password is '\''<checksum>'\'''
 printf '%s\n' 'Running Version 2.'
 printf '%s\n' ''
-printf '%s\n' 'The **checksum must match** the one printed by Version 1, confirming that `API_PASSWORD` was generated by CAS once and preserved across the software update.'
+printf '%s\n' 'The script above already verified the checksum matches the one captured from Version 1, confirming that `API_PASSWORD` was generated by CAS once and preserved across the software update.'
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## Cleanup'
 printf '%s\n' ''
-printf '%s\n' 'Remove all deployed resources when you are finished:'
+printf '%s\n' 'Remove the deployed Kubernetes resources when you are finished:'
 printf '%s\n' ''
 printf "${RESET}"
 
@@ -481,4 +533,14 @@ printf "${RESET}"
 kubectl delete deployment python-hello-user --namespace ${NAMESPACE} --ignore-not-found
 # Return to the previous working directory.
 popd
+
+printf "${VIOLET}"
+printf '%s\n' ''
+printf '%s\n' 'This does not, and cannot, delete the CAS-side session under `${SESSION_NAMESPACE}`: CAS'
+printf '%s\n' 'sessions are append-only and the `scone` CLI has no session-delete operation, by design,'
+printf '%s\n' 'so the audit trail of every update stays intact. Since `${SESSION_NAMESPACE}` is fixed'
+printf '%s\n' '(see Step 1), re-running this demo later updates that same session in place instead of'
+printf '%s\n' 'leaving a new one behind, so there'\''s no unbounded buildup of sessions or generated'
+printf '%s\n' '`API_PASSWORD` values across runs.'
+printf "${RESET}"
 
