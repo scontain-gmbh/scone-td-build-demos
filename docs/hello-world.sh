@@ -326,19 +326,27 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-# both Complete and Failed in one call. Polling also lets us fail fast on the
+# both Complete and Failed in one call, and `wait -n` (used in an earlier
 EOF
 )"
 pe "$(cat <<'EOF'
-# first failed attempt rather than waiting through the full backoffLimit for
+# version of this check) isn't portable to bash 3.2 or zsh. The Job is
 EOF
 )"
 pe "$(cat <<'EOF'
-# the formal Failed condition, and `wait -n` (used in an earlier version of
+# configured with backoffLimit: 4 and restartPolicy: OnFailure, so we wait for
 EOF
 )"
 pe "$(cat <<'EOF'
-# this check) isn't portable to bash 3.2 or zsh.
+# the Failed *condition* (set only once retries are exhausted), not
+EOF
+)"
+pe "$(cat <<'EOF'
+# .status.failed (a per-attempt retry counter that can tick up while the Job
+EOF
+)"
+pe "$(cat <<'EOF'
+# is still retrying and will go on to succeed).
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -358,11 +366,11 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.failed}' 2>/dev/null)
+  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null)
 EOF
 )"
 pe "$(cat <<'EOF'
-  if [[ "$complete" == "True" ]] || [[ "${failed:-0}" -ge 1 ]]; then
+  if [[ "$complete" == "True" ]] || [[ "$failed" == "True" ]]; then
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -406,7 +414,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.failed}' | grep -q '^[1-9]' && { echo "Job hello-world failed"; exit 1; } || true
+kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' | grep -q '^True$' && { echo "Job hello-world failed"; exit 1; } || true
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -519,19 +527,27 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-# both Complete and Failed in one call. Polling also lets us fail fast on the
+# both Complete and Failed in one call, and `wait -n` (used in an earlier
 EOF
 )"
 pe "$(cat <<'EOF'
-# first failed attempt rather than waiting through the full backoffLimit for
+# version of this check) isn't portable to bash 3.2 or zsh. The Job is
 EOF
 )"
 pe "$(cat <<'EOF'
-# the formal Failed condition, and `wait -n` (used in an earlier version of
+# configured with backoffLimit: 4 and restartPolicy: OnFailure, so we wait for
 EOF
 )"
 pe "$(cat <<'EOF'
-# this check) isn't portable to bash 3.2 or zsh.
+# the Failed *condition* (set only once retries are exhausted), not
+EOF
+)"
+pe "$(cat <<'EOF'
+# .status.failed (a per-attempt retry counter that can tick up while the Job
+EOF
+)"
+pe "$(cat <<'EOF'
+# is still retrying and will go on to succeed).
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -551,11 +567,11 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.failed}' 2>/dev/null)
+  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null)
 EOF
 )"
 pe "$(cat <<'EOF'
-  if [[ "$complete" == "True" ]] || [[ "${failed:-0}" -ge 1 ]]; then
+  if [[ "$complete" == "True" ]] || [[ "$failed" == "True" ]]; then
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -599,7 +615,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.failed}' | grep -q '^[1-9]' && { echo "Job hello-world failed"; exit 1; } || true
+kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' | grep -q '^True$' && { echo "Job hello-world failed"; exit 1; } || true
 EOF
 )"
 pe "$(cat <<'EOF'

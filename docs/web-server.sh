@@ -423,11 +423,11 @@ kubectl wait --for=delete pod -l app=web-server -n ${NAMESPACE} --timeout=240s |
 EOF
 )"
 pe "$(cat <<'EOF'
-# Stop the previous background process if it is still running.
+# Stop the previous background process (and its current port-forward child) if still running.
 EOF
 )"
 pe "$(cat <<'EOF'
-kill $(cat /tmp/pf-8000.pid) || true
+kill -- -"$(cat /tmp/pf-8000.pid)" 2>/dev/null || true
 EOF
 )"
 
@@ -458,7 +458,27 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
+# `set -m` puts it in its own process group so cleanup can kill the wrapper and
+EOF
+)"
+pe "$(cat <<'EOF'
+# its currently running `kubectl port-forward` child together: killing only the
+EOF
+)"
+pe "$(cat <<'EOF'
+# wrapper's PID leaves that child running and the port still bound.
+EOF
+)"
+pe "$(cat <<'EOF'
+set -m
+EOF
+)"
+pe "$(cat <<'EOF'
 while true; do kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-8000.pid
+EOF
+)"
+pe "$(cat <<'EOF'
+set +m
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -502,11 +522,11 @@ kubectl wait --for=delete pod -l app=web-server -n ${NAMESPACE} --timeout=240s
 EOF
 )"
 pe "$(cat <<'EOF'
-# Stop the previous background process if it is still running.
+# Stop the previous background process (and its current port-forward child) if still running.
 EOF
 )"
 pe "$(cat <<'EOF'
-kill $(cat /tmp/pf-8000.pid) || true
+kill -- -"$(cat /tmp/pf-8000.pid)" 2>/dev/null || true
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -595,7 +615,27 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
+# `set -m` puts it in its own process group so cleanup can kill the wrapper and
+EOF
+)"
+pe "$(cat <<'EOF'
+# its currently running `kubectl port-forward` child together: killing only the
+EOF
+)"
+pe "$(cat <<'EOF'
+# wrapper's PID leaves that child running and the port still bound.
+EOF
+)"
+pe "$(cat <<'EOF'
+set -m
+EOF
+)"
+pe "$(cat <<'EOF'
 while true; do kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-8000.pid
+EOF
+)"
+pe "$(cat <<'EOF'
+set +m
 EOF
 )"
 
@@ -645,11 +685,11 @@ kubectl delete -f manifest.sanitized.yaml -n ${NAMESPACE}
 EOF
 )"
 pe "$(cat <<'EOF'
-# Stop the previous background process if it is still running.
+# Stop the previous background process (and its current port-forward child) if still running.
 EOF
 )"
 pe "$(cat <<'EOF'
-kill $(cat /tmp/pf-8000.pid) || true
+kill -- -"$(cat /tmp/pf-8000.pid)" 2>/dev/null || true
 EOF
 )"
 pe "$(cat <<'EOF'

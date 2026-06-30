@@ -237,8 +237,8 @@ kubectl logs -n ${NAMESPACE} -l app=redis --tail=20
 Open a port-forward to the Flask API pod:
 
 ```bash
-# Stop the previous background process if it is still running.
-kill $(cat /tmp/pf-14996.pid 2> /dev/null) 2> /dev/null || true
+# Stop the previous background process (and its current port-forward child) if still running.
+kill -- -"$(cat /tmp/pf-14996.pid 2> /dev/null)" 2> /dev/null || true
 # Capture the name of a ready pod for port-forwarding.
 POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \
  | jq -r '.items[]
@@ -249,7 +249,12 @@ POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \
 
 
 # Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.
+# `set -m` puts it in its own process group so cleanup can kill the wrapper and
+# its currently running `kubectl port-forward` child together: killing only the
+# wrapper's PID leaves that child running and the port still bound.
+set -m
 while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid
+set +m
 ```
 
 Then send requests against `https://localhost:14996`:
@@ -386,8 +391,8 @@ kubectl logs -n ${NAMESPACE} -l app=redis --tail=20
 Open a port-forward to the confidential Flask API pod:
 
 ```bash
-# Stop the previous background process if it is still running.
-kill $(cat /tmp/pf-14996.pid 2> /dev/null) 2> /dev/null || true
+# Stop the previous background process (and its current port-forward child) if still running.
+kill -- -"$(cat /tmp/pf-14996.pid 2> /dev/null)" 2> /dev/null || true
 # Capture the name of a ready pod for port-forwarding.
 POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \
  | jq -r '.items[]
@@ -397,7 +402,12 @@ POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \
     | .metadata.name' | head -n1)
 
 # Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.
+# `set -m` puts it in its own process group so cleanup can kill the wrapper and
+# its currently running `kubectl port-forward` child together: killing only the
+# wrapper's PID leaves that child running and the port still bound.
+set -m
 while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid
+set +m
 ```
 
 Then send requests against `https://localhost:14996`:
@@ -441,8 +451,8 @@ Remove all deployed resources when you are finished:
 
 ```bash
 # Stop the port-forward
-# Stop the previous background process if it is still running.
-kill $(cat /tmp/pf-14996.pid) 2> /dev/null || true
+# Stop the previous background process (and its current port-forward child) if still running.
+kill -- -"$(cat /tmp/pf-14996.pid)" 2> /dev/null || true
 # Remove `/tmp/pf-14996.pid` if it exists.
 rm /tmp/pf-14996.pid
 

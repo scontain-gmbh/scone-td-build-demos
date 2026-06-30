@@ -260,16 +260,18 @@ printf "${RESET}"
 printf "${ORANGE}"
 printf '%s\n' '# Poll for a terminal state instead of `kubectl wait`: this kubectl version only'
 printf '%s\n' '# honors the last --for flag when given more than once, so it can'\''t watch for'
-printf '%s\n' '# both Complete and Failed in one call. Polling also lets us fail fast on the'
-printf '%s\n' '# first failed attempt rather than waiting through the full backoffLimit for'
-printf '%s\n' '# the formal Failed condition, and `wait -n` (used in an earlier version of'
-printf '%s\n' '# this check) isn'\''t portable to bash 3.2 or zsh.'
+printf '%s\n' '# both Complete and Failed in one call, and `wait -n` (used in an earlier'
+printf '%s\n' '# version of this check) isn'\''t portable to bash 3.2 or zsh. The Job is'
+printf '%s\n' '# configured with backoffLimit: 4 and restartPolicy: OnFailure, so we wait for'
+printf '%s\n' '# the Failed *condition* (set only once retries are exhausted), not'
+printf '%s\n' '# .status.failed (a per-attempt retry counter that can tick up while the Job'
+printf '%s\n' '# is still retrying and will go on to succeed).'
 printf '%s\n' 'deadline=$((SECONDS + 300))'
 printf '%s\n' 'terminal=""'
 printf '%s\n' 'while [[ $SECONDS -lt $deadline ]]; do'
 printf '%s\n' '  complete=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='\''{.status.conditions[?(@.type=="Complete")].status}'\'' 2>/dev/null)'
-printf '%s\n' '  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='\''{.status.failed}'\'' 2>/dev/null)'
-printf '%s\n' '  if [[ "$complete" == "True" ]] || [[ "${failed:-0}" -ge 1 ]]; then'
+printf '%s\n' '  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='\''{.status.conditions[?(@.type=="Failed")].status}'\'' 2>/dev/null)'
+printf '%s\n' '  if [[ "$complete" == "True" ]] || [[ "$failed" == "True" ]]; then'
 printf '%s\n' '    terminal=1'
 printf '%s\n' '    break'
 printf '%s\n' '  fi'
@@ -280,23 +282,25 @@ printf '%s\n' '  echo "Timed out waiting for job/hello-world to complete or fail
 printf '%s\n' '  exit 1'
 printf '%s\n' 'fi'
 printf '%s\n' '# Exit non-zero early if the job failed rather than completed.'
-printf '%s\n' 'kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='\''{.status.failed}'\'' | grep -q '\''^[1-9]'\'' && { echo "Job hello-world failed"; exit 1; } || true'
+printf '%s\n' 'kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='\''{.status.conditions[?(@.type=="Failed")].status}'\'' | grep -q '\''^True$'\'' && { echo "Job hello-world failed"; exit 1; } || true'
 printf '%s\n' '# Show logs from the Kubernetes workload.'
 printf '%s\n' 'kubectl logs job/hello-world -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps'
 printf "${RESET}"
 
 # Poll for a terminal state instead of `kubectl wait`: this kubectl version only
 # honors the last --for flag when given more than once, so it can't watch for
-# both Complete and Failed in one call. Polling also lets us fail fast on the
-# first failed attempt rather than waiting through the full backoffLimit for
-# the formal Failed condition, and `wait -n` (used in an earlier version of
-# this check) isn't portable to bash 3.2 or zsh.
+# both Complete and Failed in one call, and `wait -n` (used in an earlier
+# version of this check) isn't portable to bash 3.2 or zsh. The Job is
+# configured with backoffLimit: 4 and restartPolicy: OnFailure, so we wait for
+# the Failed *condition* (set only once retries are exhausted), not
+# .status.failed (a per-attempt retry counter that can tick up while the Job
+# is still retrying and will go on to succeed).
 deadline=$((SECONDS + 300))
 terminal=""
 while [[ $SECONDS -lt $deadline ]]; do
   complete=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null)
-  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.failed}' 2>/dev/null)
-  if [[ "$complete" == "True" ]] || [[ "${failed:-0}" -ge 1 ]]; then
+  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null)
+  if [[ "$complete" == "True" ]] || [[ "$failed" == "True" ]]; then
     terminal=1
     break
   fi
@@ -307,7 +311,7 @@ if [[ -z "$terminal" ]]; then
   exit 1
 fi
 # Exit non-zero early if the job failed rather than completed.
-kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.failed}' | grep -q '^[1-9]' && { echo "Job hello-world failed"; exit 1; } || true
+kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' | grep -q '^True$' && { echo "Job hello-world failed"; exit 1; } || true
 # Show logs from the Kubernetes workload.
 kubectl logs job/hello-world -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps
 
@@ -392,16 +396,18 @@ printf '%s\n' '# Apply the Kubernetes manifest.'
 printf '%s\n' 'kubectl apply -f manifest.job.sanitized.yaml -n ${NAMESPACE}'
 printf '%s\n' '# Poll for a terminal state instead of `kubectl wait`: this kubectl version only'
 printf '%s\n' '# honors the last --for flag when given more than once, so it can'\''t watch for'
-printf '%s\n' '# both Complete and Failed in one call. Polling also lets us fail fast on the'
-printf '%s\n' '# first failed attempt rather than waiting through the full backoffLimit for'
-printf '%s\n' '# the formal Failed condition, and `wait -n` (used in an earlier version of'
-printf '%s\n' '# this check) isn'\''t portable to bash 3.2 or zsh.'
+printf '%s\n' '# both Complete and Failed in one call, and `wait -n` (used in an earlier'
+printf '%s\n' '# version of this check) isn'\''t portable to bash 3.2 or zsh. The Job is'
+printf '%s\n' '# configured with backoffLimit: 4 and restartPolicy: OnFailure, so we wait for'
+printf '%s\n' '# the Failed *condition* (set only once retries are exhausted), not'
+printf '%s\n' '# .status.failed (a per-attempt retry counter that can tick up while the Job'
+printf '%s\n' '# is still retrying and will go on to succeed).'
 printf '%s\n' 'deadline=$((SECONDS + 300))'
 printf '%s\n' 'terminal=""'
 printf '%s\n' 'while [[ $SECONDS -lt $deadline ]]; do'
 printf '%s\n' '  complete=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='\''{.status.conditions[?(@.type=="Complete")].status}'\'' 2>/dev/null)'
-printf '%s\n' '  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='\''{.status.failed}'\'' 2>/dev/null)'
-printf '%s\n' '  if [[ "$complete" == "True" ]] || [[ "${failed:-0}" -ge 1 ]]; then'
+printf '%s\n' '  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='\''{.status.conditions[?(@.type=="Failed")].status}'\'' 2>/dev/null)'
+printf '%s\n' '  if [[ "$complete" == "True" ]] || [[ "$failed" == "True" ]]; then'
 printf '%s\n' '    terminal=1'
 printf '%s\n' '    break'
 printf '%s\n' '  fi'
@@ -412,7 +418,7 @@ printf '%s\n' '  echo "Timed out waiting for job/hello-world to complete or fail
 printf '%s\n' '  exit 1'
 printf '%s\n' 'fi'
 printf '%s\n' '# Exit non-zero early if the job failed rather than completed.'
-printf '%s\n' 'kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='\''{.status.failed}'\'' | grep -q '\''^[1-9]'\'' && { echo "Job hello-world failed"; exit 1; } || true'
+printf '%s\n' 'kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='\''{.status.conditions[?(@.type=="Failed")].status}'\'' | grep -q '\''^True$'\'' && { echo "Job hello-world failed"; exit 1; } || true'
 printf '%s\n' '# Show logs from the Kubernetes workload.'
 printf '%s\n' 'kubectl logs job/hello-world -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps'
 printf "${RESET}"
@@ -421,16 +427,18 @@ printf "${RESET}"
 kubectl apply -f manifest.job.sanitized.yaml -n ${NAMESPACE}
 # Poll for a terminal state instead of `kubectl wait`: this kubectl version only
 # honors the last --for flag when given more than once, so it can't watch for
-# both Complete and Failed in one call. Polling also lets us fail fast on the
-# first failed attempt rather than waiting through the full backoffLimit for
-# the formal Failed condition, and `wait -n` (used in an earlier version of
-# this check) isn't portable to bash 3.2 or zsh.
+# both Complete and Failed in one call, and `wait -n` (used in an earlier
+# version of this check) isn't portable to bash 3.2 or zsh. The Job is
+# configured with backoffLimit: 4 and restartPolicy: OnFailure, so we wait for
+# the Failed *condition* (set only once retries are exhausted), not
+# .status.failed (a per-attempt retry counter that can tick up while the Job
+# is still retrying and will go on to succeed).
 deadline=$((SECONDS + 300))
 terminal=""
 while [[ $SECONDS -lt $deadline ]]; do
   complete=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null)
-  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.failed}' 2>/dev/null)
-  if [[ "$complete" == "True" ]] || [[ "${failed:-0}" -ge 1 ]]; then
+  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null)
+  if [[ "$complete" == "True" ]] || [[ "$failed" == "True" ]]; then
     terminal=1
     break
   fi
@@ -441,7 +449,7 @@ if [[ -z "$terminal" ]]; then
   exit 1
 fi
 # Exit non-zero early if the job failed rather than completed.
-kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.failed}' | grep -q '^[1-9]' && { echo "Job hello-world failed"; exit 1; } || true
+kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' | grep -q '^True$' && { echo "Job hello-world failed"; exit 1; } || true
 # Show logs from the Kubernetes workload.
 kubectl logs job/hello-world -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps
 

@@ -474,8 +474,8 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Stop the previous background process if it is still running.'
-printf '%s\n' 'kill $(cat /tmp/pf-14996.pid 2> /dev/null) 2> /dev/null || true'
+printf '%s\n' '# Stop the previous background process (and its current port-forward child) if still running.'
+printf '%s\n' 'kill -- -"$(cat /tmp/pf-14996.pid 2> /dev/null)" 2> /dev/null || true'
 printf '%s\n' '# Capture the name of a ready pod for port-forwarding.'
 printf '%s\n' 'POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \'
 printf '%s\n' ' | jq -r '\''.items[]'
@@ -486,11 +486,16 @@ printf '%s\n' '    | .metadata.name'\'' | head -n1)'
 printf '%s\n' ''
 printf '%s\n' ''
 printf '%s\n' '# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.'
+printf '%s\n' '# `set -m` puts it in its own process group so cleanup can kill the wrapper and'
+printf '%s\n' '# its currently running `kubectl port-forward` child together: killing only the'
+printf '%s\n' '# wrapper'\''s PID leaves that child running and the port still bound.'
+printf '%s\n' 'set -m'
 printf '%s\n' 'while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid'
+printf '%s\n' 'set +m'
 printf "${RESET}"
 
-# Stop the previous background process if it is still running.
-kill $(cat /tmp/pf-14996.pid 2> /dev/null) 2> /dev/null || true
+# Stop the previous background process (and its current port-forward child) if still running.
+kill -- -"$(cat /tmp/pf-14996.pid 2> /dev/null)" 2> /dev/null || true
 # Capture the name of a ready pod for port-forwarding.
 POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \
  | jq -r '.items[]
@@ -501,7 +506,12 @@ POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \
 
 
 # Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.
+# `set -m` puts it in its own process group so cleanup can kill the wrapper and
+# its currently running `kubectl port-forward` child together: killing only the
+# wrapper's PID leaves that child running and the port still bound.
+set -m
 while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid
+set +m
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -745,8 +755,8 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Stop the previous background process if it is still running.'
-printf '%s\n' 'kill $(cat /tmp/pf-14996.pid 2> /dev/null) 2> /dev/null || true'
+printf '%s\n' '# Stop the previous background process (and its current port-forward child) if still running.'
+printf '%s\n' 'kill -- -"$(cat /tmp/pf-14996.pid 2> /dev/null)" 2> /dev/null || true'
 printf '%s\n' '# Capture the name of a ready pod for port-forwarding.'
 printf '%s\n' 'POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \'
 printf '%s\n' ' | jq -r '\''.items[]'
@@ -756,11 +766,16 @@ printf '%s\n' '    | select(any(.status.conditions[]; .type=="Ready" and .status
 printf '%s\n' '    | .metadata.name'\'' | head -n1)'
 printf '%s\n' ''
 printf '%s\n' '# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.'
+printf '%s\n' '# `set -m` puts it in its own process group so cleanup can kill the wrapper and'
+printf '%s\n' '# its currently running `kubectl port-forward` child together: killing only the'
+printf '%s\n' '# wrapper'\''s PID leaves that child running and the port still bound.'
+printf '%s\n' 'set -m'
 printf '%s\n' 'while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid'
+printf '%s\n' 'set +m'
 printf "${RESET}"
 
-# Stop the previous background process if it is still running.
-kill $(cat /tmp/pf-14996.pid 2> /dev/null) 2> /dev/null || true
+# Stop the previous background process (and its current port-forward child) if still running.
+kill -- -"$(cat /tmp/pf-14996.pid 2> /dev/null)" 2> /dev/null || true
 # Capture the name of a ready pod for port-forwarding.
 POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \
  | jq -r '.items[]
@@ -770,7 +785,12 @@ POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \
     | .metadata.name' | head -n1)
 
 # Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.
+# `set -m` puts it in its own process group so cleanup can kill the wrapper and
+# its currently running `kubectl port-forward` child together: killing only the
+# wrapper's PID leaves that child running and the port still bound.
+set -m
 while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid
+set +m
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -848,8 +868,8 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Stop the port-forward'
-printf '%s\n' '# Stop the previous background process if it is still running.'
-printf '%s\n' 'kill $(cat /tmp/pf-14996.pid) 2> /dev/null || true'
+printf '%s\n' '# Stop the previous background process (and its current port-forward child) if still running.'
+printf '%s\n' 'kill -- -"$(cat /tmp/pf-14996.pid)" 2> /dev/null || true'
 printf '%s\n' '# Remove `/tmp/pf-14996.pid` if it exists.'
 printf '%s\n' 'rm /tmp/pf-14996.pid'
 printf '%s\n' ''
@@ -863,8 +883,8 @@ printf '%s\n' 'kubectl wait -n ${NAMESPACE} --for=delete pod --namespace ${NAMES
 printf "${RESET}"
 
 # Stop the port-forward
-# Stop the previous background process if it is still running.
-kill $(cat /tmp/pf-14996.pid) 2> /dev/null || true
+# Stop the previous background process (and its current port-forward child) if still running.
+kill -- -"$(cat /tmp/pf-14996.pid)" 2> /dev/null || true
 # Remove `/tmp/pf-14996.pid` if it exists.
 rm /tmp/pf-14996.pid
 

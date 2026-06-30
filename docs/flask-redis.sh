@@ -652,11 +652,11 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Stop the previous background process if it is still running.
+# Stop the previous background process (and its current port-forward child) if still running.
 EOF
 )"
 pe "$(cat <<'EOF'
-kill $(cat /tmp/pf-14996.pid 2> /dev/null) 2> /dev/null || true
+kill -- -"$(cat /tmp/pf-14996.pid 2> /dev/null)" 2> /dev/null || true
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -697,7 +697,27 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
+# `set -m` puts it in its own process group so cleanup can kill the wrapper and
+EOF
+)"
+pe "$(cat <<'EOF'
+# its currently running `kubectl port-forward` child together: killing only the
+EOF
+)"
+pe "$(cat <<'EOF'
+# wrapper's PID leaves that child running and the port still bound.
+EOF
+)"
+pe "$(cat <<'EOF'
+set -m
+EOF
+)"
+pe "$(cat <<'EOF'
 while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid
+EOF
+)"
+pe "$(cat <<'EOF'
+set +m
 EOF
 )"
 
@@ -1052,11 +1072,11 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Stop the previous background process if it is still running.
+# Stop the previous background process (and its current port-forward child) if still running.
 EOF
 )"
 pe "$(cat <<'EOF'
-kill $(cat /tmp/pf-14996.pid 2> /dev/null) 2> /dev/null || true
+kill -- -"$(cat /tmp/pf-14996.pid 2> /dev/null)" 2> /dev/null || true
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -1093,7 +1113,27 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
+# `set -m` puts it in its own process group so cleanup can kill the wrapper and
+EOF
+)"
+pe "$(cat <<'EOF'
+# its currently running `kubectl port-forward` child together: killing only the
+EOF
+)"
+pe "$(cat <<'EOF'
+# wrapper's PID leaves that child running and the port still bound.
+EOF
+)"
+pe "$(cat <<'EOF'
+set -m
+EOF
+)"
+pe "$(cat <<'EOF'
 while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid
+EOF
+)"
+pe "$(cat <<'EOF'
+set +m
 EOF
 )"
 
@@ -1204,11 +1244,11 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-# Stop the previous background process if it is still running.
+# Stop the previous background process (and its current port-forward child) if still running.
 EOF
 )"
 pe "$(cat <<'EOF'
-kill $(cat /tmp/pf-14996.pid) 2> /dev/null || true
+kill -- -"$(cat /tmp/pf-14996.pid)" 2> /dev/null || true
 EOF
 )"
 pe "$(cat <<'EOF'
