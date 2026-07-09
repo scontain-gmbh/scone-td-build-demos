@@ -1,0 +1,80 @@
+# Two Deployments (writer + reader) that share one PersistentVolumeClaim.
+# Because the same PVC is mounted by more than one workload, scone-td-build
+# re-shares it over NFS instead of mounting it directly into each pod: it
+# generates an NFS server that mounts the PVC and re-exports it, and rewrites
+# each consumer's volume to mount that NFS export.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shared-data
+  namespace: ${NAMESPACE}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: file-writer
+  namespace: ${NAMESPACE}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: file-writer
+  template:
+    metadata:
+      labels:
+        app: file-writer
+    spec:
+      imagePullSecrets:
+        - name: ${IMAGE_PULL_SECRET_NAME}
+      containers:
+        - name: app
+          image: ${IMAGE_NAME}
+          imagePullPolicy: Always
+          env:
+            - name: ROLE
+              value: writer
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: shared-data
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: file-reader
+  namespace: ${NAMESPACE}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: file-reader
+  template:
+    metadata:
+      labels:
+        app: file-reader
+    spec:
+      imagePullSecrets:
+        - name: ${IMAGE_PULL_SECRET_NAME}
+      containers:
+        - name: app
+          image: ${IMAGE_NAME}
+          imagePullPolicy: Always
+          env:
+            - name: ROLE
+              value: reader
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: shared-data
