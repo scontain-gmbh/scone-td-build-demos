@@ -5,7 +5,9 @@ This file defines the environment variables used to configure the `software-upda
 3. The confidential version 1 image URL is stored in `${DESTINATION_IMAGE_NAME_V1}`.
 4. The confidential version 2 image URL is stored in `${DESTINATION_IMAGE_NAME_V2}`.
 5. The Kubernetes namespace where the demo manifests are deployed is stored in `${NAMESPACE}`.
-   The default value is `default`.
+   The default value is `default`. The CAS session namespace (`${SESSION_NAMESPACE}`, set in
+   Step 1 of `README.md`) is derived from this value and `${CVM_MODE}`, so different
+   `${NAMESPACE}` values or modes never share the same CAS session.
 6. The name of the pull secret for both the native and confidential container images is stored in `${IMAGE_PULL_SECRET_NAME}`.
 7. The SCONE version is stored in `${SCONE_RUNTIME_VERSION}`.
    The recommended value is `6.1.0-rc.0`.

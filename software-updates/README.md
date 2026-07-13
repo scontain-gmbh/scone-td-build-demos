@@ -52,26 +52,35 @@ pushd software-updates
 rm -f software-updates-demo.json scone.v1.yaml scone.v2.yaml k8s/manifest.v1.yaml k8s/manifest.v2.yaml manifest.prod.sanitized.yaml manifest.prod.session.yaml || true
 ```
 
+Load the full variable set from `environment-variables.md` first, so `NAMESPACE` and
+`CVM_MODE` are available to derive the CAS session namespace below:
+
+```bash
+# Load environment variables from the tplenv definition file.
+eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+```
+
 Set `SIGNER` for policy signing and the CAS session namespace shared by both v1 and v2 builds:
 
 ```bash
 # Export the required environment variable for the next steps.
 export SIGNER="$(scone self show-session-signing-key)"
-# Fixed on purpose: CAS sessions are append-only (there's no delete operation in the
-# CLI), so a fresh random namespace on every run would leave a new, never-cleaned-up
-# session behind each time. Reusing the same name means a rerun updates the existing
+# Fixed per Kubernetes NAMESPACE and CVM_MODE on purpose: CAS sessions are append-only
+# (there's no delete operation in the CLI), so a fresh random namespace on every run
+# would leave a new, never-cleaned-up session behind each time. Reusing the same name
+# for repeat runs of the *same* NAMESPACE and mode means a rerun updates the existing
 # session in place (the same mechanism Part 2's v1 -> v2 update already relies on)
-# instead of accumulating one per run.
-export SESSION_NAMESPACE="software-update-demo"
+# instead of accumulating one per run. Including NAMESPACE and the mode keeps that
+# property while still isolating different Kubernetes namespaces (different users,
+# different environments) and the SGX vs CVM CI sweeps from sharing one CAS session
+# and one generated API_PASSWORD.
+mode_suffix="sgx"
+if [ "${CVM_MODE}" = "true" ]; then
+  mode_suffix="cvm"
+fi
+export SESSION_NAMESPACE="software-update-demo-${NAMESPACE}-${mode_suffix}"
 # Print a status message.
 echo "SESSION_NAMESPACE=${SESSION_NAMESPACE}"
-```
-
-Load the full variable set from `environment-variables.md`:
-
-```bash
-# Load environment variables from the tplenv definition file.
-eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 ```
 
 ---
@@ -256,6 +265,17 @@ kubectl rollout status deployment/python-hello-user -n ${NAMESPACE} --timeout=30
 # even if CAS had regenerated API_PASSWORD during the update.
 v2_log=$(retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} deployment/python-hello-user)
 echo "$v2_log" | tail -10
+# Prove Version 2 is actually the program running, not just that the checksum matched.
+# Both programs print an identical checksum line, so a stale Version 1 deployment (or a
+# no-op rollout) would satisfy that check alone as long as the password never changed.
+if ! echo "$v2_log" | grep -q "Running Version 2\."; then
+  echo "Did not find the Version 2 marker in the logs; Version 1 may still be running" >&2
+  exit 1
+fi
+if echo "$v2_log" | grep -q "Running Version 1\."; then
+  echo "Found a Version 1 marker in the logs; the rollout may not have replaced all pods" >&2
+  exit 1
+fi
 v2_checksum=$(echo "$v2_log" | grep -m1 "checksum of the original API_PASSWORD" | grep -oE "'[^']+'" | tr -d "'")
 if [ -z "$v2_checksum" ]; then
   echo "Could not find the Version 2 API_PASSWORD checksum in the logs" >&2
@@ -266,6 +286,7 @@ if [ "$v2_checksum" != "$v1_checksum" ]; then
   exit 1
 fi
 echo "API_PASSWORD checksum verified unchanged across the update: ${v2_checksum}"
+echo "Confirmed Version 2 is the program actually running."
 ```
 
 You should see output such as:
@@ -296,6 +317,8 @@ popd
 This does not, and cannot, delete the CAS-side session under `${SESSION_NAMESPACE}`: CAS
 sessions are append-only and the `scone` CLI has no session-delete operation, by design,
 so the audit trail of every update stays intact. Since `${SESSION_NAMESPACE}` is fixed
-(see Step 1), re-running this demo later updates that same session in place instead of
-leaving a new one behind, so there's no unbounded buildup of sessions or generated
-`API_PASSWORD` values across runs.
+per `NAMESPACE`/mode (see Step 1), re-running this demo later with the same `NAMESPACE`
+and `CVM_MODE` updates that same session in place instead of leaving a new one behind, so
+there's no unbounded buildup of sessions or generated `API_PASSWORD` values across runs.
+Different namespaces or modes (including the SGX and CVM CI sweeps) each get their own
+isolated session instead of sharing one.

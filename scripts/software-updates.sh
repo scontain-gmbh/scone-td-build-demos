@@ -132,37 +132,8 @@ rm -f software-updates-demo.json scone.v1.yaml scone.v2.yaml k8s/manifest.v1.yam
 
 printf "${VIOLET}"
 printf '%s\n' ''
-printf '%s\n' 'Set `SIGNER` for policy signing and the CAS session namespace shared by both v1 and v2 builds:'
-printf '%s\n' ''
-printf "${RESET}"
-
-printf "${ORANGE}"
-printf '%s\n' '# Export the required environment variable for the next steps.'
-printf '%s\n' 'export SIGNER="$(scone self show-session-signing-key)"'
-printf '%s\n' '# Fixed on purpose: CAS sessions are append-only (there'\''s no delete operation in the'
-printf '%s\n' '# CLI), so a fresh random namespace on every run would leave a new, never-cleaned-up'
-printf '%s\n' '# session behind each time. Reusing the same name means a rerun updates the existing'
-printf '%s\n' '# session in place (the same mechanism Part 2'\''s v1 -> v2 update already relies on)'
-printf '%s\n' '# instead of accumulating one per run.'
-printf '%s\n' 'export SESSION_NAMESPACE="software-update-demo"'
-printf '%s\n' '# Print a status message.'
-printf '%s\n' 'echo "SESSION_NAMESPACE=${SESSION_NAMESPACE}"'
-printf "${RESET}"
-
-# Export the required environment variable for the next steps.
-export SIGNER="$(scone self show-session-signing-key)"
-# Fixed on purpose: CAS sessions are append-only (there's no delete operation in the
-# CLI), so a fresh random namespace on every run would leave a new, never-cleaned-up
-# session behind each time. Reusing the same name means a rerun updates the existing
-# session in place (the same mechanism Part 2's v1 -> v2 update already relies on)
-# instead of accumulating one per run.
-export SESSION_NAMESPACE="software-update-demo"
-# Print a status message.
-echo "SESSION_NAMESPACE=${SESSION_NAMESPACE}"
-
-printf "${VIOLET}"
-printf '%s\n' ''
-printf '%s\n' 'Load the full variable set from `environment-variables.md`:'
+printf '%s\n' 'Load the full variable set from `environment-variables.md` first, so `NAMESPACE` and'
+printf '%s\n' '`CVM_MODE` are available to derive the CAS session namespace below:'
 printf '%s\n' ''
 printf "${RESET}"
 
@@ -173,6 +144,52 @@ printf "${RESET}"
 
 # Load environment variables from the tplenv definition file.
 eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+
+printf "${VIOLET}"
+printf '%s\n' ''
+printf '%s\n' 'Set `SIGNER` for policy signing and the CAS session namespace shared by both v1 and v2 builds:'
+printf '%s\n' ''
+printf "${RESET}"
+
+printf "${ORANGE}"
+printf '%s\n' '# Export the required environment variable for the next steps.'
+printf '%s\n' 'export SIGNER="$(scone self show-session-signing-key)"'
+printf '%s\n' '# Fixed per Kubernetes NAMESPACE and CVM_MODE on purpose: CAS sessions are append-only'
+printf '%s\n' '# (there'\''s no delete operation in the CLI), so a fresh random namespace on every run'
+printf '%s\n' '# would leave a new, never-cleaned-up session behind each time. Reusing the same name'
+printf '%s\n' '# for repeat runs of the *same* NAMESPACE and mode means a rerun updates the existing'
+printf '%s\n' '# session in place (the same mechanism Part 2'\''s v1 -> v2 update already relies on)'
+printf '%s\n' '# instead of accumulating one per run. Including NAMESPACE and the mode keeps that'
+printf '%s\n' '# property while still isolating different Kubernetes namespaces (different users,'
+printf '%s\n' '# different environments) and the SGX vs CVM CI sweeps from sharing one CAS session'
+printf '%s\n' '# and one generated API_PASSWORD.'
+printf '%s\n' 'mode_suffix="sgx"'
+printf '%s\n' 'if [ "${CVM_MODE}" = "true" ]; then'
+printf '%s\n' '  mode_suffix="cvm"'
+printf '%s\n' 'fi'
+printf '%s\n' 'export SESSION_NAMESPACE="software-update-demo-${NAMESPACE}-${mode_suffix}"'
+printf '%s\n' '# Print a status message.'
+printf '%s\n' 'echo "SESSION_NAMESPACE=${SESSION_NAMESPACE}"'
+printf "${RESET}"
+
+# Export the required environment variable for the next steps.
+export SIGNER="$(scone self show-session-signing-key)"
+# Fixed per Kubernetes NAMESPACE and CVM_MODE on purpose: CAS sessions are append-only
+# (there's no delete operation in the CLI), so a fresh random namespace on every run
+# would leave a new, never-cleaned-up session behind each time. Reusing the same name
+# for repeat runs of the *same* NAMESPACE and mode means a rerun updates the existing
+# session in place (the same mechanism Part 2's v1 -> v2 update already relies on)
+# instead of accumulating one per run. Including NAMESPACE and the mode keeps that
+# property while still isolating different Kubernetes namespaces (different users,
+# different environments) and the SGX vs CVM CI sweeps from sharing one CAS session
+# and one generated API_PASSWORD.
+mode_suffix="sgx"
+if [ "${CVM_MODE}" = "true" ]; then
+  mode_suffix="cvm"
+fi
+export SESSION_NAMESPACE="software-update-demo-${NAMESPACE}-${mode_suffix}"
+# Print a status message.
+echo "SESSION_NAMESPACE=${SESSION_NAMESPACE}"
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -473,6 +490,17 @@ printf '%s\n' '# only ever compares against its own startup value, so without th
 printf '%s\n' '# even if CAS had regenerated API_PASSWORD during the update.'
 printf '%s\n' 'v2_log=$(retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} deployment/python-hello-user)'
 printf '%s\n' 'echo "$v2_log" | tail -10'
+printf '%s\n' '# Prove Version 2 is actually the program running, not just that the checksum matched.'
+printf '%s\n' '# Both programs print an identical checksum line, so a stale Version 1 deployment (or a'
+printf '%s\n' '# no-op rollout) would satisfy that check alone as long as the password never changed.'
+printf '%s\n' 'if ! echo "$v2_log" | grep -q "Running Version 2\."; then'
+printf '%s\n' '  echo "Did not find the Version 2 marker in the logs; Version 1 may still be running" >&2'
+printf '%s\n' '  exit 1'
+printf '%s\n' 'fi'
+printf '%s\n' 'if echo "$v2_log" | grep -q "Running Version 1\."; then'
+printf '%s\n' '  echo "Found a Version 1 marker in the logs; the rollout may not have replaced all pods" >&2'
+printf '%s\n' '  exit 1'
+printf '%s\n' 'fi'
 printf '%s\n' 'v2_checksum=$(echo "$v2_log" | grep -m1 "checksum of the original API_PASSWORD" | grep -oE "'\''[^'\'']+'\''" | tr -d "'\''")'
 printf '%s\n' 'if [ -z "$v2_checksum" ]; then'
 printf '%s\n' '  echo "Could not find the Version 2 API_PASSWORD checksum in the logs" >&2'
@@ -483,6 +511,7 @@ printf '%s\n' '  echo "API_PASSWORD checksum changed across the update: Version 
 printf '%s\n' '  exit 1'
 printf '%s\n' 'fi'
 printf '%s\n' 'echo "API_PASSWORD checksum verified unchanged across the update: ${v2_checksum}"'
+printf '%s\n' 'echo "Confirmed Version 2 is the program actually running."'
 printf "${RESET}"
 
 # Show the most recent logs from Version 2 and check its API_PASSWORD checksum against
@@ -491,6 +520,17 @@ printf "${RESET}"
 # even if CAS had regenerated API_PASSWORD during the update.
 v2_log=$(retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} deployment/python-hello-user)
 echo "$v2_log" | tail -10
+# Prove Version 2 is actually the program running, not just that the checksum matched.
+# Both programs print an identical checksum line, so a stale Version 1 deployment (or a
+# no-op rollout) would satisfy that check alone as long as the password never changed.
+if ! echo "$v2_log" | grep -q "Running Version 2\."; then
+  echo "Did not find the Version 2 marker in the logs; Version 1 may still be running" >&2
+  exit 1
+fi
+if echo "$v2_log" | grep -q "Running Version 1\."; then
+  echo "Found a Version 1 marker in the logs; the rollout may not have replaced all pods" >&2
+  exit 1
+fi
 v2_checksum=$(echo "$v2_log" | grep -m1 "checksum of the original API_PASSWORD" | grep -oE "'[^']+'" | tr -d "'")
 if [ -z "$v2_checksum" ]; then
   echo "Could not find the Version 2 API_PASSWORD checksum in the logs" >&2
@@ -501,6 +541,7 @@ if [ "$v2_checksum" != "$v1_checksum" ]; then
   exit 1
 fi
 echo "API_PASSWORD checksum verified unchanged across the update: ${v2_checksum}"
+echo "Confirmed Version 2 is the program actually running."
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -539,8 +580,10 @@ printf '%s\n' ''
 printf '%s\n' 'This does not, and cannot, delete the CAS-side session under `${SESSION_NAMESPACE}`: CAS'
 printf '%s\n' 'sessions are append-only and the `scone` CLI has no session-delete operation, by design,'
 printf '%s\n' 'so the audit trail of every update stays intact. Since `${SESSION_NAMESPACE}` is fixed'
-printf '%s\n' '(see Step 1), re-running this demo later updates that same session in place instead of'
-printf '%s\n' 'leaving a new one behind, so there'\''s no unbounded buildup of sessions or generated'
-printf '%s\n' '`API_PASSWORD` values across runs.'
+printf '%s\n' 'per `NAMESPACE`/mode (see Step 1), re-running this demo later with the same `NAMESPACE`'
+printf '%s\n' 'and `CVM_MODE` updates that same session in place instead of leaving a new one behind, so'
+printf '%s\n' 'there'\''s no unbounded buildup of sessions or generated `API_PASSWORD` values across runs.'
+printf '%s\n' 'Different namespaces or modes (including the SGX and CVM CI sweeps) each get their own'
+printf '%s\n' 'isolated session instead of sharing one.'
 printf "${RESET}"
 

@@ -178,6 +178,22 @@ EOF
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
+printf '%s\n' 'Load the full variable set from `environment-variables.md` first, so `NAMESPACE` and'
+printf '%s\n' '`CVM_MODE` are available to derive the CAS session namespace below:'
+printf '%s\n' ''
+printf "%b" "$RESET"
+
+pe "$(cat <<'EOF'
+# Load environment variables from the tplenv definition file.
+EOF
+)"
+pe "$(cat <<'EOF'
+eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+EOF
+)"
+
+printf "%b" "$LILAC"
+printf '%s\n' ''
 printf '%s\n' 'Set `SIGNER` for policy signing and the CAS session namespace shared by both v1 and v2 builds:'
 printf '%s\n' ''
 printf "%b" "$RESET"
@@ -191,15 +207,19 @@ export SIGNER="$(scone self show-session-signing-key)"
 EOF
 )"
 pe "$(cat <<'EOF'
-# Fixed on purpose: CAS sessions are append-only (there's no delete operation in the
+# Fixed per Kubernetes NAMESPACE and CVM_MODE on purpose: CAS sessions are append-only
 EOF
 )"
 pe "$(cat <<'EOF'
-# CLI), so a fresh random namespace on every run would leave a new, never-cleaned-up
+# (there's no delete operation in the CLI), so a fresh random namespace on every run
 EOF
 )"
 pe "$(cat <<'EOF'
-# session behind each time. Reusing the same name means a rerun updates the existing
+# would leave a new, never-cleaned-up session behind each time. Reusing the same name
+EOF
+)"
+pe "$(cat <<'EOF'
+# for repeat runs of the *same* NAMESPACE and mode means a rerun updates the existing
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -207,11 +227,39 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-# instead of accumulating one per run.
+# instead of accumulating one per run. Including NAMESPACE and the mode keeps that
 EOF
 )"
 pe "$(cat <<'EOF'
-export SESSION_NAMESPACE="software-update-demo"
+# property while still isolating different Kubernetes namespaces (different users,
+EOF
+)"
+pe "$(cat <<'EOF'
+# different environments) and the SGX vs CVM CI sweeps from sharing one CAS session
+EOF
+)"
+pe "$(cat <<'EOF'
+# and one generated API_PASSWORD.
+EOF
+)"
+pe "$(cat <<'EOF'
+mode_suffix="sgx"
+EOF
+)"
+pe "$(cat <<'EOF'
+if [ "${CVM_MODE}" = "true" ]; then
+EOF
+)"
+pe "$(cat <<'EOF'
+  mode_suffix="cvm"
+EOF
+)"
+pe "$(cat <<'EOF'
+fi
+EOF
+)"
+pe "$(cat <<'EOF'
+export SESSION_NAMESPACE="software-update-demo-${NAMESPACE}-${mode_suffix}"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -220,21 +268,6 @@ EOF
 )"
 pe "$(cat <<'EOF'
 echo "SESSION_NAMESPACE=${SESSION_NAMESPACE}"
-EOF
-)"
-
-printf "%b" "$LILAC"
-printf '%s\n' ''
-printf '%s\n' 'Load the full variable set from `environment-variables.md`:'
-printf '%s\n' ''
-printf "%b" "$RESET"
-
-pe "$(cat <<'EOF'
-# Load environment variables from the tplenv definition file.
-EOF
-)"
-pe "$(cat <<'EOF'
-eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 EOF
 )"
 
@@ -655,6 +688,50 @@ echo "$v2_log" | tail -10
 EOF
 )"
 pe "$(cat <<'EOF'
+# Prove Version 2 is actually the program running, not just that the checksum matched.
+EOF
+)"
+pe "$(cat <<'EOF'
+# Both programs print an identical checksum line, so a stale Version 1 deployment (or a
+EOF
+)"
+pe "$(cat <<'EOF'
+# no-op rollout) would satisfy that check alone as long as the password never changed.
+EOF
+)"
+pe "$(cat <<'EOF'
+if ! echo "$v2_log" | grep -q "Running Version 2\."; then
+EOF
+)"
+pe "$(cat <<'EOF'
+  echo "Did not find the Version 2 marker in the logs; Version 1 may still be running" >&2
+EOF
+)"
+pe "$(cat <<'EOF'
+  exit 1
+EOF
+)"
+pe "$(cat <<'EOF'
+fi
+EOF
+)"
+pe "$(cat <<'EOF'
+if echo "$v2_log" | grep -q "Running Version 1\."; then
+EOF
+)"
+pe "$(cat <<'EOF'
+  echo "Found a Version 1 marker in the logs; the rollout may not have replaced all pods" >&2
+EOF
+)"
+pe "$(cat <<'EOF'
+  exit 1
+EOF
+)"
+pe "$(cat <<'EOF'
+fi
+EOF
+)"
+pe "$(cat <<'EOF'
 v2_checksum=$(echo "$v2_log" | grep -m1 "checksum of the original API_PASSWORD" | grep -oE "'[^']+'" | tr -d "'")
 EOF
 )"
@@ -692,6 +769,10 @@ EOF
 )"
 pe "$(cat <<'EOF'
 echo "API_PASSWORD checksum verified unchanged across the update: ${v2_checksum}"
+EOF
+)"
+pe "$(cat <<'EOF'
+echo "Confirmed Version 2 is the program actually running."
 EOF
 )"
 
@@ -737,8 +818,10 @@ printf '%s\n' ''
 printf '%s\n' 'This does not, and cannot, delete the CAS-side session under `${SESSION_NAMESPACE}`: CAS'
 printf '%s\n' 'sessions are append-only and the `scone` CLI has no session-delete operation, by design,'
 printf '%s\n' 'so the audit trail of every update stays intact. Since `${SESSION_NAMESPACE}` is fixed'
-printf '%s\n' '(see Step 1), re-running this demo later updates that same session in place instead of'
-printf '%s\n' 'leaving a new one behind, so there'\''s no unbounded buildup of sessions or generated'
-printf '%s\n' '`API_PASSWORD` values across runs.'
+printf '%s\n' 'per `NAMESPACE`/mode (see Step 1), re-running this demo later with the same `NAMESPACE`'
+printf '%s\n' 'and `CVM_MODE` updates that same session in place instead of leaving a new one behind, so'
+printf '%s\n' 'there'\''s no unbounded buildup of sessions or generated `API_PASSWORD` values across runs.'
+printf '%s\n' 'Different namespaces or modes (including the SGX and CVM CI sweeps) each get their own'
+printf '%s\n' 'isolated session instead of sharing one.'
 printf "%b" "$RESET"
 
