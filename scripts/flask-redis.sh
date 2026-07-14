@@ -263,11 +263,11 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Create the Kubernetes namespace if it does not already exist.'
-printf '%s\n' 'kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"'
+printf '%s\n' 'kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -n ${NAMESPACE} -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"'
 printf "${RESET}"
 
 # Create the Kubernetes namespace if it does not already exist.
-kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
+kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -n ${NAMESPACE} -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -281,7 +281,7 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Generate the Kubernetes secret manifest.'
-printf '%s\n' 'kubectl create secret generic redis-tls \'
+printf '%s\n' 'kubectl create -n ${NAMESPACE} secret generic redis-tls \'
 printf '%s\n' '  --namespace ${NAMESPACE} \'
 printf '%s\n' '  --from-file=redis.crt=certs/redis.crt \'
 printf '%s\n' '  --from-file=redis.key=certs/redis.key \'
@@ -289,7 +289,7 @@ printf '%s\n' '  --from-file=redis-ca.crt=certs/redis-ca.crt \'
 printf '%s\n' '  --dry-run=client -o yaml > k8s/secret-redis-tls.yaml'
 printf '%s\n' ''
 printf '%s\n' '# Generate the Kubernetes secret manifest.'
-printf '%s\n' 'kubectl create secret generic flask-tls \'
+printf '%s\n' 'kubectl create -n ${NAMESPACE} secret generic flask-tls \'
 printf '%s\n' '  --namespace ${NAMESPACE} \'
 printf '%s\n' '  --from-file=flask.crt=certs/flask.crt \'
 printf '%s\n' '  --from-file=flask.key=certs/flask.key \'
@@ -300,7 +300,7 @@ printf '%s\n' '  --dry-run=client -o yaml > k8s/secret-flask-tls.yaml'
 printf "${RESET}"
 
 # Generate the Kubernetes secret manifest.
-kubectl create secret generic redis-tls \
+kubectl create -n ${NAMESPACE} secret generic redis-tls \
   --namespace ${NAMESPACE} \
   --from-file=redis.crt=certs/redis.crt \
   --from-file=redis.key=certs/redis.key \
@@ -308,7 +308,7 @@ kubectl create secret generic redis-tls \
   --dry-run=client -o yaml > k8s/secret-redis-tls.yaml
 
 # Generate the Kubernetes secret manifest.
-kubectl create secret generic flask-tls \
+kubectl create -n ${NAMESPACE} secret generic flask-tls \
   --namespace ${NAMESPACE} \
   --from-file=flask.crt=certs/flask.crt \
   --from-file=flask.key=certs/flask.key \
@@ -325,15 +325,15 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Apply the Kubernetes manifest.'
-printf '%s\n' 'kubectl apply -f k8s/secret-redis-tls.yaml'
+printf '%s\n' 'kubectl apply -n ${NAMESPACE} -f k8s/secret-redis-tls.yaml'
 printf '%s\n' '# Apply the Kubernetes manifest.'
-printf '%s\n' 'kubectl apply -f k8s/secret-flask-tls.yaml'
+printf '%s\n' 'kubectl apply -n ${NAMESPACE} -f k8s/secret-flask-tls.yaml'
 printf "${RESET}"
 
 # Apply the Kubernetes manifest.
-kubectl apply -f k8s/secret-redis-tls.yaml
+kubectl apply -n ${NAMESPACE} -f k8s/secret-redis-tls.yaml
 # Apply the Kubernetes manifest.
-kubectl apply -f k8s/secret-flask-tls.yaml
+kubectl apply -n ${NAMESPACE} -f k8s/secret-flask-tls.yaml
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -403,11 +403,11 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Apply the Kubernetes manifest.'
-printf '%s\n' 'kubectl apply -f k8s/manifest.yaml --namespace ${NAMESPACE}'
+printf '%s\n' 'kubectl apply -n ${NAMESPACE} -f k8s/manifest.yaml --namespace ${NAMESPACE}'
 printf "${RESET}"
 
 # Apply the Kubernetes manifest.
-kubectl apply -f k8s/manifest.yaml --namespace ${NAMESPACE}
+kubectl apply -n ${NAMESPACE} -f k8s/manifest.yaml --namespace ${NAMESPACE}
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -474,8 +474,8 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Stop the previous background process if it is still running.'
-printf '%s\n' 'kill $(cat /tmp/pf-14996.pid 2> /dev/null) 2> /dev/null || true'
+printf '%s\n' '# Stop the previous background process (and its current port-forward child) if still running.'
+printf '%s\n' 'kill -- -"$(cat /tmp/pf-14996.pid 2> /dev/null)" 2> /dev/null || true'
 printf '%s\n' '# Capture the name of a ready pod for port-forwarding.'
 printf '%s\n' 'POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \'
 printf '%s\n' ' | jq -r '\''.items[]'
@@ -485,12 +485,17 @@ printf '%s\n' '    | select(any(.status.conditions[]; .type=="Ready" and .status
 printf '%s\n' '    | .metadata.name'\'' | head -n1)'
 printf '%s\n' ''
 printf '%s\n' ''
-printf '%s\n' '# Start a local port-forward to the Kubernetes workload.'
-printf '%s\n' 'kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 & echo $! > /tmp/pf-14996.pid'
+printf '%s\n' '# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.'
+printf '%s\n' '# `set -m` puts it in its own process group so cleanup can kill the wrapper and'
+printf '%s\n' '# its currently running `kubectl port-forward` child together: killing only the'
+printf '%s\n' '# wrapper'\''s PID leaves that child running and the port still bound.'
+printf '%s\n' 'set -m'
+printf '%s\n' 'while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid'
+printf '%s\n' 'set +m'
 printf "${RESET}"
 
-# Stop the previous background process if it is still running.
-kill $(cat /tmp/pf-14996.pid 2> /dev/null) 2> /dev/null || true
+# Stop the previous background process (and its current port-forward child) if still running.
+kill -- -"$(cat /tmp/pf-14996.pid 2> /dev/null)" 2> /dev/null || true
 # Capture the name of a ready pod for port-forwarding.
 POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \
  | jq -r '.items[]
@@ -500,8 +505,13 @@ POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \
     | .metadata.name' | head -n1)
 
 
-# Start a local port-forward to the Kubernetes workload.
-kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 & echo $! > /tmp/pf-14996.pid
+# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.
+# `set -m` puts it in its own process group so cleanup can kill the wrapper and
+# its currently running `kubectl port-forward` child together: killing only the
+# wrapper's PID leaves that child running and the port still bound.
+set -m
+while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid
+set +m
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -579,21 +589,21 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Delete the Kubernetes resource if it exists.'
-printf '%s\n' 'kubectl delete -f k8s/manifest.yaml --namespace ${NAMESPACE} --ignore-not-found'
+printf '%s\n' 'kubectl delete -n ${NAMESPACE} -f k8s/manifest.yaml --namespace ${NAMESPACE} --ignore-not-found'
 printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
-printf '%s\n' 'kubectl wait --for=delete pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s'
+printf '%s\n' 'kubectl wait -n ${NAMESPACE} --for=delete pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s'
 printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
-printf '%s\n' 'kubectl wait --for=delete pod --namespace ${NAMESPACE} -l app=redis --timeout=300s'
+printf '%s\n' 'kubectl wait -n ${NAMESPACE} --for=delete pod --namespace ${NAMESPACE} -l app=redis --timeout=300s'
 printf '%s\n' '# Delete the Kubernetes resource if it exists.'
 printf '%s\n' 'kubectl delete secret redis-tls flask-tls --namespace ${NAMESPACE} --ignore-not-found'
 printf "${RESET}"
 
 # Delete the Kubernetes resource if it exists.
-kubectl delete -f k8s/manifest.yaml --namespace ${NAMESPACE} --ignore-not-found
+kubectl delete -n ${NAMESPACE} -f k8s/manifest.yaml --namespace ${NAMESPACE} --ignore-not-found
 # Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=delete pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s
+kubectl wait -n ${NAMESPACE} --for=delete pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s
 # Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=delete pod --namespace ${NAMESPACE} -l app=redis --timeout=300s
+kubectl wait -n ${NAMESPACE} --for=delete pod --namespace ${NAMESPACE} -l app=redis --timeout=300s
 # Delete the Kubernetes resource if it exists.
 kubectl delete secret redis-tls flask-tls --namespace ${NAMESPACE} --ignore-not-found
 
@@ -682,11 +692,11 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Apply the Kubernetes manifest.'
-printf '%s\n' 'kubectl apply -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}'
+printf '%s\n' 'kubectl apply -n ${NAMESPACE} -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}'
 printf "${RESET}"
 
 # Apply the Kubernetes manifest.
-kubectl apply -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}
+kubectl apply -n ${NAMESPACE} -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -703,11 +713,11 @@ printf '%s\n' 'kubectl get all -n ${NAMESPACE}'
 printf '%s\n' ''
 printf '%s\n' '# Wait for Redis'
 printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
-printf '%s\n' 'kubectl wait --for=condition=Ready pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s'
+printf '%s\n' 'kubectl wait -n ${NAMESPACE} --for=condition=Ready pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s'
 printf '%s\n' ''
 printf '%s\n' '# Wait for Flask API'
 printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
-printf '%s\n' 'kubectl wait --for=condition=Ready pod --namespace ${NAMESPACE} -l app=redis --timeout=300s'
+printf '%s\n' 'kubectl wait -n ${NAMESPACE} --for=condition=Ready pod --namespace ${NAMESPACE} -l app=redis --timeout=300s'
 printf '%s\n' ''
 printf '%s\n' '# Check logs'
 printf '%s\n' '# Show logs from the Kubernetes workload.'
@@ -722,11 +732,11 @@ kubectl get all -n ${NAMESPACE}
 
 # Wait for Redis
 # Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=condition=Ready pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s
+kubectl wait -n ${NAMESPACE} --for=condition=Ready pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s
 
 # Wait for Flask API
 # Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=condition=Ready pod --namespace ${NAMESPACE} -l app=redis --timeout=300s
+kubectl wait -n ${NAMESPACE} --for=condition=Ready pod --namespace ${NAMESPACE} -l app=redis --timeout=300s
 
 # Check logs
 # Show logs from the Kubernetes workload.
@@ -745,8 +755,8 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Stop the previous background process if it is still running.'
-printf '%s\n' 'kill $(cat /tmp/pf-14996.pid 2> /dev/null) 2> /dev/null || true'
+printf '%s\n' '# Stop the previous background process (and its current port-forward child) if still running.'
+printf '%s\n' 'kill -- -"$(cat /tmp/pf-14996.pid 2> /dev/null)" 2> /dev/null || true'
 printf '%s\n' '# Capture the name of a ready pod for port-forwarding.'
 printf '%s\n' 'POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \'
 printf '%s\n' ' | jq -r '\''.items[]'
@@ -755,12 +765,17 @@ printf '%s\n' '    | select(.status.phase=="Running")'
 printf '%s\n' '    | select(any(.status.conditions[]; .type=="Ready" and .status=="True"))'
 printf '%s\n' '    | .metadata.name'\'' | head -n1)'
 printf '%s\n' ''
-printf '%s\n' '# Start a local port-forward to the Kubernetes workload.'
-printf '%s\n' 'kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 & echo $! > /tmp/pf-14996.pid'
+printf '%s\n' '# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.'
+printf '%s\n' '# `set -m` puts it in its own process group so cleanup can kill the wrapper and'
+printf '%s\n' '# its currently running `kubectl port-forward` child together: killing only the'
+printf '%s\n' '# wrapper'\''s PID leaves that child running and the port still bound.'
+printf '%s\n' 'set -m'
+printf '%s\n' 'while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid'
+printf '%s\n' 'set +m'
 printf "${RESET}"
 
-# Stop the previous background process if it is still running.
-kill $(cat /tmp/pf-14996.pid 2> /dev/null) 2> /dev/null || true
+# Stop the previous background process (and its current port-forward child) if still running.
+kill -- -"$(cat /tmp/pf-14996.pid 2> /dev/null)" 2> /dev/null || true
 # Capture the name of a ready pod for port-forwarding.
 POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \
  | jq -r '.items[]
@@ -769,8 +784,13 @@ POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \
     | select(any(.status.conditions[]; .type=="Ready" and .status=="True"))
     | .metadata.name' | head -n1)
 
-# Start a local port-forward to the Kubernetes workload.
-kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 & echo $! > /tmp/pf-14996.pid
+# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.
+# `set -m` puts it in its own process group so cleanup can kill the wrapper and
+# its currently running `kubectl port-forward` child together: killing only the
+# wrapper's PID leaves that child running and the port still bound.
+set -m
+while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid
+set +m
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -781,11 +801,11 @@ printf "${RESET}"
 printf "${ORANGE}"
 printf '%s\n' '# List all stored keys'
 printf '%s\n' '# Request the list of stored keys from the service.'
-printf '%s\n' 'curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/keys'
+printf '%s\n' 'curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/keys'
 printf '%s\n' ''
 printf '%s\n' '# Create a client record'
 printf '%s\n' '# Create a test client record through the API.'
-printf '%s\n' 'curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk -X POST https://localhost:14996/client/abc123 \'
+printf '%s\n' 'curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk -X POST https://localhost:14996/client/abc123 \'
 printf '%s\n' '  -F fname=John \'
 printf '%s\n' '  -F lname=Doe \'
 printf '%s\n' '  -F address="123 Main St" \'
@@ -796,24 +816,24 @@ printf '%s\n' '  -F email="john@example.com"'
 printf '%s\n' ''
 printf '%s\n' '# Retrieve a client'
 printf '%s\n' '# Fetch the stored client record from the API.'
-printf '%s\n' 'curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/client/abc123'
+printf '%s\n' 'curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/client/abc123'
 printf '%s\n' ''
 printf '%s\n' '# Get credit score'
 printf '%s\n' '# Request the credit score for the test client.'
-printf '%s\n' 'curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/score/abc123'
+printf '%s\n' 'curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/score/abc123'
 printf '%s\n' ''
 printf '%s\n' '# Memory dump (debug)'
 printf '%s\n' '# Request the debug memory dump from the API.'
-printf '%s\n' 'curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/memory'
+printf '%s\n' 'curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/memory'
 printf "${RESET}"
 
 # List all stored keys
 # Request the list of stored keys from the service.
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/keys
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/keys
 
 # Create a client record
 # Create a test client record through the API.
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk -X POST https://localhost:14996/client/abc123 \
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk -X POST https://localhost:14996/client/abc123 \
   -F fname=John \
   -F lname=Doe \
   -F address="123 Main St" \
@@ -824,15 +844,15 @@ curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time
 
 # Retrieve a client
 # Fetch the stored client record from the API.
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/client/abc123
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/client/abc123
 
 # Get credit score
 # Request the credit score for the test client.
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/score/abc123
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/score/abc123
 
 # Memory dump (debug)
 # Request the debug memory dump from the API.
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/memory
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/memory
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -848,33 +868,33 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Stop the port-forward'
-printf '%s\n' '# Stop the previous background process if it is still running.'
-printf '%s\n' 'kill $(cat /tmp/pf-14996.pid) 2> /dev/null || true'
+printf '%s\n' '# Stop the previous background process (and its current port-forward child) if still running.'
+printf '%s\n' 'kill -- -"$(cat /tmp/pf-14996.pid)" 2> /dev/null || true'
 printf '%s\n' '# Remove `/tmp/pf-14996.pid` if it exists.'
 printf '%s\n' 'rm /tmp/pf-14996.pid'
 printf '%s\n' ''
 printf '%s\n' '# Delete confidential manifest resources'
 printf '%s\n' '# Delete the Kubernetes resource if it exists.'
-printf '%s\n' 'kubectl delete -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE} --ignore-not-found'
+printf '%s\n' 'kubectl delete -n ${NAMESPACE} -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE} --ignore-not-found'
 printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
-printf '%s\n' 'kubectl wait --for=delete pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s'
+printf '%s\n' 'kubectl wait -n ${NAMESPACE} --for=delete pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s'
 printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
-printf '%s\n' 'kubectl wait --for=delete pod --namespace ${NAMESPACE} -l app=redis --timeout=300s'
+printf '%s\n' 'kubectl wait -n ${NAMESPACE} --for=delete pod --namespace ${NAMESPACE} -l app=redis --timeout=300s'
 printf "${RESET}"
 
 # Stop the port-forward
-# Stop the previous background process if it is still running.
-kill $(cat /tmp/pf-14996.pid) 2> /dev/null || true
+# Stop the previous background process (and its current port-forward child) if still running.
+kill -- -"$(cat /tmp/pf-14996.pid)" 2> /dev/null || true
 # Remove `/tmp/pf-14996.pid` if it exists.
 rm /tmp/pf-14996.pid
 
 # Delete confidential manifest resources
 # Delete the Kubernetes resource if it exists.
-kubectl delete -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE} --ignore-not-found
+kubectl delete -n ${NAMESPACE} -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE} --ignore-not-found
 # Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=delete pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s
+kubectl wait -n ${NAMESPACE} --for=delete pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s
 # Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=delete pod --namespace ${NAMESPACE} -l app=redis --timeout=300s
+kubectl wait -n ${NAMESPACE} --for=delete pod --namespace ${NAMESPACE} -l app=redis --timeout=300s
 
 printf "${VIOLET}"
 printf '%s\n' ''

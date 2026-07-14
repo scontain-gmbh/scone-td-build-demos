@@ -172,8 +172,8 @@ Clean up previous runs first:
 kubectl delete deployment web-server -n ${NAMESPACE} || echo "ok - no web-server deployment yet"
 # Wait for the Kubernetes resource to reach the expected state.
 kubectl wait --for=delete pod -l app=web-server -n ${NAMESPACE} --timeout=240s || echo "ok - no web-server deployment yet"
-# Stop the previous background process if it is still running.
-kill $(cat /tmp/pf-8000.pid) || true
+# Stop the previous background process (and its current port-forward child) if still running.
+kill -- -"$(cat /tmp/pf-8000.pid)" 2>/dev/null || true
 ```
 
 Deploy and test:
@@ -183,8 +183,13 @@ Deploy and test:
 kubectl apply -f manifest.yaml -n ${NAMESPACE}
 # Wait for the Kubernetes resource to reach the expected state.
 kubectl wait --for=condition=Ready pod -l app="web-server" -n ${NAMESPACE} --timeout=240s
-# Start a local port-forward to the Kubernetes workload.
-kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} & echo $! > /tmp/pf-8000.pid
+# Start a self-restarting port-forward; the loop recreates it if the pod bounces.
+# `set -m` puts it in its own process group so cleanup can kill the wrapper and
+# its currently running `kubectl port-forward` child together: killing only the
+# wrapper's PID leaves that child running and the port still bound.
+set -m
+while true; do kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-8000.pid
+set +m
 
 # Retry the wrapped command until it succeeds or reaches the retry limit.
 retry-spinner -- curl http://localhost:8000/env/MY_POD_IP
@@ -195,8 +200,8 @@ retry-spinner -- curl http://localhost:8000/env/MY_POD_IP
 kubectl delete -f manifest.yaml -n ${NAMESPACE}
 # Wait for the Kubernetes resource to reach the expected state.
 kubectl wait --for=delete pod -l app=web-server -n ${NAMESPACE} --timeout=240s
-# Stop the previous background process if it is still running.
-kill $(cat /tmp/pf-8000.pid) || true
+# Stop the previous background process (and its current port-forward child) if still running.
+kill -- -"$(cat /tmp/pf-8000.pid)" 2>/dev/null || true
 # Remove `/tmp/pf-8000.pid` if it exists.
 rm /tmp/pf-8000.pid
 ```
@@ -215,6 +220,7 @@ scone-td-build apply \
   --manifest-env SCONE_SYSLIBS=1 \
   --manifest-env SCONE_PRODUCTION=0 \
   --manifest-env SCONE_VERSION=1 \
+  --manifest-env SCONE_HEAP=2G \
   --session-env SCONE_VERSION=1 \
   --output-manifest-file manifest.sanitized.yaml \
   --version ${SCONE_RUNTIME_VERSION} -p \
@@ -238,8 +244,13 @@ kubectl wait --for=condition=Ready pod -l app="web-server" -n ${NAMESPACE} --tim
 # A ready pod does not always mean the port is immediately available.
 # Wait briefly for the service to become reachable.
 sleep 20
-# Start a local port-forward to the Kubernetes workload.
-kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} & echo $! > /tmp/pf-8000.pid
+# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.
+# `set -m` puts it in its own process group so cleanup can kill the wrapper and
+# its currently running `kubectl port-forward` child together: killing only the
+# wrapper's PID leaves that child running and the port still bound.
+set -m
+while true; do kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-8000.pid
+set +m
 ```
 
 Send test requests:
@@ -248,7 +259,7 @@ Send test requests:
 # Retry the wrapped command until it succeeds or reaches the retry limit.
 retry-spinner --retries 40 --wait 10 -- curl http://localhost:8000/path
 # Retry the wrapped command until it succeeds or reaches the retry limit.
-retry-spinner -- curl http://localhost:8000/gen
+retry-spinner --retries 40 --wait 10 -- curl http://localhost:8000/gen
 # Run the demo test script.
 ./test.sh
 ```
@@ -258,8 +269,8 @@ retry-spinner -- curl http://localhost:8000/gen
 ```bash
 # Delete the Kubernetes resource if it exists.
 kubectl delete -f manifest.sanitized.yaml -n ${NAMESPACE}
-# Stop the previous background process if it is still running.
-kill $(cat /tmp/pf-8000.pid) || true
+# Stop the previous background process (and its current port-forward child) if still running.
+kill -- -"$(cat /tmp/pf-8000.pid)" 2>/dev/null || true
 # Remove `/tmp/pf-8000.pid` if it exists.
 rm /tmp/pf-8000.pid
 # Return to the previous working directory.

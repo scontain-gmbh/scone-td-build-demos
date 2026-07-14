@@ -195,7 +195,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
+kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -n ${NAMESPACE} -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
 EOF
 )"
 
@@ -267,24 +267,46 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Load registry credentials.
+# Create the pull secret only when it does not already exist, so reruns with a
 EOF
 )"
 pe "$(cat <<'EOF'
-eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
+# precreated secret do not require registry credentials.
 EOF
 )"
 pe "$(cat <<'EOF'
-# Create or refresh the Docker registry pull secret idempotently.
+if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \
-  --docker-server="$REGISTRY" \
-  --docker-username="$REGISTRY_USER" \
-  --docker-password="$REGISTRY_TOKEN" \
-  --dry-run=client -o yaml \
-  | kubectl apply -n "${NAMESPACE}" -f -
+  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"
+EOF
+)"
+pe "$(cat <<'EOF'
+else
+EOF
+)"
+pe "$(cat <<'EOF'
+  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
+EOF
+)"
+pe "$(cat <<'EOF'
+  # Load registry credentials.
+EOF
+)"
+pe "$(cat <<'EOF'
+  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
+EOF
+)"
+pe "$(cat <<'EOF'
+  kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \
+    --docker-server="$REGISTRY" \
+    --docker-username="$REGISTRY_USER" \
+    --docker-password="$REGISTRY_TOKEN"
+EOF
+)"
+pe "$(cat <<'EOF'
+fi
 EOF
 )"
 
@@ -318,11 +340,103 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Wait for the Kubernetes resource to reach the expected state.
+# Poll for a terminal state instead of `kubectl wait`: this kubectl version only
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s
+# honors the last --for flag when given more than once, so it can't watch for
+EOF
+)"
+pe "$(cat <<'EOF'
+# both Complete and Failed in one call, and `wait -n` (used in an earlier
+EOF
+)"
+pe "$(cat <<'EOF'
+# version of this check) isn't portable to bash 3.2 or zsh. The Job is
+EOF
+)"
+pe "$(cat <<'EOF'
+# configured with backoffLimit: 4 and restartPolicy: OnFailure, so we wait for
+EOF
+)"
+pe "$(cat <<'EOF'
+# the Failed *condition* (set only once retries are exhausted), not
+EOF
+)"
+pe "$(cat <<'EOF'
+# .status.failed (a per-attempt retry counter that can tick up while the Job
+EOF
+)"
+pe "$(cat <<'EOF'
+# is still retrying and will go on to succeed).
+EOF
+)"
+pe "$(cat <<'EOF'
+deadline=$((SECONDS + 300))
+EOF
+)"
+pe "$(cat <<'EOF'
+terminal=""
+EOF
+)"
+pe "$(cat <<'EOF'
+while [[ $SECONDS -lt $deadline ]]; do
+EOF
+)"
+pe "$(cat <<'EOF'
+  complete=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null)
+EOF
+)"
+pe "$(cat <<'EOF'
+  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null)
+EOF
+)"
+pe "$(cat <<'EOF'
+  if [[ "$complete" == "True" ]] || [[ "$failed" == "True" ]]; then
+EOF
+)"
+pe "$(cat <<'EOF'
+    terminal=1
+EOF
+)"
+pe "$(cat <<'EOF'
+    break
+EOF
+)"
+pe "$(cat <<'EOF'
+  fi
+EOF
+)"
+pe "$(cat <<'EOF'
+  sleep 2
+EOF
+)"
+pe "$(cat <<'EOF'
+done
+EOF
+)"
+pe "$(cat <<'EOF'
+if [[ -z "$terminal" ]]; then
+EOF
+)"
+pe "$(cat <<'EOF'
+  echo "Timed out waiting for job/hello-world to complete or fail" >&2
+EOF
+)"
+pe "$(cat <<'EOF'
+  exit 1
+EOF
+)"
+pe "$(cat <<'EOF'
+fi
+EOF
+)"
+pe "$(cat <<'EOF'
+# Exit non-zero early if the job failed rather than completed.
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' | grep -q '^True$' && { echo "Job hello-world failed"; exit 1; } || true
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -361,7 +475,7 @@ printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '## 6. Attest SCONE CAS'
 printf '%s\n' ''
-printf '%s\n' 'Before sending encrypted policies to CAS, attest CAS via the Kubernetes API:'
+printf '%s\n' 'Attest CAS before sending encrypted policies. The kubectl path covers in-cluster CAS; if it fails (typical when `${CAS_NAME}.${CAS_NAMESPACE}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
@@ -370,7 +484,9 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S || echo "Attestation failed: This is OK if you first attested using *scone cas attest ..."
+kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S \
+    || scone cas attest ${CAS_NAME}.${CAS_NAMESPACE} -C -G -S \
+        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 EOF
 )"
 
@@ -427,11 +543,103 @@ kubectl apply -f manifest.job.sanitized.yaml -n ${NAMESPACE}
 EOF
 )"
 pe "$(cat <<'EOF'
-# Wait for the Kubernetes resource to reach the expected state.
+# Poll for a terminal state instead of `kubectl wait`: this kubectl version only
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s
+# honors the last --for flag when given more than once, so it can't watch for
+EOF
+)"
+pe "$(cat <<'EOF'
+# both Complete and Failed in one call, and `wait -n` (used in an earlier
+EOF
+)"
+pe "$(cat <<'EOF'
+# version of this check) isn't portable to bash 3.2 or zsh. The Job is
+EOF
+)"
+pe "$(cat <<'EOF'
+# configured with backoffLimit: 4 and restartPolicy: OnFailure, so we wait for
+EOF
+)"
+pe "$(cat <<'EOF'
+# the Failed *condition* (set only once retries are exhausted), not
+EOF
+)"
+pe "$(cat <<'EOF'
+# .status.failed (a per-attempt retry counter that can tick up while the Job
+EOF
+)"
+pe "$(cat <<'EOF'
+# is still retrying and will go on to succeed).
+EOF
+)"
+pe "$(cat <<'EOF'
+deadline=$((SECONDS + 300))
+EOF
+)"
+pe "$(cat <<'EOF'
+terminal=""
+EOF
+)"
+pe "$(cat <<'EOF'
+while [[ $SECONDS -lt $deadline ]]; do
+EOF
+)"
+pe "$(cat <<'EOF'
+  complete=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null)
+EOF
+)"
+pe "$(cat <<'EOF'
+  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null)
+EOF
+)"
+pe "$(cat <<'EOF'
+  if [[ "$complete" == "True" ]] || [[ "$failed" == "True" ]]; then
+EOF
+)"
+pe "$(cat <<'EOF'
+    terminal=1
+EOF
+)"
+pe "$(cat <<'EOF'
+    break
+EOF
+)"
+pe "$(cat <<'EOF'
+  fi
+EOF
+)"
+pe "$(cat <<'EOF'
+  sleep 2
+EOF
+)"
+pe "$(cat <<'EOF'
+done
+EOF
+)"
+pe "$(cat <<'EOF'
+if [[ -z "$terminal" ]]; then
+EOF
+)"
+pe "$(cat <<'EOF'
+  echo "Timed out waiting for job/hello-world to complete or fail" >&2
+EOF
+)"
+pe "$(cat <<'EOF'
+  exit 1
+EOF
+)"
+pe "$(cat <<'EOF'
+fi
+EOF
+)"
+pe "$(cat <<'EOF'
+# Exit non-zero early if the job failed rather than completed.
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' | grep -q '^True$' && { echo "Job hello-world failed"; exit 1; } || true
 EOF
 )"
 pe "$(cat <<'EOF'

@@ -121,7 +121,7 @@ We try to ensure the namespace exists. This may fail when running in a container
 
 ```bash
 # Create the Kubernetes namespace if it does not already exist.
-kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
+kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -n ${NAMESPACE} -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
 ```
 
 ---
@@ -132,7 +132,7 @@ Generate the secret YAML files locally so you can inspect them before applying:
 
 ```bash
 # Generate the Kubernetes secret manifest.
-kubectl create secret generic redis-tls \
+kubectl create -n ${NAMESPACE} secret generic redis-tls \
   --namespace ${NAMESPACE} \
   --from-file=redis.crt=certs/redis.crt \
   --from-file=redis.key=certs/redis.key \
@@ -140,7 +140,7 @@ kubectl create secret generic redis-tls \
   --dry-run=client -o yaml > k8s/secret-redis-tls.yaml
 
 # Generate the Kubernetes secret manifest.
-kubectl create secret generic flask-tls \
+kubectl create -n ${NAMESPACE} secret generic flask-tls \
   --namespace ${NAMESPACE} \
   --from-file=flask.crt=certs/flask.crt \
   --from-file=flask.key=certs/flask.key \
@@ -154,9 +154,9 @@ Review the files in `k8s/`, then apply them:
 
 ```bash
 # Apply the Kubernetes manifest.
-kubectl apply -f k8s/secret-redis-tls.yaml
+kubectl apply -n ${NAMESPACE} -f k8s/secret-redis-tls.yaml
 # Apply the Kubernetes manifest.
-kubectl apply -f k8s/secret-flask-tls.yaml
+kubectl apply -n ${NAMESPACE} -f k8s/secret-flask-tls.yaml
 ```
 
 ---
@@ -199,7 +199,7 @@ Review `k8s/manifest.yaml`, then apply it:
 
 ```bash
 # Apply the Kubernetes manifest.
-kubectl apply -f k8s/manifest.yaml --namespace ${NAMESPACE}
+kubectl apply -n ${NAMESPACE} -f k8s/manifest.yaml --namespace ${NAMESPACE}
 ```
 
 ---
@@ -237,8 +237,8 @@ kubectl logs -n ${NAMESPACE} -l app=redis --tail=20
 Open a port-forward to the Flask API pod:
 
 ```bash
-# Stop the previous background process if it is still running.
-kill $(cat /tmp/pf-14996.pid 2> /dev/null) 2> /dev/null || true
+# Stop the previous background process (and its current port-forward child) if still running.
+kill -- -"$(cat /tmp/pf-14996.pid 2> /dev/null)" 2> /dev/null || true
 # Capture the name of a ready pod for port-forwarding.
 POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \
  | jq -r '.items[]
@@ -248,8 +248,13 @@ POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \
     | .metadata.name' | head -n1)
 
 
-# Start a local port-forward to the Kubernetes workload.
-kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 & echo $! > /tmp/pf-14996.pid
+# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.
+# `set -m` puts it in its own process group so cleanup can kill the wrapper and
+# its currently running `kubectl port-forward` child together: killing only the
+# wrapper's PID leaves that child running and the port still bound.
+set -m
+while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid
+set +m
 ```
 
 Then send requests against `https://localhost:14996`:
@@ -293,11 +298,11 @@ Remove the native workloads and secrets before switching to the confidential ver
 
 ```bash
 # Delete the Kubernetes resource if it exists.
-kubectl delete -f k8s/manifest.yaml --namespace ${NAMESPACE} --ignore-not-found
+kubectl delete -n ${NAMESPACE} -f k8s/manifest.yaml --namespace ${NAMESPACE} --ignore-not-found
 # Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=delete pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s
+kubectl wait -n ${NAMESPACE} --for=delete pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s
 # Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=delete pod --namespace ${NAMESPACE} -l app=redis --timeout=300s
+kubectl wait -n ${NAMESPACE} --for=delete pod --namespace ${NAMESPACE} -l app=redis --timeout=300s
 # Delete the Kubernetes resource if it exists.
 kubectl delete secret redis-tls flask-tls --namespace ${NAMESPACE} --ignore-not-found
 ```
@@ -352,7 +357,7 @@ Apply the production sanitized manifest that references the SCONE confidential i
 
 ```bash
 # Apply the Kubernetes manifest.
-kubectl apply -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}
+kubectl apply -n ${NAMESPACE} -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}
 ```
 
 ---
@@ -366,11 +371,11 @@ kubectl get all -n ${NAMESPACE}
 
 # Wait for Redis
 # Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=condition=Ready pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s
+kubectl wait -n ${NAMESPACE} --for=condition=Ready pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s
 
 # Wait for Flask API
 # Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=condition=Ready pod --namespace ${NAMESPACE} -l app=redis --timeout=300s
+kubectl wait -n ${NAMESPACE} --for=condition=Ready pod --namespace ${NAMESPACE} -l app=redis --timeout=300s
 
 # Check logs
 # Show logs from the Kubernetes workload.
@@ -386,8 +391,8 @@ kubectl logs -n ${NAMESPACE} -l app=redis --tail=20
 Open a port-forward to the confidential Flask API pod:
 
 ```bash
-# Stop the previous background process if it is still running.
-kill $(cat /tmp/pf-14996.pid 2> /dev/null) 2> /dev/null || true
+# Stop the previous background process (and its current port-forward child) if still running.
+kill -- -"$(cat /tmp/pf-14996.pid 2> /dev/null)" 2> /dev/null || true
 # Capture the name of a ready pod for port-forwarding.
 POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \
  | jq -r '.items[]
@@ -396,8 +401,13 @@ POD=$(kubectl get pods -n ${NAMESPACE} -l app=flask-api -o json \
     | select(any(.status.conditions[]; .type=="Ready" and .status=="True"))
     | .metadata.name' | head -n1)
 
-# Start a local port-forward to the Kubernetes workload.
-kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 & echo $! > /tmp/pf-14996.pid
+# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.
+# `set -m` puts it in its own process group so cleanup can kill the wrapper and
+# its currently running `kubectl port-forward` child together: killing only the
+# wrapper's PID leaves that child running and the port still bound.
+set -m
+while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid
+set +m
 ```
 
 Then send requests against `https://localhost:14996`:
@@ -405,11 +415,11 @@ Then send requests against `https://localhost:14996`:
 ```bash
 # List all stored keys
 # Request the list of stored keys from the service.
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/keys
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/keys
 
 # Create a client record
 # Create a test client record through the API.
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk -X POST https://localhost:14996/client/abc123 \
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk -X POST https://localhost:14996/client/abc123 \
   -F fname=John \
   -F lname=Doe \
   -F address="123 Main St" \
@@ -420,15 +430,15 @@ curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time
 
 # Retrieve a client
 # Fetch the stored client record from the API.
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/client/abc123
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/client/abc123
 
 # Get credit score
 # Request the credit score for the test client.
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/score/abc123
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/score/abc123
 
 # Memory dump (debug)
 # Request the debug memory dump from the API.
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/memory
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/memory
 ```
 
 > `-sk` skips TLS verification for the self-signed certificate.
@@ -441,18 +451,18 @@ Remove all deployed resources when you are finished:
 
 ```bash
 # Stop the port-forward
-# Stop the previous background process if it is still running.
-kill $(cat /tmp/pf-14996.pid) 2> /dev/null || true
+# Stop the previous background process (and its current port-forward child) if still running.
+kill -- -"$(cat /tmp/pf-14996.pid)" 2> /dev/null || true
 # Remove `/tmp/pf-14996.pid` if it exists.
 rm /tmp/pf-14996.pid
 
 # Delete confidential manifest resources
 # Delete the Kubernetes resource if it exists.
-kubectl delete -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE} --ignore-not-found
+kubectl delete -n ${NAMESPACE} -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE} --ignore-not-found
 # Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=delete pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s
+kubectl wait -n ${NAMESPACE} --for=delete pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s
 # Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=delete pod --namespace ${NAMESPACE} -l app=redis --timeout=300s
+kubectl wait -n ${NAMESPACE} --for=delete pod --namespace ${NAMESPACE} -l app=redis --timeout=300s
 ```
 
 ---

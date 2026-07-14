@@ -54,7 +54,7 @@ eval $(tplenv --file environment-variables.md --create-values-file --context --e
 
 ```bash
 # Create the Kubernetes namespace if it does not already exist.
-kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
+kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -n ${NAMESPACE} -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
 ```
 
 Generate the job manifest with the selected image and pull-secret values:
@@ -91,15 +91,19 @@ If the pull secret does not exist yet, create it using registry credentials.
 - `$REGISTRY_TOKEN` - Registry pull token (see <https://sconedocs.github.io/registry/>)
 
 ```bash
-# Load registry credentials.
-eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
-# Create or refresh the Docker registry pull secret idempotently.
-kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \
-  --docker-server="$REGISTRY" \
-  --docker-username="$REGISTRY_USER" \
-  --docker-password="$REGISTRY_TOKEN" \
-  --dry-run=client -o yaml \
-  | kubectl apply -n "${NAMESPACE}" -f -
+# Create the pull secret only when it does not already exist, so reruns with a
+# precreated secret do not require registry credentials.
+if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
+  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"
+else
+  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
+  # Load registry credentials.
+  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
+  kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \
+    --docker-server="$REGISTRY" \
+    --docker-username="$REGISTRY_USER" \
+    --docker-password="$REGISTRY_TOKEN"
+fi
 ```
 
 ## 5. Run the Native Hello-World Application
@@ -114,8 +118,31 @@ kubectl apply -f manifest.job.yaml -n ${NAMESPACE}
 Wait for completion and stream logs:
 
 ```bash
-# Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s
+# Poll for a terminal state instead of `kubectl wait`: this kubectl version only
+# honors the last --for flag when given more than once, so it can't watch for
+# both Complete and Failed in one call, and `wait -n` (used in an earlier
+# version of this check) isn't portable to bash 3.2 or zsh. The Job is
+# configured with backoffLimit: 4 and restartPolicy: OnFailure, so we wait for
+# the Failed *condition* (set only once retries are exhausted), not
+# .status.failed (a per-attempt retry counter that can tick up while the Job
+# is still retrying and will go on to succeed).
+deadline=$((SECONDS + 300))
+terminal=""
+while [[ $SECONDS -lt $deadline ]]; do
+  complete=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null)
+  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null)
+  if [[ "$complete" == "True" ]] || [[ "$failed" == "True" ]]; then
+    terminal=1
+    break
+  fi
+  sleep 2
+done
+if [[ -z "$terminal" ]]; then
+  echo "Timed out waiting for job/hello-world to complete or fail" >&2
+  exit 1
+fi
+# Exit non-zero early if the job failed rather than completed.
+kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' | grep -q '^True$' && { echo "Job hello-world failed"; exit 1; } || true
 # Show logs from the Kubernetes workload.
 kubectl logs job/hello-world -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps
 ```
@@ -131,11 +158,13 @@ kubectl wait --for=delete pod -l app=hello-world -n ${NAMESPACE} --timeout=300s
 
 ## 6. Attest SCONE CAS
 
-Before sending encrypted policies to CAS, attest CAS via the Kubernetes API:
+Attest CAS before sending encrypted policies. The kubectl path covers in-cluster CAS; if it fails (typical when `${CAS_NAME}.${CAS_NAMESPACE}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.
 
 ```bash
 # Attest the CAS instance before sending encrypted policies.
-kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S || echo "Attestation failed: This is OK if you first attested using *scone cas attest ..."
+kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S \
+    || scone cas attest ${CAS_NAME}.${CAS_NAMESPACE} -C -G -S \
+        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 ```
 
 If attestation fails, inspect the command output for detected vulnerabilities and suggested tolerance flags.
@@ -165,8 +194,31 @@ scone-td-build apply -f manifest.job.yaml -c ${CAS_NAME}.${CAS_NAMESPACE} -p -s 
 ```bash
 # Apply the Kubernetes manifest.
 kubectl apply -f manifest.job.sanitized.yaml -n ${NAMESPACE}
-# Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s
+# Poll for a terminal state instead of `kubectl wait`: this kubectl version only
+# honors the last --for flag when given more than once, so it can't watch for
+# both Complete and Failed in one call, and `wait -n` (used in an earlier
+# version of this check) isn't portable to bash 3.2 or zsh. The Job is
+# configured with backoffLimit: 4 and restartPolicy: OnFailure, so we wait for
+# the Failed *condition* (set only once retries are exhausted), not
+# .status.failed (a per-attempt retry counter that can tick up while the Job
+# is still retrying and will go on to succeed).
+deadline=$((SECONDS + 300))
+terminal=""
+while [[ $SECONDS -lt $deadline ]]; do
+  complete=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null)
+  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null)
+  if [[ "$complete" == "True" ]] || [[ "$failed" == "True" ]]; then
+    terminal=1
+    break
+  fi
+  sleep 2
+done
+if [[ -z "$terminal" ]]; then
+  echo "Timed out waiting for job/hello-world to complete or fail" >&2
+  exit 1
+fi
+# Exit non-zero early if the job failed rather than completed.
+kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' | grep -q '^True$' && { echo "Job hello-world failed"; exit 1; } || true
 # Show logs from the Kubernetes workload.
 kubectl logs job/hello-world -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps
 ```

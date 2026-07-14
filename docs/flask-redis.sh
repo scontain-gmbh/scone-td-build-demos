@@ -381,7 +381,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
+kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -n ${NAMESPACE} -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
 EOF
 )"
 
@@ -400,7 +400,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl create secret generic redis-tls \
+kubectl create -n ${NAMESPACE} secret generic redis-tls \
   --namespace ${NAMESPACE} \
   --from-file=redis.crt=certs/redis.crt \
   --from-file=redis.key=certs/redis.key \
@@ -417,7 +417,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl create secret generic flask-tls \
+kubectl create -n ${NAMESPACE} secret generic flask-tls \
   --namespace ${NAMESPACE} \
   --from-file=flask.crt=certs/flask.crt \
   --from-file=flask.key=certs/flask.key \
@@ -439,7 +439,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl apply -f k8s/secret-redis-tls.yaml
+kubectl apply -n ${NAMESPACE} -f k8s/secret-redis-tls.yaml
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -447,7 +447,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl apply -f k8s/secret-flask-tls.yaml
+kubectl apply -n ${NAMESPACE} -f k8s/secret-flask-tls.yaml
 EOF
 )"
 
@@ -544,7 +544,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl apply -f k8s/manifest.yaml --namespace ${NAMESPACE}
+kubectl apply -n ${NAMESPACE} -f k8s/manifest.yaml --namespace ${NAMESPACE}
 EOF
 )"
 
@@ -652,11 +652,11 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Stop the previous background process if it is still running.
+# Stop the previous background process (and its current port-forward child) if still running.
 EOF
 )"
 pe "$(cat <<'EOF'
-kill $(cat /tmp/pf-14996.pid 2> /dev/null) 2> /dev/null || true
+kill -- -"$(cat /tmp/pf-14996.pid 2> /dev/null)" 2> /dev/null || true
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -693,11 +693,31 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-# Start a local port-forward to the Kubernetes workload.
+# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 & echo $! > /tmp/pf-14996.pid
+# `set -m` puts it in its own process group so cleanup can kill the wrapper and
+EOF
+)"
+pe "$(cat <<'EOF'
+# its currently running `kubectl port-forward` child together: killing only the
+EOF
+)"
+pe "$(cat <<'EOF'
+# wrapper's PID leaves that child running and the port still bound.
+EOF
+)"
+pe "$(cat <<'EOF'
+set -m
+EOF
+)"
+pe "$(cat <<'EOF'
+while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid
+EOF
+)"
+pe "$(cat <<'EOF'
+set +m
 EOF
 )"
 
@@ -808,7 +828,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl delete -f k8s/manifest.yaml --namespace ${NAMESPACE} --ignore-not-found
+kubectl delete -n ${NAMESPACE} -f k8s/manifest.yaml --namespace ${NAMESPACE} --ignore-not-found
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -816,7 +836,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl wait --for=delete pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s
+kubectl wait -n ${NAMESPACE} --for=delete pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -824,7 +844,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl wait --for=delete pod --namespace ${NAMESPACE} -l app=redis --timeout=300s
+kubectl wait -n ${NAMESPACE} --for=delete pod --namespace ${NAMESPACE} -l app=redis --timeout=300s
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -960,7 +980,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl apply -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}
+kubectl apply -n ${NAMESPACE} -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}
 EOF
 )"
 
@@ -997,7 +1017,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl wait --for=condition=Ready pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s
+kubectl wait -n ${NAMESPACE} --for=condition=Ready pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -1013,7 +1033,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl wait --for=condition=Ready pod --namespace ${NAMESPACE} -l app=redis --timeout=300s
+kubectl wait -n ${NAMESPACE} --for=condition=Ready pod --namespace ${NAMESPACE} -l app=redis --timeout=300s
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -1052,11 +1072,11 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Stop the previous background process if it is still running.
+# Stop the previous background process (and its current port-forward child) if still running.
 EOF
 )"
 pe "$(cat <<'EOF'
-kill $(cat /tmp/pf-14996.pid 2> /dev/null) 2> /dev/null || true
+kill -- -"$(cat /tmp/pf-14996.pid 2> /dev/null)" 2> /dev/null || true
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -1089,11 +1109,31 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-# Start a local port-forward to the Kubernetes workload.
+# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 & echo $! > /tmp/pf-14996.pid
+# `set -m` puts it in its own process group so cleanup can kill the wrapper and
+EOF
+)"
+pe "$(cat <<'EOF'
+# its currently running `kubectl port-forward` child together: killing only the
+EOF
+)"
+pe "$(cat <<'EOF'
+# wrapper's PID leaves that child running and the port still bound.
+EOF
+)"
+pe "$(cat <<'EOF'
+set -m
+EOF
+)"
+pe "$(cat <<'EOF'
+while true; do kubectl port-forward -n ${NAMESPACE} pod/$POD 14996:4996 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-14996.pid
+EOF
+)"
+pe "$(cat <<'EOF'
+set +m
 EOF
 )"
 
@@ -1112,7 +1152,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/keys
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/keys
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -1128,7 +1168,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk -X POST https://localhost:14996/client/abc123 \
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk -X POST https://localhost:14996/client/abc123 \
   -F fname=John \
   -F lname=Doe \
   -F address="123 Main St" \
@@ -1151,7 +1191,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/client/abc123
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/client/abc123
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -1167,7 +1207,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/score/abc123
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/score/abc123
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -1183,7 +1223,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-curl --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/memory
+curl --retry 30 --retry-all-errors --retry-delay 10 --connect-timeout 5 --max-time 10 -sk https://localhost:14996/memory
 EOF
 )"
 
@@ -1204,11 +1244,11 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-# Stop the previous background process if it is still running.
+# Stop the previous background process (and its current port-forward child) if still running.
 EOF
 )"
 pe "$(cat <<'EOF'
-kill $(cat /tmp/pf-14996.pid) 2> /dev/null || true
+kill -- -"$(cat /tmp/pf-14996.pid)" 2> /dev/null || true
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -1232,7 +1272,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl delete -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE} --ignore-not-found
+kubectl delete -n ${NAMESPACE} -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE} --ignore-not-found
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -1240,7 +1280,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl wait --for=delete pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s
+kubectl wait -n ${NAMESPACE} --for=delete pod --namespace ${NAMESPACE} -l app=flask-api --timeout=300s
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -1248,7 +1288,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl wait --for=delete pod --namespace ${NAMESPACE} -l app=redis --timeout=300s
+kubectl wait -n ${NAMESPACE} --for=delete pod --namespace ${NAMESPACE} -l app=redis --timeout=300s
 EOF
 )"
 

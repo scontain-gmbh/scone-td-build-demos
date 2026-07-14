@@ -423,11 +423,11 @@ kubectl wait --for=delete pod -l app=web-server -n ${NAMESPACE} --timeout=240s |
 EOF
 )"
 pe "$(cat <<'EOF'
-# Stop the previous background process if it is still running.
+# Stop the previous background process (and its current port-forward child) if still running.
 EOF
 )"
 pe "$(cat <<'EOF'
-kill $(cat /tmp/pf-8000.pid) || true
+kill -- -"$(cat /tmp/pf-8000.pid)" 2>/dev/null || true
 EOF
 )"
 
@@ -454,11 +454,31 @@ kubectl wait --for=condition=Ready pod -l app="web-server" -n ${NAMESPACE} --tim
 EOF
 )"
 pe "$(cat <<'EOF'
-# Start a local port-forward to the Kubernetes workload.
+# Start a self-restarting port-forward; the loop recreates it if the pod bounces.
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} & echo $! > /tmp/pf-8000.pid
+# `set -m` puts it in its own process group so cleanup can kill the wrapper and
+EOF
+)"
+pe "$(cat <<'EOF'
+# its currently running `kubectl port-forward` child together: killing only the
+EOF
+)"
+pe "$(cat <<'EOF'
+# wrapper's PID leaves that child running and the port still bound.
+EOF
+)"
+pe "$(cat <<'EOF'
+set -m
+EOF
+)"
+pe "$(cat <<'EOF'
+while true; do kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-8000.pid
+EOF
+)"
+pe "$(cat <<'EOF'
+set +m
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -502,11 +522,11 @@ kubectl wait --for=delete pod -l app=web-server -n ${NAMESPACE} --timeout=240s
 EOF
 )"
 pe "$(cat <<'EOF'
-# Stop the previous background process if it is still running.
+# Stop the previous background process (and its current port-forward child) if still running.
 EOF
 )"
 pe "$(cat <<'EOF'
-kill $(cat /tmp/pf-8000.pid) || true
+kill -- -"$(cat /tmp/pf-8000.pid)" 2>/dev/null || true
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -539,6 +559,7 @@ scone-td-build apply \
   --manifest-env SCONE_SYSLIBS=1 \
   --manifest-env SCONE_PRODUCTION=0 \
   --manifest-env SCONE_VERSION=1 \
+  --manifest-env SCONE_HEAP=2G \
   --session-env SCONE_VERSION=1 \
   --output-manifest-file manifest.sanitized.yaml \
   --version ${SCONE_RUNTIME_VERSION} -p \
@@ -590,11 +611,31 @@ sleep 20
 EOF
 )"
 pe "$(cat <<'EOF'
-# Start a local port-forward to the Kubernetes workload.
+# Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} & echo $! > /tmp/pf-8000.pid
+# `set -m` puts it in its own process group so cleanup can kill the wrapper and
+EOF
+)"
+pe "$(cat <<'EOF'
+# its currently running `kubectl port-forward` child together: killing only the
+EOF
+)"
+pe "$(cat <<'EOF'
+# wrapper's PID leaves that child running and the port still bound.
+EOF
+)"
+pe "$(cat <<'EOF'
+set -m
+EOF
+)"
+pe "$(cat <<'EOF'
+while true; do kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-8000.pid
+EOF
+)"
+pe "$(cat <<'EOF'
+set +m
 EOF
 )"
 
@@ -617,7 +658,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-retry-spinner -- curl http://localhost:8000/gen
+retry-spinner --retries 40 --wait 10 -- curl http://localhost:8000/gen
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -644,11 +685,11 @@ kubectl delete -f manifest.sanitized.yaml -n ${NAMESPACE}
 EOF
 )"
 pe "$(cat <<'EOF'
-# Stop the previous background process if it is still running.
+# Stop the previous background process (and its current port-forward child) if still running.
 EOF
 )"
 pe "$(cat <<'EOF'
-kill $(cat /tmp/pf-8000.pid) || true
+kill -- -"$(cat /tmp/pf-8000.pid)" 2>/dev/null || true
 EOF
 )"
 pe "$(cat <<'EOF'

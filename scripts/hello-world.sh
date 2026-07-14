@@ -145,11 +145,11 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Create the Kubernetes namespace if it does not already exist.'
-printf '%s\n' 'kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"'
+printf '%s\n' 'kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -n ${NAMESPACE} -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"'
 printf "${RESET}"
 
 # Create the Kubernetes namespace if it does not already exist.
-kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
+kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -n ${NAMESPACE} -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -212,26 +212,34 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Load registry credentials.'
-printf '%s\n' 'eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})'
-printf '%s\n' '# Create or refresh the Docker registry pull secret idempotently.'
-printf '%s\n' 'kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \'
-printf '%s\n' '  --docker-server="$REGISTRY" \'
-printf '%s\n' '  --docker-username="$REGISTRY_USER" \'
-printf '%s\n' '  --docker-password="$REGISTRY_TOKEN" \'
-printf '%s\n' '  --dry-run=client -o yaml \'
-printf '%s\n' '  | kubectl apply -n "${NAMESPACE}" -f -'
+printf '%s\n' '# Create the pull secret only when it does not already exist, so reruns with a'
+printf '%s\n' '# precreated secret do not require registry credentials.'
+printf '%s\n' 'if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then'
+printf '%s\n' '  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"'
+printf '%s\n' 'else'
+printf '%s\n' '  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."'
+printf '%s\n' '  # Load registry credentials.'
+printf '%s\n' '  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})'
+printf '%s\n' '  kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \'
+printf '%s\n' '    --docker-server="$REGISTRY" \'
+printf '%s\n' '    --docker-username="$REGISTRY_USER" \'
+printf '%s\n' '    --docker-password="$REGISTRY_TOKEN"'
+printf '%s\n' 'fi'
 printf "${RESET}"
 
-# Load registry credentials.
-eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
-# Create or refresh the Docker registry pull secret idempotently.
-kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \
-  --docker-server="$REGISTRY" \
-  --docker-username="$REGISTRY_USER" \
-  --docker-password="$REGISTRY_TOKEN" \
-  --dry-run=client -o yaml \
-  | kubectl apply -n "${NAMESPACE}" -f -
+# Create the pull secret only when it does not already exist, so reruns with a
+# precreated secret do not require registry credentials.
+if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
+  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"
+else
+  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
+  # Load registry credentials.
+  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
+  kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \
+    --docker-server="$REGISTRY" \
+    --docker-username="$REGISTRY_USER" \
+    --docker-password="$REGISTRY_TOKEN"
+fi
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -258,14 +266,60 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
-printf '%s\n' 'kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s'
+printf '%s\n' '# Poll for a terminal state instead of `kubectl wait`: this kubectl version only'
+printf '%s\n' '# honors the last --for flag when given more than once, so it can'\''t watch for'
+printf '%s\n' '# both Complete and Failed in one call, and `wait -n` (used in an earlier'
+printf '%s\n' '# version of this check) isn'\''t portable to bash 3.2 or zsh. The Job is'
+printf '%s\n' '# configured with backoffLimit: 4 and restartPolicy: OnFailure, so we wait for'
+printf '%s\n' '# the Failed *condition* (set only once retries are exhausted), not'
+printf '%s\n' '# .status.failed (a per-attempt retry counter that can tick up while the Job'
+printf '%s\n' '# is still retrying and will go on to succeed).'
+printf '%s\n' 'deadline=$((SECONDS + 300))'
+printf '%s\n' 'terminal=""'
+printf '%s\n' 'while [[ $SECONDS -lt $deadline ]]; do'
+printf '%s\n' '  complete=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='\''{.status.conditions[?(@.type=="Complete")].status}'\'' 2>/dev/null)'
+printf '%s\n' '  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='\''{.status.conditions[?(@.type=="Failed")].status}'\'' 2>/dev/null)'
+printf '%s\n' '  if [[ "$complete" == "True" ]] || [[ "$failed" == "True" ]]; then'
+printf '%s\n' '    terminal=1'
+printf '%s\n' '    break'
+printf '%s\n' '  fi'
+printf '%s\n' '  sleep 2'
+printf '%s\n' 'done'
+printf '%s\n' 'if [[ -z "$terminal" ]]; then'
+printf '%s\n' '  echo "Timed out waiting for job/hello-world to complete or fail" >&2'
+printf '%s\n' '  exit 1'
+printf '%s\n' 'fi'
+printf '%s\n' '# Exit non-zero early if the job failed rather than completed.'
+printf '%s\n' 'kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='\''{.status.conditions[?(@.type=="Failed")].status}'\'' | grep -q '\''^True$'\'' && { echo "Job hello-world failed"; exit 1; } || true'
 printf '%s\n' '# Show logs from the Kubernetes workload.'
 printf '%s\n' 'kubectl logs job/hello-world -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps'
 printf "${RESET}"
 
-# Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s
+# Poll for a terminal state instead of `kubectl wait`: this kubectl version only
+# honors the last --for flag when given more than once, so it can't watch for
+# both Complete and Failed in one call, and `wait -n` (used in an earlier
+# version of this check) isn't portable to bash 3.2 or zsh. The Job is
+# configured with backoffLimit: 4 and restartPolicy: OnFailure, so we wait for
+# the Failed *condition* (set only once retries are exhausted), not
+# .status.failed (a per-attempt retry counter that can tick up while the Job
+# is still retrying and will go on to succeed).
+deadline=$((SECONDS + 300))
+terminal=""
+while [[ $SECONDS -lt $deadline ]]; do
+  complete=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null)
+  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null)
+  if [[ "$complete" == "True" ]] || [[ "$failed" == "True" ]]; then
+    terminal=1
+    break
+  fi
+  sleep 2
+done
+if [[ -z "$terminal" ]]; then
+  echo "Timed out waiting for job/hello-world to complete or fail" >&2
+  exit 1
+fi
+# Exit non-zero early if the job failed rather than completed.
+kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' | grep -q '^True$' && { echo "Job hello-world failed"; exit 1; } || true
 # Show logs from the Kubernetes workload.
 kubectl logs job/hello-world -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps
 
@@ -291,17 +345,21 @@ printf "${VIOLET}"
 printf '%s\n' ''
 printf '%s\n' '## 6. Attest SCONE CAS'
 printf '%s\n' ''
-printf '%s\n' 'Before sending encrypted policies to CAS, attest CAS via the Kubernetes API:'
+printf '%s\n' 'Attest CAS before sending encrypted policies. The kubectl path covers in-cluster CAS; if it fails (typical when `${CAS_NAME}.${CAS_NAMESPACE}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.'
 printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Attest the CAS instance before sending encrypted policies.'
-printf '%s\n' 'kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S || echo "Attestation failed: This is OK if you first attested using *scone cas attest ..."'
+printf '%s\n' 'kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S \'
+printf '%s\n' '    || scone cas attest ${CAS_NAME}.${CAS_NAMESPACE} -C -G -S \'
+printf '%s\n' '        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any'
 printf "${RESET}"
 
 # Attest the CAS instance before sending encrypted policies.
-kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S || echo "Attestation failed: This is OK if you first attested using *scone cas attest ..."
+kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S \
+    || scone cas attest ${CAS_NAME}.${CAS_NAMESPACE} -C -G -S \
+        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -348,16 +406,62 @@ printf "${RESET}"
 printf "${ORANGE}"
 printf '%s\n' '# Apply the Kubernetes manifest.'
 printf '%s\n' 'kubectl apply -f manifest.job.sanitized.yaml -n ${NAMESPACE}'
-printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
-printf '%s\n' 'kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s'
+printf '%s\n' '# Poll for a terminal state instead of `kubectl wait`: this kubectl version only'
+printf '%s\n' '# honors the last --for flag when given more than once, so it can'\''t watch for'
+printf '%s\n' '# both Complete and Failed in one call, and `wait -n` (used in an earlier'
+printf '%s\n' '# version of this check) isn'\''t portable to bash 3.2 or zsh. The Job is'
+printf '%s\n' '# configured with backoffLimit: 4 and restartPolicy: OnFailure, so we wait for'
+printf '%s\n' '# the Failed *condition* (set only once retries are exhausted), not'
+printf '%s\n' '# .status.failed (a per-attempt retry counter that can tick up while the Job'
+printf '%s\n' '# is still retrying and will go on to succeed).'
+printf '%s\n' 'deadline=$((SECONDS + 300))'
+printf '%s\n' 'terminal=""'
+printf '%s\n' 'while [[ $SECONDS -lt $deadline ]]; do'
+printf '%s\n' '  complete=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='\''{.status.conditions[?(@.type=="Complete")].status}'\'' 2>/dev/null)'
+printf '%s\n' '  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='\''{.status.conditions[?(@.type=="Failed")].status}'\'' 2>/dev/null)'
+printf '%s\n' '  if [[ "$complete" == "True" ]] || [[ "$failed" == "True" ]]; then'
+printf '%s\n' '    terminal=1'
+printf '%s\n' '    break'
+printf '%s\n' '  fi'
+printf '%s\n' '  sleep 2'
+printf '%s\n' 'done'
+printf '%s\n' 'if [[ -z "$terminal" ]]; then'
+printf '%s\n' '  echo "Timed out waiting for job/hello-world to complete or fail" >&2'
+printf '%s\n' '  exit 1'
+printf '%s\n' 'fi'
+printf '%s\n' '# Exit non-zero early if the job failed rather than completed.'
+printf '%s\n' 'kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='\''{.status.conditions[?(@.type=="Failed")].status}'\'' | grep -q '\''^True$'\'' && { echo "Job hello-world failed"; exit 1; } || true'
 printf '%s\n' '# Show logs from the Kubernetes workload.'
 printf '%s\n' 'kubectl logs job/hello-world -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps'
 printf "${RESET}"
 
 # Apply the Kubernetes manifest.
 kubectl apply -f manifest.job.sanitized.yaml -n ${NAMESPACE}
-# Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=condition=complete job/hello-world -n ${NAMESPACE} --timeout=300s
+# Poll for a terminal state instead of `kubectl wait`: this kubectl version only
+# honors the last --for flag when given more than once, so it can't watch for
+# both Complete and Failed in one call, and `wait -n` (used in an earlier
+# version of this check) isn't portable to bash 3.2 or zsh. The Job is
+# configured with backoffLimit: 4 and restartPolicy: OnFailure, so we wait for
+# the Failed *condition* (set only once retries are exhausted), not
+# .status.failed (a per-attempt retry counter that can tick up while the Job
+# is still retrying and will go on to succeed).
+deadline=$((SECONDS + 300))
+terminal=""
+while [[ $SECONDS -lt $deadline ]]; do
+  complete=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null)
+  failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null)
+  if [[ "$complete" == "True" ]] || [[ "$failed" == "True" ]]; then
+    terminal=1
+    break
+  fi
+  sleep 2
+done
+if [[ -z "$terminal" ]]; then
+  echo "Timed out waiting for job/hello-world to complete or fail" >&2
+  exit 1
+fi
+# Exit non-zero early if the job failed rather than completed.
+kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' | grep -q '^True$' && { echo "Job hello-world failed"; exit 1; } || true
 # Show logs from the Kubernetes workload.
 kubectl logs job/hello-world -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps
 
