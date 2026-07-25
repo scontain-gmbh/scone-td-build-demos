@@ -401,7 +401,12 @@ printf "${ORANGE}"
 printf '%s\n' '# Show the most recent logs and capture the Version 1 API_PASSWORD checksum, so Step 12'
 printf '%s\n' '# can check it against Version 2'\''s automatically instead of relying on a human comparing'
 printf '%s\n' '# two printed checksums by eye.'
-printf '%s\n' 'v1_log=$(retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} deployment/python-hello-user)'
+printf '%s\n' '# The SCONE runtime prints its enclave banner several seconds before the Python app'\''s'
+printf '%s\n' '# first line, and `kubectl logs` exits 0 as soon as that banner exists -- so retrying on'
+printf '%s\n' '# its exit code captures the logs before the app has printed anything. Poll for the app'\''s'
+printf '%s\n' '# own checksum line instead.'
+printf '%s\n' 'v1_log=""'
+printf '%s\n' 'for _ in $(seq 1 30); do v1_log=$(kubectl logs -n ${NAMESPACE} deployment/python-hello-user 2>/dev/null || true); echo "$v1_log" | grep -q "checksum of the original API_PASSWORD" && break; sleep 5; done'
 printf '%s\n' 'echo "$v1_log" | tail -10'
 printf '%s\n' 'v1_checksum=$(echo "$v1_log" | grep -m1 "checksum of the original API_PASSWORD" | grep -oE "'\''[^'\'']+'\''" | tr -d "'\''")'
 printf '%s\n' 'if [ -z "$v1_checksum" ]; then'
@@ -414,7 +419,12 @@ printf "${RESET}"
 # Show the most recent logs and capture the Version 1 API_PASSWORD checksum, so Step 12
 # can check it against Version 2's automatically instead of relying on a human comparing
 # two printed checksums by eye.
-v1_log=$(retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} deployment/python-hello-user)
+# The SCONE runtime prints its enclave banner several seconds before the Python app's
+# first line, and `kubectl logs` exits 0 as soon as that banner exists -- so retrying on
+# its exit code captures the logs before the app has printed anything. Poll for the app's
+# own checksum line instead.
+v1_log=""
+for _ in $(seq 1 30); do v1_log=$(kubectl logs -n ${NAMESPACE} deployment/python-hello-user 2>/dev/null || true); echo "$v1_log" | grep -q "checksum of the original API_PASSWORD" && break; sleep 5; done
 echo "$v1_log" | tail -10
 v1_checksum=$(echo "$v1_log" | grep -m1 "checksum of the original API_PASSWORD" | grep -oE "'[^']+'" | tr -d "'")
 if [ -z "$v1_checksum" ]; then
@@ -488,7 +498,10 @@ printf '%s\n' '# Show the most recent logs from Version 2 and check its API_PASS
 printf '%s\n' '# Version 1'\''s captured in Step 9. This is the actual cross-version check: each program'
 printf '%s\n' '# only ever compares against its own startup value, so without this the demo would pass'
 printf '%s\n' '# even if CAS had regenerated API_PASSWORD during the update.'
-printf '%s\n' 'v2_log=$(retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} deployment/python-hello-user)'
+printf '%s\n' '# Same enclave-banner race as Step 9: poll until the Version 2 app loop is actually'
+printf '%s\n' '# printing, otherwise the "Running Version 2." check below races the enclave start.'
+printf '%s\n' 'v2_log=""'
+printf '%s\n' 'for _ in $(seq 1 30); do v2_log=$(kubectl logs -n ${NAMESPACE} deployment/python-hello-user 2>/dev/null || true); echo "$v2_log" | grep -q "Running Version 2\." && break; sleep 5; done'
 printf '%s\n' 'echo "$v2_log" | tail -10'
 printf '%s\n' '# Prove Version 2 is actually the program running, not just that the checksum matched.'
 printf '%s\n' '# Both programs print an identical checksum line, so a stale Version 1 deployment (or a'
@@ -518,7 +531,10 @@ printf "${RESET}"
 # Version 1's captured in Step 9. This is the actual cross-version check: each program
 # only ever compares against its own startup value, so without this the demo would pass
 # even if CAS had regenerated API_PASSWORD during the update.
-v2_log=$(retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} deployment/python-hello-user)
+# Same enclave-banner race as Step 9: poll until the Version 2 app loop is actually
+# printing, otherwise the "Running Version 2." check below races the enclave start.
+v2_log=""
+for _ in $(seq 1 30); do v2_log=$(kubectl logs -n ${NAMESPACE} deployment/python-hello-user 2>/dev/null || true); echo "$v2_log" | grep -q "Running Version 2\." && break; sleep 5; done
 echo "$v2_log" | tail -10
 # Prove Version 2 is actually the program running, not just that the checksum matched.
 # Both programs print an identical checksum line, so a stale Version 1 deployment (or a
