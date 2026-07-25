@@ -206,7 +206,12 @@ kubectl rollout status deployment/python-hello-user -n ${NAMESPACE} --timeout=30
 # Show the most recent logs and capture the Version 1 API_PASSWORD checksum, so Step 12
 # can check it against Version 2's automatically instead of relying on a human comparing
 # two printed checksums by eye.
-v1_log=$(retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} deployment/python-hello-user)
+# The SCONE runtime prints its enclave banner several seconds before the Python app's
+# first line, and `kubectl logs` exits 0 as soon as that banner exists -- so retrying on
+# its exit code captures the logs before the app has printed anything. Poll for the app's
+# own checksum line instead.
+v1_log=""
+for _ in $(seq 1 30); do v1_log=$(kubectl logs -n ${NAMESPACE} deployment/python-hello-user 2>/dev/null || true); echo "$v1_log" | grep -q "checksum of the original API_PASSWORD" && break; sleep 5; done
 echo "$v1_log" | tail -10
 v1_checksum=$(echo "$v1_log" | grep -m1 "checksum of the original API_PASSWORD" | grep -oE "'[^']+'" | tr -d "'")
 if [ -z "$v1_checksum" ]; then
@@ -263,7 +268,10 @@ kubectl rollout status deployment/python-hello-user -n ${NAMESPACE} --timeout=30
 # Version 1's captured in Step 9. This is the actual cross-version check: each program
 # only ever compares against its own startup value, so without this the demo would pass
 # even if CAS had regenerated API_PASSWORD during the update.
-v2_log=$(retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} deployment/python-hello-user)
+# Same enclave-banner race as Step 9: poll until the Version 2 app loop is actually
+# printing, otherwise the "Running Version 2." check below races the enclave start.
+v2_log=""
+for _ in $(seq 1 30); do v2_log=$(kubectl logs -n ${NAMESPACE} deployment/python-hello-user 2>/dev/null || true); echo "$v2_log" | grep -q "Running Version 2\." && break; sleep 5; done
 echo "$v2_log" | tail -10
 # Prove Version 2 is actually the program running, not just that the checksum matched.
 # Both programs print an identical checksum line, so a stale Version 1 deployment (or a

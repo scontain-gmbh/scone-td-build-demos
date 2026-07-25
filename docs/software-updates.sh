@@ -565,7 +565,27 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-v1_log=$(retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} deployment/python-hello-user)
+# The SCONE runtime prints its enclave banner several seconds before the Python app's
+EOF
+)"
+pe "$(cat <<'EOF'
+# first line, and `kubectl logs` exits 0 as soon as that banner exists -- so retrying on
+EOF
+)"
+pe "$(cat <<'EOF'
+# its exit code captures the logs before the app has printed anything. Poll for the app's
+EOF
+)"
+pe "$(cat <<'EOF'
+# own checksum line instead.
+EOF
+)"
+pe "$(cat <<'EOF'
+v1_log=""
+EOF
+)"
+pe "$(cat <<'EOF'
+for _ in $(seq 1 30); do v1_log=$(kubectl logs -n ${NAMESPACE} deployment/python-hello-user 2>/dev/null || true); echo "$v1_log" | grep -q "checksum of the original API_PASSWORD" && break; sleep 5; done
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -680,7 +700,19 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-v2_log=$(retry-spinner --retries 10 --wait 5 -- kubectl logs -n ${NAMESPACE} deployment/python-hello-user)
+# Same enclave-banner race as Step 9: poll until the Version 2 app loop is actually
+EOF
+)"
+pe "$(cat <<'EOF'
+# printing, otherwise the "Running Version 2." check below races the enclave start.
+EOF
+)"
+pe "$(cat <<'EOF'
+v2_log=""
+EOF
+)"
+pe "$(cat <<'EOF'
+for _ in $(seq 1 30); do v2_log=$(kubectl logs -n ${NAMESPACE} deployment/python-hello-user 2>/dev/null || true); echo "$v2_log" | grep -q "Running Version 2\." && break; sleep 5; done
 EOF
 )"
 pe "$(cat <<'EOF'
