@@ -4,14 +4,16 @@ metadata:
   name: keyprovider
   namespace: trustee
 spec:
-  type: NodePort
+  # ClusterIP is enough: the walkthrough reaches the key provider through
+  # `kubectl port-forward svc/keyprovider 50000:50000`, not a node port. Avoids
+  # clashing with node ports already in use on the cluster.
+  type: ClusterIP
   selector:
     app: keyprovider
   ports:
     - protocol: TCP
       port: 50000
       targetPort: 50000
-      nodePort: 32000
 ---
 apiVersion: v1
 kind: Secret

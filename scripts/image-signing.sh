@@ -520,8 +520,11 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Stop the key provider port-forward.'
+printf '%s\n' '# Stop the key provider port-forward. Kill the restart loop first so it does not respawn,'
+printf '%s\n' '# then the kubectl child it spawned -- killing only the wrapper PID leaves that child alive'
+printf '%s\n' '# and owning port 50000, which breaks the next run.'
 printf '%s\n' 'kill ${PORT_FORWARD_PID} 2>/dev/null || true'
+printf '%s\n' 'pkill -f "kubectl port-forward -n trustee svc/keyprovider 50000:50000" 2>/dev/null || true'
 printf '%s\n' '# Delete the key provider.'
 printf '%s\n' 'kubectl delete -f k8s/key-provider.yaml --ignore-not-found'
 printf '%s\n' '# Delete only the Key Broker Service resources, not the `trustee` namespace itself:'
@@ -540,8 +543,11 @@ printf '%s\n' '# Return to the previous working directory.'
 printf '%s\n' 'popd'
 printf "${RESET}"
 
-# Stop the key provider port-forward.
+# Stop the key provider port-forward. Kill the restart loop first so it does not respawn,
+# then the kubectl child it spawned -- killing only the wrapper PID leaves that child alive
+# and owning port 50000, which breaks the next run.
 kill ${PORT_FORWARD_PID} 2>/dev/null || true
+pkill -f "kubectl port-forward -n trustee svc/keyprovider 50000:50000" 2>/dev/null || true
 # Delete the key provider.
 kubectl delete -f k8s/key-provider.yaml --ignore-not-found
 # Delete only the Key Broker Service resources, not the `trustee` namespace itself:

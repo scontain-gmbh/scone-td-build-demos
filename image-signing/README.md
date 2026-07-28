@@ -273,8 +273,11 @@ cosign verify --key ./config/image-signing-key.pub --insecure-ignore-tlog ${DEST
 ## 12. Uninstall `image-signing`
 
 ```bash
-# Stop the key provider port-forward.
+# Stop the key provider port-forward. Kill the restart loop first so it does not respawn,
+# then the kubectl child it spawned -- killing only the wrapper PID leaves that child alive
+# and owning port 50000, which breaks the next run.
 kill ${PORT_FORWARD_PID} 2>/dev/null || true
+pkill -f "kubectl port-forward -n trustee svc/keyprovider 50000:50000" 2>/dev/null || true
 # Delete the key provider.
 kubectl delete -f k8s/key-provider.yaml --ignore-not-found
 # Delete only the Key Broker Service resources, not the `trustee` namespace itself:
