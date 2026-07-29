@@ -1,0 +1,15 @@
+environment:
+  IMAGE_PULL_SECRET_NAME: sconeapps
+  SCONE_CAS_ADDR: cas.default
+  SCONE_RUNTIME_VERSION: 7.0.0-alpha.4
+  SCONE_RUNTIME_IMAGE: registry.scontain.com/sergey/test:scone-deb-pkgs-scone7.0.0-rc-cvm-mode
+  CVM_SIGNING_KEY_FILE: /tmp/kbs-signer.pem
+  CVM_MODE: false
+  SCONE_ENCLAVE: false
+  REGISTRY: registry.scontain.com
+  NATIVE_IMAGE_NAME: registry.scontain.com/k8s-scone-images/flask-redis-netshield:latest
+  NAMESPACE: scone-tools
+  SIGNER: |-
+    -----BEGIN PUBLIC KEY-----
+    MCowBQYDK2VwAyEAvSRST+dhEaX42c6VkY1Sv+KVelnSup96M6TMHOlqcrg=
+    -----END PUBLIC KEY-----

@@ -229,16 +229,16 @@ declare -A seen_namespaces=()
 target_namespaces=("default")
 
 for values_file in "${all_values_files[@]}"; do
-  ns="$(awk -F': ' '/^  NAMESPACE:/ { gsub(/["'\''[:space:]]/, "", $2); print $2; exit }' "$values_file")"
-  if [[ -n "$ns" && -z "${seen_namespaces[$ns]:-}" ]]; then
-    seen_namespaces["$ns"]=1
-    target_namespaces+=("$ns")
+  NAMESPACE="$(awk -F': ' '/^  NAMESPACE:/ { gsub(/["'\''[:space:]]/, "", $2); print $2; exit }' "$values_file")"
+  if [[ -n "$NAMESPACE" && -z "${seen_namespaces[$NAMESPACE]:-}" ]]; then
+    seen_namespaces["$NAMESPACE"]=1
+    target_namespaces+=("$NAMESPACE")
   fi
 done
 
-for ns in "${target_namespaces[@]}"; do
-  ensure_namespace "$ns"
-  apply_pull_secret "$ns"
+for NAMESPACE in "${target_namespaces[@]}"; do
+  ensure_namespace "$NAMESPACE"
+  apply_pull_secret "$NAMESPACE"
 done
 
 printf 'Prepared example CI configuration for mode: %s\n' "$mode"
@@ -248,6 +248,6 @@ if [[ -n "$namespace" ]]; then
   printf 'Namespace (applied to all demos): %s\n' "$namespace"
 fi
 printf 'Namespaces:\n'
-for ns in "${target_namespaces[@]}"; do
-  printf '  - %s\n' "$ns"
+for NAMESPACE in "${target_namespaces[@]}"; do
+  printf '  - %s\n' "$NAMESPACE"
 done

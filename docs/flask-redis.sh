@@ -54,7 +54,7 @@ show_help() {
   cat <<USAGE
 Usage: $0 [--help] [--non-interactive]
 
-Runs a demo-style shell script generated from flask-redis/README.md.
+Runs a demo-style shell script generated from /home/daniel/scone-td-build-demos/scripts/../demos/flask-redis/README.md.
 
 Options:
   --help             Show this help message and exit.
@@ -101,15 +101,6 @@ fi
 unset CONFIRM_ALL_ENVIRONMENT_VARIABLES || true
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-expected_workdir="$(cd "${script_dir}/.." && pwd)"
-expected_invocation="./$(basename "${script_dir}")/$(basename "$0")"
-
-if [[ "$(pwd)" != "$expected_workdir" ]]; then
-  echo "Error: Wrong working directory." >&2
-  echo "Expected working directory: $expected_workdir" >&2
-  echo "Run this script as: $expected_invocation" >&2
-  exit 1
-fi
 
 printf "%b" "$LILAC"
 printf '%s\n' '# Flask Redis'
@@ -128,7 +119,7 @@ printf '%s\n' '├── requirements.txt             # Python dependencies'
 printf '%s\n' '├── scone.template.yaml          # SCONE confidential build template'
 printf '%s\n' '├── environment-variables.md     # tplenv variable definitions'
 printf '%s\n' '├── registry.credentials.md      # tplenv registry credential definitions'
-printf '%s\n' '├── k8s/'
+printf '%s\n' '├── manifests/'
 printf '%s\n' '│   └── manifest.template.yaml   # Redis + Flask API deployment template'
 printf '%s\n' '└── README.md'
 printf '%s\n' ''
@@ -150,19 +141,11 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Change into `flask-redis`.
-EOF
-)"
-pe "$(cat <<'EOF'
-cd flask-redis
-EOF
-)"
-pe "$(cat <<'EOF'
 # Create `certs` if it does not already exist.
 EOF
 )"
 pe "$(cat <<'EOF'
-mkdir -p certs
+mkdir -p "$DEMO_DIR/certs"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -170,11 +153,11 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-# Remove `flask-redis/flask-redis-demo.json` if it exists.
+# Remove `flask-redis-demo.json` if it exists.
 EOF
 )"
 pe "$(cat <<'EOF'
-rm -f flask-redis/flask-redis-demo.json || true
+rm -f "$DEMO_DIR/flask-redis-demo.json" || true
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -190,7 +173,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-openssl genrsa -out certs/redis-ca.key 4096
+openssl genrsa -out "$DEMO_DIR/certs/redis-ca.key" 4096
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -198,8 +181,8 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-openssl req -x509 -new -nodes -key certs/redis-ca.key -sha256 -days 3650 \
-  -out certs/redis-ca.crt -subj "/CN=redis-ca"
+openssl req -x509 -new -nodes -key "$DEMO_DIR/certs/redis-ca.key" -sha256 -days 3650 \
+  -out "$DEMO_DIR/certs/redis-ca.crt" -subj "/CN=redis-ca"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -215,7 +198,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-openssl genrsa -out certs/redis.key 2048
+openssl genrsa -out "$DEMO_DIR/certs/redis.key" 2048
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -223,7 +206,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-openssl req -new -key certs/redis.key -out certs/redis.csr -subj "/CN=redis"
+openssl req -new -key "$DEMO_DIR/certs/redis.key" -out "$DEMO_DIR/certs/redis.csr" -subj "/CN=redis"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -231,8 +214,8 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-openssl x509 -req -in certs/redis.csr -CA certs/redis-ca.crt -CAkey certs/redis-ca.key \
-  -CAcreateserial -out certs/redis.crt -days 365 -sha256
+openssl x509 -req -in "$DEMO_DIR/certs/redis.csr" -CA "$DEMO_DIR/certs/redis-ca.crt" -CAkey "$DEMO_DIR/certs/redis-ca.key" \
+  -CAcreateserial -out "$DEMO_DIR/certs/redis.crt" -days 365 -sha256
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -248,7 +231,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-openssl genrsa -out certs/flask.key 2048
+openssl genrsa -out "$DEMO_DIR/certs/flask.key" 2048
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -256,7 +239,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-openssl req -new -key certs/flask.key -out certs/flask.csr -subj "/CN=flask-api"
+openssl req -new -key "$DEMO_DIR/certs/flask.key" -out "$DEMO_DIR/certs/flask.csr" -subj "/CN=flask-api"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -264,8 +247,8 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-openssl x509 -req -in certs/flask.csr -CA certs/redis-ca.crt -CAkey certs/redis-ca.key \
-  -CAcreateserial -out certs/flask.crt -days 365 -sha256
+openssl x509 -req -in "$DEMO_DIR/certs/flask.csr" -CA "$DEMO_DIR/certs/redis-ca.crt" -CAkey "$DEMO_DIR/certs/redis-ca.key" \
+  -CAcreateserial -out "$DEMO_DIR/certs/flask.crt" -days 365 -sha256
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -281,7 +264,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-openssl genrsa -out certs/client.key 2048
+openssl genrsa -out "$DEMO_DIR/certs/client.key" 2048
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -289,7 +272,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-openssl req -new -key certs/client.key -out certs/client.csr -subj "/CN=flask-client"
+openssl req -new -key "$DEMO_DIR/certs/client.key" -out "$DEMO_DIR/certs/client.csr" -subj "/CN=flask-client"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -297,8 +280,8 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-openssl x509 -req -in certs/client.csr -CA certs/redis-ca.crt -CAkey certs/redis-ca.key \
-  -CAcreateserial -out certs/client.crt -days 365 -sha256
+openssl x509 -req -in "$DEMO_DIR/certs/client.csr" -CA "$DEMO_DIR/certs/redis-ca.crt" -CAkey "$DEMO_DIR/certs/redis-ca.key" \
+  -CAcreateserial -out "$DEMO_DIR/certs/client.crt" -days 365 -sha256
 EOF
 )"
 
@@ -330,6 +313,25 @@ EOF
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
+printf '%s\n' 'Resolve the directory this demo lives in, so every file reference below works regardless of the caller'\''s current working directory:'
+printf '%s\n' ''
+printf "%b" "$RESET"
+
+pe "$(cat <<'EOF'
+# Resolve this demo's directory.
+EOF
+)"
+pe "$(cat <<'EOF'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EOF
+)"
+pe "$(cat <<'EOF'
+export DEMO_DIR="$SCRIPT_DIR/../../demos/flask-redis/"
+EOF
+)"
+
+printf "%b" "$LILAC"
+printf '%s\n' ''
 printf '%s\n' 'Then let `tplenv` query all environment variables used by this example:'
 printf '%s\n' ''
 printf "%b" "$RESET"
@@ -339,7 +341,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 EOF
 )"
 
@@ -354,7 +356,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-docker build -t ${IMAGE_NAME} .
+docker build -t ${NATIVE_IMAGE_NAME} "$DEMO_DIR/app" 
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -362,7 +364,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-docker push ${IMAGE_NAME}
+docker push ${NATIVE_IMAGE_NAME}
 EOF
 )"
 
@@ -402,10 +404,10 @@ EOF
 pe "$(cat <<'EOF'
 kubectl create -n ${NAMESPACE} secret generic redis-tls \
   --namespace ${NAMESPACE} \
-  --from-file=redis.crt=certs/redis.crt \
-  --from-file=redis.key=certs/redis.key \
-  --from-file=redis-ca.crt=certs/redis-ca.crt \
-  --dry-run=client -o yaml > k8s/secret-redis-tls.yaml
+  --from-file=redis.crt="$DEMO_DIR/certs/redis.crt" \
+  --from-file=redis.key="$DEMO_DIR/certs/redis.key" \
+  --from-file=redis-ca.crt="$DEMO_DIR/certs/redis-ca.crt" \
+  --dry-run=client -o yaml > "$DEMO_DIR/manifests/secret-redis-tls.yaml"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -419,18 +421,18 @@ EOF
 pe "$(cat <<'EOF'
 kubectl create -n ${NAMESPACE} secret generic flask-tls \
   --namespace ${NAMESPACE} \
-  --from-file=flask.crt=certs/flask.crt \
-  --from-file=flask.key=certs/flask.key \
-  --from-file=client.crt=certs/client.crt \
-  --from-file=client.key=certs/client.key \
-  --from-file=redis-ca.crt=certs/redis-ca.crt \
-  --dry-run=client -o yaml > k8s/secret-flask-tls.yaml
+  --from-file=flask.crt="$DEMO_DIR/certs/flask.crt" \
+  --from-file=flask.key="$DEMO_DIR/certs/flask.key" \
+  --from-file=client.crt="$DEMO_DIR/certs/client.crt" \
+  --from-file=client.key="$DEMO_DIR/certs/client.key" \
+  --from-file=redis-ca.crt="$DEMO_DIR/certs/redis-ca.crt" \
+  --dry-run=client -o yaml > "$DEMO_DIR/manifests/secret-flask-tls.yaml"
 EOF
 )"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' 'Review the files in `k8s/`, then apply them:'
+printf '%s\n' 'Review the files in `manifests/`, then apply them:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
@@ -439,7 +441,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl apply -n ${NAMESPACE} -f k8s/secret-redis-tls.yaml
+kubectl apply -n ${NAMESPACE} -f "$DEMO_DIR/manifests/secret-redis-tls.yaml"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -447,7 +449,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl apply -n ${NAMESPACE} -f k8s/secret-flask-tls.yaml
+kubectl apply -n ${NAMESPACE} -f "$DEMO_DIR/manifests/secret-flask-tls.yaml"
 EOF
 )"
 
@@ -457,13 +459,7 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '### Step 5. Add Docker Registry Secret to Kubernetes'
 printf '%s\n' ''
-printf '%s\n' 'A pull secret is needed to pull both the native and confidential container images. Use `tplenv` to supply the registry credentials — it will prompt for any values not yet present in `Values.yaml`:'
-printf '%s\n' ''
-printf '%s\n' '- `$REGISTRY` — the registry hostname (default: `registry.scontain.com`)'
-printf '%s\n' '- `$REGISTRY_USER` — your registry login name'
-printf '%s\n' '- `$REGISTRY_TOKEN` — your registry pull token (see [how to create a token](https://sconedocs.github.io/registry/))'
-printf '%s\n' ''
-printf '%s\n' 'We create the pull secret in the namespace if it does not yet exist:'
+printf '%s\n' 'A pull secret is needed to pull both the native and confidential container images. We create the pull secret in the namespace if it does not yet exist:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
@@ -496,14 +492,6 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-  # Load environment variables from the tplenv definition file.
-EOF
-)"
-pe "$(cat <<'EOF'
-  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} )
-EOF
-)"
-pe "$(cat <<'EOF'
   # Create the Docker registry pull secret.
 EOF
 )"
@@ -529,13 +517,13 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-tplenv --file k8s/manifest.template.yaml --create-values-file --output k8s/manifest.yaml
+tplenv --file "$DEMO_DIR/manifests/manifest.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/manifest.yaml"
 EOF
 )"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' 'Review `k8s/manifest.yaml`, then apply it:'
+printf '%s\n' 'Review `manifests/manifest.yaml`, then apply it:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
@@ -544,7 +532,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl apply -n ${NAMESPACE} -f k8s/manifest.yaml --namespace ${NAMESPACE}
+kubectl apply -n ${NAMESPACE} -f "$DEMO_DIR/manifests/manifest.yaml" --namespace ${NAMESPACE}
 EOF
 )"
 
@@ -828,7 +816,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl delete -n ${NAMESPACE} -f k8s/manifest.yaml --namespace ${NAMESPACE} --ignore-not-found
+kubectl delete -n ${NAMESPACE} -f "$DEMO_DIR/manifests/manifest.yaml" --namespace ${NAMESPACE} --ignore-not-found
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -876,7 +864,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-if [ ! -f identity.pem ]; then
+if [ ! -f "$DEMO_DIR/identity.pem" ]; then
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -892,7 +880,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-  openssl genrsa -3 -out identity.pem 3072
+  openssl genrsa -3 -out "$DEMO_DIR/identity.pem" 3072
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -923,7 +911,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-tplenv --file scone.template.yaml --create-values-file --output scone.yaml --indent
+tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/scone.yaml" --indent
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -931,7 +919,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-rm flask-redis-demo.json || true
+rm -f "$DEMO_DIR/flask-redis-demo.json" || true
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -939,7 +927,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-scone-td-build from -y scone.yaml
+scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -947,15 +935,15 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-if grep -q 'image: redis:7-bookworm-scone' manifest.prod.sanitized.yaml; then
+if grep -q 'image: redis:7-bookworm-scone' "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml"; then
 EOF
 )"
 pe "$(cat <<'EOF'
-  sed -i.bak "s|image: redis:7-bookworm-scone|image: ${IMAGE_NAME}-redis-scone|g" manifest.prod.sanitized.yaml
+  sed -i.bak "s|image: redis:7-bookworm-scone|image: ${NATIVE_IMAGE_NAME}-redis-scone|g" "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml"
 EOF
 )"
 pe "$(cat <<'EOF'
-  rm -f manifest.prod.sanitized.yaml.bak
+  rm -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml.bak"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -965,7 +953,7 @@ EOF
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' '`push_scone_image: true` in the templates pushes the confidential images automatically (`scontain/k8s-scone#194` fixed).'
+printf '%s\n' '`push_scone_image: true` in the templates pushes the confidential images automatically.'
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
@@ -980,7 +968,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl apply -n ${NAMESPACE} -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}
+kubectl apply -n ${NAMESPACE} -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" --namespace ${NAMESPACE}
 EOF
 )"
 
@@ -1272,7 +1260,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl delete -n ${NAMESPACE} -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE} --ignore-not-found
+kubectl delete -n ${NAMESPACE} -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" --namespace ${NAMESPACE} --ignore-not-found
 EOF
 )"
 pe "$(cat <<'EOF'

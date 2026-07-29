@@ -1,0 +1,93 @@
+# The confidential PetClinic application. This manifest (together with the
+# Secret) is the input to `scone-td-build apply`, which converts it to attest to
+# the CAS and injects the SCONE session. The image is swapped to the sconified
+# `-scone` variant during apply.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: petclinic
+  namespace: ${NAMESPACE}
+  labels:
+    app: petclinic
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: petclinic
+  template:
+    metadata:
+      labels:
+        app: petclinic
+    spec:
+      imagePullSecrets:
+        - name: ${IMAGE_PULL_SECRET_NAME}
+      containers:
+        - name: petclinic
+          image: ${NATIVE_IMAGE_NAME}
+          imagePullPolicy: Always
+          # Bound the JVM footprint so it fits the enclave's protected heap
+          # (SCONE_HEAP). Without caps the JVM reserves ~1 GiB just for the
+          # compressed class space and aborts VM init inside the enclave.
+          command:
+            - /opt/java/openjdk/bin/java
+            - -Xmx768m
+            - -XX:MaxMetaspaceSize=256m
+            - -XX:CompressedClassSpaceSize=128m
+            - -XX:ReservedCodeCacheSize=128m
+            - -jar
+            - /app/petclinic.jar
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: mysql
+            # Hibernate 7.4's dialect auto-detection issues a probe query that
+            # references a column MariaDB 11.4 does not have ("Unknown column
+            # 'RESERVED'"), so it cannot read JDBC metadata and aborts. Pin the
+            # dialect explicitly to skip that probe.
+            - name: SPRING_JPA_DATABASE_PLATFORM
+              value: org.hibernate.dialect.MariaDBDialect
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:mysql://petclinic-db:3306/${DB_NAME}
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: petclinic-db
+                  key: username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: petclinic-db
+                  key: password
+            - name: SPRING_SQL_INIT_MODE
+              value: always
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "250m"
+            limits:
+              memory: "4Gi"
+              cpu: "1"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 40
+            periodSeconds: 15
+            failureThreshold: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: petclinic
+  namespace: ${NAMESPACE}
+  labels:
+    app: petclinic
+spec:
+  selector:
+    app: petclinic
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+  type: ClusterIP

@@ -82,7 +82,7 @@ jobs:
       - name: Run all examples in SGX mode
         id: sgx
         continue-on-error: true
-        run: ./scripts/run-all-scripts.sh --continue-on-failure
+        run: ./scripts/run-all-demos.sh --continue-on-failure
 
       - name: Prepare CVM values and cluster secrets
         if: always()
@@ -97,7 +97,7 @@ jobs:
         id: cvm
         if: always()
         continue-on-error: true
-        run: ./scripts/run-all-scripts.sh --continue-on-failure
+        run: ./scripts/run-all-demos.sh --continue-on-failure
 
       - name: Fail workflow if any mode failed
         if: always()

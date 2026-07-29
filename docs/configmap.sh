@@ -54,7 +54,7 @@ show_help() {
   cat <<USAGE
 Usage: $0 [--help] [--non-interactive]
 
-Runs a demo-style shell script generated from configmap/README.md.
+Runs a demo-style shell script generated from /home/daniel/scone-td-build-demos/scripts/../demos/configmap/README.md.
 
 Options:
   --help             Show this help message and exit.
@@ -101,21 +101,11 @@ fi
 unset CONFIRM_ALL_ENVIRONMENT_VARIABLES || true
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-expected_workdir="$(cd "${script_dir}/.." && pwd)"
-expected_invocation="./$(basename "${script_dir}")/$(basename "$0")"
-
-if [[ "$(pwd)" != "$expected_workdir" ]]; then
-  echo "Error: Wrong working directory." >&2
-  echo "Expected working directory: $expected_workdir" >&2
-  echo "Run this script as: $expected_invocation" >&2
-  exit 1
-fi
 
 printf "%b" "$LILAC"
 printf '%s\n' '# SCONE ConfigMap Example: Secure Configuration Data in Kubernetes'
 printf '%s\n' ''
 printf '%s\n' 'This example shows how to manage and access configuration data in Kubernetes with a `ConfigMap` and a SCONE-enabled Rust application. You start with a plain (unencrypted) deployment and then move to a fully protected SCONE deployment.'
-printf '%s\n' ''
 printf '%s\n' ''
 printf '%s\n' '[![ConfigMap Example](../docs/configmap.gif)](../docs/configmap.mp4)'
 printf '%s\n' ''
@@ -133,16 +123,20 @@ printf '%s\n' 'Follow the [Setup environment](https://github.com/scontain/scone)
 printf '%s\n' ''
 printf '%s\n' '## 3. Set Up Environment Variables'
 printf '%s\n' ''
-printf '%s\n' 'Assume you start in `scone-td-build-demos` and switch into this demo directory:'
+printf '%s\n' 'Resolve the directory this demo lives in, so every file reference below works regardless of the caller'\''s current working directory, and clean up state left over from a previous run:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Enter `configmap` and remember the previous directory.
+# Resolve this demo's directory.
 EOF
 )"
 pe "$(cat <<'EOF'
-pushd configmap
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EOF
+)"
+pe "$(cat <<'EOF'
+export DEMO_DIR="$SCRIPT_DIR/../../demos/configmap/"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -150,23 +144,26 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-rm -f configmap-example.json || true
+rm -f "$DEMO_DIR/configmap-example.json" || true
 EOF
 )"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' 'Default values are stored in `Values.yaml`. `tplenv` asks whether to keep the defaults and then sets these variables:'
+printf '%s\n' 'Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml` if that file does not already exist:'
 printf '%s\n' ''
-printf '%s\n' '- `$DEMO_IMAGE` - Name of the native image to deploy'
-printf '%s\n' '- `$DESTINATION_IMAGE_NAME` - Name of the confidential image'
-printf '%s\n' '- `$IMAGE_PULL_SECRET_NAME` - Pull secret name (default: `sconeapps`)'
-printf '%s\n' '- `$SCONE_RUNTIME_VERSION` - SCONE version to use (for example, `6.1.0-rc.0`)'
-printf '%s\n' '- `$CAS_NAMESPACE` - CAS namespace (for example, `default`)'
-printf '%s\n' '- `$CAS_NAME` - CAS name (for example, `cas`)'
-printf '%s\n' '- `$CVM_MODE` - Set to `--cvm` for CVM mode, otherwise leave empty for SGX'
-printf '%s\n' '- `$SCONE_ENCLAVE` - In CVM mode, set to `--scone-enclave` for confidential nodes, or leave empty for Kata Pods'
-printf '%s\n' '- `$NAMESPACE` - Kubernetes namespace where the demo runs (default: `default`)'
+printf "%b" "$RESET"
+
+pe "$(cat <<'EOF'
+# Seed Values.yaml from the template on first run only.
+EOF
+)"
+pe "$(cat <<'EOF'
+[ -f "$DEMO_DIR/Values.yaml" ] || cp "$DEMO_DIR/values.template.yaml" "$DEMO_DIR/Values.yaml"
+EOF
+)"
+
+printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' 'Set `SIGNER` for policy signing:'
 printf '%s\n' ''
@@ -183,7 +180,7 @@ EOF
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' 'Load the full variable set from `environment-variables.md`:'
+printf '%s\n' 'Load the full variable set from `environment-variables.md`, which also defines the registry credentials used later to create the pull secret:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
@@ -192,11 +189,13 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 EOF
 )"
 
 printf "%b" "$LILAC"
+printf '%s\n' ''
+printf '%s\n' 'values-file'
 printf '%s\n' ''
 printf '%s\n' 'Create the demo namespace if it does not already exist. The fallback echo keeps re-runs idempotent.'
 printf '%s\n' ''
@@ -218,19 +217,11 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Enter `folder-reader` and remember the previous directory.
-EOF
-)"
-pe "$(cat <<'EOF'
-pushd folder-reader
-EOF
-)"
-pe "$(cat <<'EOF'
 # Build the container image.
 EOF
 )"
 pe "$(cat <<'EOF'
-docker build -t ${DEMO_IMAGE} .
+docker build -t ${NATIVE_IMAGE_NAME} "$DEMO_DIR/app"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -238,15 +229,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-docker push ${DEMO_IMAGE}
-EOF
-)"
-pe "$(cat <<'EOF'
-# Return to the previous working directory.
-EOF
-)"
-pe "$(cat <<'EOF'
-popd
+docker push ${NATIVE_IMAGE_NAME}
 EOF
 )"
 
@@ -261,7 +244,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-tplenv --file manifest.template.yaml --create-values-file --output manifests/manifest.yaml --indent
+tplenv --file "$DEMO_DIR/manifests/manifest.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/manifest.yaml" --indent
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -269,7 +252,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-tplenv --file scone.template.yaml --create-values-file --output manifests/scone.yaml --indent
+tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/scone.yaml" --indent
 EOF
 )"
 
@@ -279,11 +262,7 @@ printf '%s\n' 'Before applying, confirm that image values were substituted corre
 printf '%s\n' ''
 printf '%s\n' '## 6. Add a Docker Registry Secret'
 printf '%s\n' ''
-printf '%s\n' 'If you need a pull secret for native and confidential images, create it when missing.'
-printf '%s\n' ''
-printf '%s\n' '- `$REGISTRY` - Registry hostname (default: `registry.scontain.com`)'
-printf '%s\n' '- `$REGISTRY_USER` - Registry login name'
-printf '%s\n' '- `$REGISTRY_TOKEN` - Registry pull token (see <https://sconedocs.github.io/registry/>)'
+printf '%s\n' 'If you need a pull secret for native and confidential images, create it when missing:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
@@ -316,14 +295,6 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-  # Load environment variables from the tplenv definition file.
-EOF
-)"
-pe "$(cat <<'EOF'
-  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
-EOF
-)"
-pe "$(cat <<'EOF'
   # Create the Docker registry pull secret.
 EOF
 )"
@@ -347,7 +318,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl apply -f manifests/manifest.yaml -n ${NAMESPACE}
+kubectl apply -f "$DEMO_DIR/manifests/manifest.yaml" -n ${NAMESPACE}
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -379,7 +350,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl delete -f manifests/manifest.yaml -n ${NAMESPACE}
+kubectl delete -f "$DEMO_DIR/manifests/manifest.yaml" -n ${NAMESPACE}
 EOF
 )"
 
@@ -389,7 +360,7 @@ printf '%s\n' 'Your containers should print content from the mounted ConfigMap f
 printf '%s\n' ''
 printf '%s\n' '## 8. Prepare and Apply the SCONE Manifest'
 printf '%s\n' ''
-printf '%s\n' 'First, attest the CAS so the local SCONE CLI has the correct session encryption key. The kubectl path covers an in-cluster CAS; if it fails (typical when `${CAS_NAME}.${CAS_NAMESPACE}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.'
+printf '%s\n' 'First, attest the CAS so the local SCONE CLI has the correct session encryption key. The kubectl path covers an in-cluster CAS; if it fails (typical when `${SCONE_CAS_ADDR}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
@@ -398,9 +369,9 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S \
-    || scone cas attest ${CAS_NAME}.${CAS_NAMESPACE} -C -G -S \
-        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
+kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \
+  || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \
+    --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 EOF
 )"
 
@@ -413,7 +384,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-scone-td-build from -y manifests/scone.yaml
+scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"
 EOF
 )"
 
@@ -423,7 +394,7 @@ printf '%s\n' 'This command:'
 printf '%s\n' ''
 printf '%s\n' '- Generates a SCONE session'
 printf '%s\n' '- Attaches the session to your manifest'
-printf '%s\n' '- Produces `manifests/manifest.prod.sanitized.yaml`'
+printf '%s\n' '- Produces `$DEMO_DIR/manifests/manifest.prod.sanitized.yaml`'
 printf '%s\n' ''
 printf '%s\n' '## 9. Deploy the SCONE-Protected App'
 printf '%s\n' ''
@@ -434,7 +405,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl apply -f manifests/manifest.prod.sanitized.yaml -n ${NAMESPACE}
+kubectl apply -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" -n ${NAMESPACE}
 EOF
 )"
 
@@ -472,15 +443,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl delete -f manifests/manifest.prod.sanitized.yaml -n ${NAMESPACE}
-EOF
-)"
-pe "$(cat <<'EOF'
-# Return to the previous working directory.
-EOF
-)"
-pe "$(cat <<'EOF'
-popd
+kubectl delete -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" -n ${NAMESPACE}
 EOF
 )"
 
