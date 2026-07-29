@@ -54,7 +54,7 @@ show_help() {
   cat <<USAGE
 Usage: $0 [--help] [--non-interactive]
 
-Runs a demo-style shell script generated from hello-world/README.md.
+Runs a demo-style shell script generated from /home/daniel/scone-td-build-demos/scripts/../demos/hello-world/README.md.
 
 Options:
   --help             Show this help message and exit.
@@ -101,15 +101,6 @@ fi
 unset CONFIRM_ALL_ENVIRONMENT_VARIABLES || true
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-expected_workdir="$(cd "${script_dir}/.." && pwd)"
-expected_invocation="./$(basename "${script_dir}")/$(basename "$0")"
-
-if [[ "$(pwd)" != "$expected_workdir" ]]; then
-  echo "Error: Wrong working directory." >&2
-  echo "Expected working directory: $expected_workdir" >&2
-  echo "Run this script as: $expected_invocation" >&2
-  exit 1
-fi
 
 printf "%b" "$LILAC"
 printf '%s\n' '# SCONE: Hello World'
@@ -133,16 +124,20 @@ printf '%s\n' '- Kubernetes-based setup: [k8s.md](https://github.com/scontain/sc
 printf '%s\n' ''
 printf '%s\n' '## 2. Set Up Environment Variables'
 printf '%s\n' ''
-printf '%s\n' 'We assume you start in `scone-td-build-demos`:'
+printf '%s\n' 'Resolve the directory this demo lives in, so every file reference below works regardless of the caller'\''s current working directory, and clean up state left over from a previous run:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Enter `hello-world` and remember the previous directory.
+# Resolve this demo's directory.
 EOF
 )"
 pe "$(cat <<'EOF'
-pushd hello-world
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EOF
+)"
+pe "$(cat <<'EOF'
+export DEMO_DIR="$SCRIPT_DIR/../../demos/hello-world/"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -150,30 +145,28 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-rm -f storage.json || true
+rm -f "$DEMO_DIR/manifests/storage.json"
 EOF
 )"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' 'This example uses the following variables.'
+printf '%s\n' 'Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml` if that file does not already exist:'
 printf '%s\n' ''
-printf '%s\n' 'For the native deployment:'
+printf "%b" "$RESET"
+
+pe "$(cat <<'EOF'
+# Seed Values.yaml from the template on first run only.
+EOF
+)"
+pe "$(cat <<'EOF'
+[ -f "$DEMO_DIR/Values.yaml" ] || cp "$DEMO_DIR/values.template.yaml" "$DEMO_DIR/Values.yaml"
+EOF
+)"
+
+printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' '- `$IMAGE_NAME` - Name of the native container image for `hello-world`'
-printf '%s\n' '- `$IMAGE_PULL_SECRET_NAME` - Pull secret name for this image (default: `sconeapps`)'
-printf '%s\n' ''
-printf '%s\n' 'For the confidential deployment:'
-printf '%s\n' ''
-printf '%s\n' '- `$DESTINATION_IMAGE_NAME` - Name of the confidential image'
-printf '%s\n' '- `$SCONE_VERSION` - SCONE version to use (for example, `6.1.0-rc.0`)'
-printf '%s\n' '- `$CAS_NAMESPACE` - CAS Kubernetes namespace (for example, `default`)'
-printf '%s\n' '- `$CAS_NAME` - CAS Kubernetes name (for example, `cas`)'
-printf '%s\n' '- `$CVM_MODE` - Set to `--cvm` for CVM mode, otherwise leave empty for SGX'
-printf '%s\n' '- `$SCONE_ENCLAVE` - In CVM mode, set to `--scone-enclave` for confidential nodes, or leave empty for Kata Pods'
-printf '%s\n' '- `$NAMESPACE` - Kubernetes namespace where the demo runs (default: `default`)'
-printf '%s\n' ''
-printf '%s\n' 'Defaults are stored in `Values.yaml`. We use [`tplenv`](https://github.com/scontainug/tplenv) to confirm or override values:'
+printf '%s\n' 'Load the full variable set with `tplenv`, which also defines the registry credentials used later to create the pull secret:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
@@ -182,7 +175,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 EOF
 )"
 
@@ -210,7 +203,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-tplenv --file manifest.job.template.yaml --create-values-file --output manifest.job.yaml
+tplenv --file "$DEMO_DIR/manifests/manifest.job.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/manifest.job.yaml"
 EOF
 )"
 
@@ -218,20 +211,6 @@ printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '## 3. Build the Native Container Image'
 printf '%s\n' ''
-printf '%s\n' 'Create the Rust project (or reuse an existing one):'
-printf '%s\n' ''
-printf "%b" "$RESET"
-
-pe "$(cat <<'EOF'
-# Create the Rust project in `hello-world` if it does not already exist.
-EOF
-)"
-pe "$(cat <<'EOF'
-cargo new hello-world || echo "Hello World already exists - using existing one"
-EOF
-)"
-
-printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' 'Build and push the image:'
 printf '%s\n' ''
@@ -242,7 +221,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-docker build -t $IMAGE_NAME .
+docker build -t $NATIVE_IMAGE_NAME "$DEMO_DIR/app"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -250,7 +229,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-docker push $IMAGE_NAME
+docker push $NATIVE_IMAGE_NAME
 EOF
 )"
 
@@ -258,11 +237,7 @@ printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '## 4. Create a Pull Secret'
 printf '%s\n' ''
-printf '%s\n' 'If the pull secret does not exist yet, create it using registry credentials.'
-printf '%s\n' ''
-printf '%s\n' '- `$REGISTRY` - Registry hostname (default: `registry.scontain.com`)'
-printf '%s\n' '- `$REGISTRY_USER` - Registry login name'
-printf '%s\n' '- `$REGISTRY_TOKEN` - Registry pull token (see <https://sconedocs.github.io/registry/>)'
+printf '%s\n' 'If the pull secret does not exist yet, create it using the registry credentials loaded in step 2.'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
@@ -288,14 +263,6 @@ EOF
 )"
 pe "$(cat <<'EOF'
   echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
-EOF
-)"
-pe "$(cat <<'EOF'
-  # Load registry credentials.
-EOF
-)"
-pe "$(cat <<'EOF'
-  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -329,7 +296,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl apply -f manifest.job.yaml -n ${NAMESPACE}
+kubectl apply -f "$DEMO_DIR/manifests/manifest.job.yaml" -n ${NAMESPACE}
 EOF
 )"
 
@@ -475,7 +442,7 @@ printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '## 6. Attest SCONE CAS'
 printf '%s\n' ''
-printf '%s\n' 'Attest CAS before sending encrypted policies. The kubectl path covers in-cluster CAS; if it fails (typical when `${CAS_NAME}.${CAS_NAMESPACE}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.'
+printf '%s\n' 'Attest CAS before sending encrypted policies. The kubectl path covers in-cluster CAS; if it fails (typical when `${SCONE_CAS_ADDR}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
@@ -484,8 +451,8 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S \
-    || scone cas attest ${CAS_NAME}.${CAS_NAMESPACE} -C -G -S \
+kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \
+    || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 EOF
 )"
@@ -494,43 +461,34 @@ printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' 'If attestation fails, inspect the command output for detected vulnerabilities and suggested tolerance flags.'
 printf '%s\n' ''
-printf '%s\n' '## 7. Register the Confidential Image'
+printf '%s\n' '## 7. Build the Confidential Image and Manifest'
 printf '%s\n' ''
-printf '%s\n' 'Register the image for confidential execution:'
+printf '%s\n' 'Render the SCONE manifest, which contains everything needed to register the confidential image and transform the Kubernetes manifest in one step:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Register the image for confidential execution.
+# Render the template with the selected values.
 EOF
 )"
 pe "$(cat <<'EOF'
-scone-td-build register --protected-image $IMAGE_NAME --unprotected-image rust:latest --manifest-env SCONE_PRODUCTION=0 -s ./storage.json --destination-image ${DESTINATION_IMAGE_NAME} --push --version ${SCONE_RUNTIME_VERSION} ${CVM_MODE}
+tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/scone.yaml" --indent
+EOF
+)"
+pe "$(cat <<'EOF'
+# Generate the confidential image and sanitized manifest from the SCONE configuration.
+EOF
+)"
+pe "$(cat <<'EOF'
+scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"
 EOF
 )"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' 'This creates a protected image (or uses `--destination-image` if provided) and decouples your deployment from upstream image changes.'
+printf '%s\n' 'This command registers the confidential image, creates the SCONE session, and produces `$DEMO_DIR/manifests/manifest.prod.sanitized.yaml` from `manifest.job.yaml`.'
 printf '%s\n' ''
-printf '%s\n' '## 8. Transform the Kubernetes Manifest'
-printf '%s\n' ''
-printf '%s\n' 'Convert the native manifest into a sanitized confidential manifest:'
-printf '%s\n' ''
-printf "%b" "$RESET"
-
-pe "$(cat <<'EOF'
-# Convert the native manifest into a confidential manifest.
-EOF
-)"
-pe "$(cat <<'EOF'
-scone-td-build apply -f manifest.job.yaml -c ${CAS_NAME}.${CAS_NAMESPACE} -p -s ./storage.json --manifest-env SCONE_SYSLIBS=1 --manifest-env SCONE_PRODUCTION=0 --manifest-env SCONE_HEAP=1G --spol --manifest-env SCONE_VERSION=1 --output-manifest-file manifest.job.sanitized.yaml --version ${SCONE_RUNTIME_VERSION} ${CVM_MODE} ${SCONE_ENCLAVE}
-EOF
-)"
-
-printf "%b" "$LILAC"
-printf '%s\n' ''
-printf '%s\n' '## 9. Deploy the Confidential Manifest'
+printf '%s\n' '## 8. Deploy the Confidential Manifest'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
@@ -539,7 +497,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl apply -f manifest.job.sanitized.yaml -n ${NAMESPACE}
+kubectl apply -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" -n ${NAMESPACE}
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -653,7 +611,7 @@ EOF
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' '## 10. Uninstall `hello-world`'
+printf '%s\n' '## 9. Uninstall `hello-world`'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
@@ -671,14 +629,6 @@ EOF
 )"
 pe "$(cat <<'EOF'
 kubectl wait --for=delete pod -l app=hello-world -n ${NAMESPACE} --timeout=300s
-EOF
-)"
-pe "$(cat <<'EOF'
-# Return to the previous working directory.
-EOF
-)"
-pe "$(cat <<'EOF'
-popd
 EOF
 )"
 
