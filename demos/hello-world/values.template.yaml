@@ -1,0 +1,12 @@
+environment:
+  NATIVE_IMAGE_NAME: registry.scontain.com/k8s-scone-images/hello-world:native
+  IMAGE_PULL_SECRET_NAME: sconeapps
+  SCONE_CAS_ADDR: cas.default
+  DESTINATION_IMAGE_NAME: registry.scontain.com/workshop/hello-world:protected
+  CVM_MODE: ''
+  SCONE_ENCLAVE: ''
+  REGISTRY: registry.scontain.com
+  SCONE_RUNTIME_VERSION: 7.0.0-alpha.4
+  NAMESPACE: default
+  SCONE_RUNTIME_IMAGE: registry.scontain.com/sergey/test:scone-deb-pkgs-scone7.0.0-rc-cvm-mode
+  CVM_SIGNING_KEY_FILE: /tmp/kbs-signer.pem

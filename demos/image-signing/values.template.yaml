@@ -1,0 +1,11 @@
+environment:
+  NATIVE_IMAGE_NAME: registry.scontain.com/k8s-scone-images/image-signing:native
+  IMAGE_PULL_SECRET_NAME: sconeapps
+  REPO_CREDENTIALS: ${HOME}/.docker/config.json
+  SCONE_CAS_ADDR: cas.default
+  DESTINATION_IMAGE_NAME: registry.scontain.com/k8s-scone-images/image-signing:scone
+  CVM_MODE: ''
+  SCONE_ENCLAVE: ''
+  REGISTRY: registry.scontain.com
+  SCONE_RUNTIME_VERSION: 6.1.0-rc.0
+  NAMESPACE: ci-scone-td-build

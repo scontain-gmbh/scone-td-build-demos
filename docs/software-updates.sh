@@ -54,7 +54,7 @@ show_help() {
   cat <<USAGE
 Usage: $0 [--help] [--non-interactive]
 
-Runs a demo-style shell script generated from software-updates/README.md.
+Runs a demo-style shell script generated from /home/daniel/scone-td-build-demos/scripts/../demos/software-updates/README.md.
 
 Options:
   --help             Show this help message and exit.
@@ -101,15 +101,6 @@ fi
 unset CONFIRM_ALL_ENVIRONMENT_VARIABLES || true
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-expected_workdir="$(cd "${script_dir}/.." && pwd)"
-expected_invocation="./$(basename "${script_dir}")/$(basename "$0")"
-
-if [[ "$(pwd)" != "$expected_workdir" ]]; then
-  echo "Error: Wrong working directory." >&2
-  echo "Expected working directory: $expected_workdir" >&2
-  echo "Run this script as: $expected_invocation" >&2
-  exit 1
-fi
 
 printf "%b" "$LILAC"
 printf '%s\n' '# Software Updates for Confidential Python Applications'
@@ -134,7 +125,7 @@ printf '%s\n' '├── scone.v1.template.yaml         # SCONE Register + Apply
 printf '%s\n' '├── scone.v2.template.yaml         # SCONE Register + Apply template for Version 2'
 printf '%s\n' '├── environment-variables.md       # tplenv variable definitions'
 printf '%s\n' '├── registry.credentials.md        # tplenv registry credential definitions'
-printf '%s\n' '├── k8s/'
+printf '%s\n' '├── manifests/'
 printf '%s\n' '│   ├── manifest.v1.template.yaml  # Kubernetes Deployment template for Version 1'
 printf '%s\n' '│   ├── manifest.v2.template.yaml  # Kubernetes Deployment template for Version 2'
 printf '%s\n' '│   └── scone-secret.yaml          # SconeSecret: CAS generates API_PASSWORD'
@@ -155,16 +146,20 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## 1. Set Up the Environment'
 printf '%s\n' ''
-printf '%s\n' 'Assume you start in `scone-td-build-demos` and switch into this demo directory:'
+printf '%s\n' 'Resolve the directory this demo lives in, so every file reference below works regardless of the caller'\''s current working directory, and clean up state left over from a previous run:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Enter `software-updates` and remember the previous directory.
+# Resolve this demo's directory.
 EOF
 )"
 pe "$(cat <<'EOF'
-pushd software-updates
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EOF
+)"
+pe "$(cat <<'EOF'
+export DEMO_DIR="$SCRIPT_DIR/../../demos/software-updates/"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -172,7 +167,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-rm -f software-updates-demo.json scone.v1.yaml scone.v2.yaml k8s/manifest.v1.yaml k8s/manifest.v2.yaml manifest.prod.sanitized.yaml manifest.prod.session.yaml || true
+rm -f "$DEMO_DIR/software-updates-demo.json" "$DEMO_DIR/manifests/scone.v1.yaml" "$DEMO_DIR/manifests/scone.v2.yaml" "$DEMO_DIR/manifests/manifest.v1.yaml" "$DEMO_DIR/manifests/manifest.v2.yaml" "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" "$DEMO_DIR/manifests/manifest.prod.session.yaml" || true
 EOF
 )"
 
@@ -188,7 +183,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 EOF
 )"
 
@@ -286,7 +281,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-docker build --build-arg VERSION=1 -t ${IMAGE_NAME_V1} .
+docker build --build-arg VERSION=1 -t ${IMAGE_NAME_V1} "$DEMO_DIR/app"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -302,7 +297,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-docker build --build-arg VERSION=2 -t ${IMAGE_NAME_V2} .
+docker build --build-arg VERSION=2 -t ${IMAGE_NAME_V2} "$DEMO_DIR/app"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -341,10 +336,6 @@ printf '%s\n' '## 4. Add a Docker Registry Secret'
 printf '%s\n' ''
 printf '%s\n' 'A pull secret is needed to pull the confidential container images.'
 printf '%s\n' ''
-printf '%s\n' '- `$REGISTRY` — the registry hostname (default: `registry.scontain.com`)'
-printf '%s\n' '- `$REGISTRY_USER` — your registry login name'
-printf '%s\n' '- `$REGISTRY_TOKEN` — your registry pull token (see [how to create a token](https://sconedocs.github.io/registry/))'
-printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
@@ -376,14 +367,6 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-  # Load registry credentials from the tplenv definition file.
-EOF
-)"
-pe "$(cat <<'EOF'
-  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
-EOF
-)"
-pe "$(cat <<'EOF'
   # Create the Docker registry pull secret.
 EOF
 )"
@@ -411,7 +394,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-tplenv --file scone.v1.template.yaml --create-values-file --output scone.v1.yaml --indent
+tplenv --file "$DEMO_DIR/manifests/scone.v1.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/scone.v1.yaml" --indent
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -419,7 +402,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-tplenv --file scone.v2.template.yaml --create-values-file --output scone.v2.yaml --indent
+tplenv --file "$DEMO_DIR/manifests/scone.v2.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/scone.v2.yaml" --indent
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -427,7 +410,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-tplenv --file k8s/manifest.v1.template.yaml --create-values-file --output k8s/manifest.v1.yaml --indent
+tplenv --file "$DEMO_DIR/manifests/manifest.v1.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/manifest.v1.yaml" --indent
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -435,7 +418,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-tplenv --file k8s/manifest.v2.template.yaml --create-values-file --output k8s/manifest.v2.yaml --indent
+tplenv --file "$DEMO_DIR/manifests/manifest.v2.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/manifest.v2.yaml" --indent
 EOF
 )"
 
@@ -445,7 +428,7 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## Part 1 — Deploy Version 1 (SCONE)'
 printf '%s\n' ''
-printf '%s\n' 'In the SCONE deployment, `API_PASSWORD` is **generated by CAS** via `k8s/scone-secret.yaml`. Nobody sets it — CAS creates it when the session is first applied and injects it into the enclave at runtime. It never appears in any Kubernetes manifest or Secret visible to a cluster administrator.'
+printf '%s\n' 'In the SCONE deployment, `API_PASSWORD` is **generated by CAS** via `manifests/scone-secret.yaml`. Nobody sets it — CAS creates it when the session is first applied and injects it into the enclave at runtime. It never appears in any Kubernetes manifest or Secret visible to a cluster administrator.'
 printf '%s\n' ''
 printf '%s\n' '### Step 6. Generate the signing key'
 printf '%s\n' ''
@@ -458,7 +441,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-if [ ! -f identity.pem ]; then
+if [ ! -f "$DEMO_DIR/identity.pem" ]; then
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -474,7 +457,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-  openssl genrsa -3 -out identity.pem 3072
+  openssl genrsa -3 -out "$DEMO_DIR/identity.pem" 3072
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -505,7 +488,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-rm -f software-updates-demo.json || true
+rm -f "$DEMO_DIR/software-updates-demo.json" || true
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -513,7 +496,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-scone-td-build from -y scone.v1.yaml
+scone-td-build from -y "$DEMO_DIR/manifests/scone.v1.yaml"
 EOF
 )"
 
@@ -523,7 +506,7 @@ printf '%s\n' 'This command:'
 printf '%s\n' ''
 printf '%s\n' '- Registers and pushes the Version 1 confidential image (`${DESTINATION_IMAGE_NAME_V1}`)'
 printf '%s\n' '- Creates a CAS session under namespace `${SESSION_NAMESPACE}` with a `SconeSecret` that tells CAS to generate `API_PASSWORD`'
-printf '%s\n' '- Produces `manifest.prod.sanitized.yaml` referencing the confidential image — `API_PASSWORD` does not appear in it'
+printf '%s\n' '- Produces `$DEMO_DIR/manifests/manifest.prod.sanitized.yaml` referencing the confidential image — `API_PASSWORD` does not appear in it'
 printf '%s\n' ''
 printf '%s\n' '### Step 8. Deploy Version 1 (SCONE)'
 printf '%s\n' ''
@@ -534,7 +517,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl apply -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}
+kubectl apply -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" --namespace ${NAMESPACE}
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -642,7 +625,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-scone-td-build from -y scone.v2.yaml
+scone-td-build from -y "$DEMO_DIR/manifests/scone.v2.yaml"
 EOF
 )"
 
@@ -652,7 +635,7 @@ printf '%s\n' 'This command:'
 printf '%s\n' ''
 printf '%s\n' '- Registers and pushes the Version 2 confidential image (`${DESTINATION_IMAGE_NAME_V2}`)'
 printf '%s\n' '- Updates the existing CAS session (same `SESSION_NAMESPACE` as Version 1) — CAS preserves `API_PASSWORD`'
-printf '%s\n' '- Produces `manifest.prod.sanitized.yaml` referencing the Version 2 confidential image'
+printf '%s\n' '- Produces `$DEMO_DIR/manifests/manifest.prod.sanitized.yaml` referencing the Version 2 confidential image'
 printf '%s\n' ''
 printf '%s\n' '### Step 11. Apply the rolling update'
 printf '%s\n' ''
@@ -665,7 +648,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl apply -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}
+kubectl apply -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" --namespace ${NAMESPACE}
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -834,14 +817,6 @@ EOF
 )"
 pe "$(cat <<'EOF'
 kubectl delete deployment python-hello-user --namespace ${NAMESPACE} --ignore-not-found
-EOF
-)"
-pe "$(cat <<'EOF'
-# Return to the previous working directory.
-EOF
-)"
-pe "$(cat <<'EOF'
-popd
 EOF
 )"
 

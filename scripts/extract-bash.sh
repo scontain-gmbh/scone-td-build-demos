@@ -163,15 +163,6 @@ write_generated_help() {
       echo
     fi
     echo 'script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"'
-    echo 'expected_workdir="$(cd "${script_dir}/.." && pwd)"'
-    echo 'expected_invocation="./$(basename "${script_dir}")/$(basename "$0")"'
-    echo
-    echo 'if [[ "$(pwd)" != "$expected_workdir" ]]; then'
-    echo '  echo "Error: Wrong working directory." >&2'
-    echo '  echo "Expected working directory: $expected_workdir" >&2'
-    echo '  echo "Run this script as: $expected_invocation" >&2'
-    echo '  exit 1'
-    echo 'fi'
     echo
   } >>"$output_file"
 }
