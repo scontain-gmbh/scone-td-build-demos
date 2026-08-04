@@ -179,36 +179,46 @@ printf '%s\n' ''
 printf '%s\n' 'The signing and encryption flow requires a Key Broker Service (KBS) and a key provider running in'
 printf '%s\n' 'the cluster. The key provider exposes a gRPC endpoint that `skopeo` uses during image encryption.'
 printf '%s\n' ''
+printf '%s\n' 'The KBS and key provider run in this demo'\''s own `${NAMESPACE}`, not the shared `trustee`'
+printf '%s\n' 'namespace used by a cluster-wide CoCo/Trustee install, so applying and cleaning them up never'
+printf '%s\n' 'touches another workload'\''s resources.'
+printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
+printf '%s\n' '# Render the KBS and key-provider manifests into this demo'\''s namespace.'
+printf '%s\n' 'tplenv --file k8s/kbs.template.yaml --create-values-file --output k8s/kbs.yaml'
+printf '%s\n' 'tplenv --file k8s/key-provider.template.yaml --create-values-file --output k8s/key-provider.yaml'
 printf '%s\n' '# Deploy the Key Broker Service.'
 printf '%s\n' 'kubectl apply -f k8s/kbs.yaml'
 printf '%s\n' '# Deploy the key provider.'
 printf '%s\n' 'kubectl apply -f k8s/key-provider.yaml'
 printf '%s\n' '# Wait for KBS to be ready.'
-printf '%s\n' 'kubectl wait --for=condition=available deployment/kbs -n trustee --timeout=120s'
+printf '%s\n' 'kubectl wait --for=condition=available deployment/kbs -n ${NAMESPACE} --timeout=120s'
 printf '%s\n' '# Wait for the key provider to be ready.'
-printf '%s\n' 'kubectl wait --for=condition=available deployment/keyprovider -n trustee --timeout=120s'
+printf '%s\n' 'kubectl wait --for=condition=available deployment/keyprovider -n ${NAMESPACE} --timeout=120s'
 printf '%s\n' '# Forward the key provider port to localhost so skopeo can reach it.'
 printf '%s\n' '# Self-restarting loop avoids killing unrelated processes that may already use port 50000.'
-printf '%s\n' 'while true; do kubectl port-forward -n trustee svc/keyprovider 50000:50000 2>/dev/null; sleep 2; done &'
+printf '%s\n' 'while true; do kubectl port-forward -n ${NAMESPACE} svc/keyprovider 50000:50000 2>/dev/null; sleep 2; done &'
 printf '%s\n' 'export PORT_FORWARD_PID=$!'
 printf '%s\n' '# Give the port-forward a moment to establish the connection.'
 printf '%s\n' 'sleep 3'
 printf "${RESET}"
 
+# Render the KBS and key-provider manifests into this demo's namespace.
+tplenv --file k8s/kbs.template.yaml --create-values-file --output k8s/kbs.yaml
+tplenv --file k8s/key-provider.template.yaml --create-values-file --output k8s/key-provider.yaml
 # Deploy the Key Broker Service.
 kubectl apply -f k8s/kbs.yaml
 # Deploy the key provider.
 kubectl apply -f k8s/key-provider.yaml
 # Wait for KBS to be ready.
-kubectl wait --for=condition=available deployment/kbs -n trustee --timeout=120s
+kubectl wait --for=condition=available deployment/kbs -n ${NAMESPACE} --timeout=120s
 # Wait for the key provider to be ready.
-kubectl wait --for=condition=available deployment/keyprovider -n trustee --timeout=120s
+kubectl wait --for=condition=available deployment/keyprovider -n ${NAMESPACE} --timeout=120s
 # Forward the key provider port to localhost so skopeo can reach it.
 # Self-restarting loop avoids killing unrelated processes that may already use port 50000.
-while true; do kubectl port-forward -n trustee svc/keyprovider 50000:50000 2>/dev/null; sleep 2; done &
+while true; do kubectl port-forward -n ${NAMESPACE} svc/keyprovider 50000:50000 2>/dev/null; sleep 2; done &
 export PORT_FORWARD_PID=$!
 # Give the port-forward a moment to establish the connection.
 sleep 3
@@ -524,18 +534,13 @@ printf '%s\n' '# Stop the key provider port-forward. Kill the restart loop first
 printf '%s\n' '# then the kubectl child it spawned -- killing only the wrapper PID leaves that child alive'
 printf '%s\n' '# and owning port 50000, which breaks the next run.'
 printf '%s\n' 'kill ${PORT_FORWARD_PID} 2>/dev/null || true'
-printf '%s\n' 'pkill -f "kubectl port-forward -n trustee svc/keyprovider 50000:50000" 2>/dev/null || true'
-printf '%s\n' '# Delete the key provider.'
+printf '%s\n' 'pkill -f "kubectl port-forward -n ${NAMESPACE} svc/keyprovider 50000:50000" 2>/dev/null || true'
+printf '%s\n' '# Delete the key provider and the Key Broker Service. These live in this demo'\''s own'
+printf '%s\n' '# ${NAMESPACE} and have no Namespace resource of their own, so deleting the rendered'
+printf '%s\n' '# manifests removes exactly what the demo created and never the namespace other'
+printf '%s\n' '# workloads may share.'
 printf '%s\n' 'kubectl delete -f k8s/key-provider.yaml --ignore-not-found'
-printf '%s\n' '# Delete only the Key Broker Service resources, not the `trustee` namespace itself:'
-printf '%s\n' '# other workloads (CoCo/KBS, other demos) may already share that namespace.'
-printf '%s\n' 'kubectl delete -n trustee --ignore-not-found \'
-printf '%s\n' '  deployment/kbs \'
-printf '%s\n' '  service/kbs \'
-printf '%s\n' '  configmap/kbs-config \'
-printf '%s\n' '  configmap/kbs-policy \'
-printf '%s\n' '  configmap/dcap-attestation-conf \'
-printf '%s\n' '  secret/kbs-admin-public-key'
+printf '%s\n' 'kubectl delete -f k8s/kbs.yaml --ignore-not-found'
 printf '%s\n' '# Remove the sigstore-attachments config this demo added; it'\''s a separate file in'
 printf '%s\n' '# registries.d, so this never touches any other registries.d configuration.'
 printf '%s\n' 'rm -f ~/.config/containers/registries.d/image-signing-demo.yaml'
@@ -547,18 +552,13 @@ printf "${RESET}"
 # then the kubectl child it spawned -- killing only the wrapper PID leaves that child alive
 # and owning port 50000, which breaks the next run.
 kill ${PORT_FORWARD_PID} 2>/dev/null || true
-pkill -f "kubectl port-forward -n trustee svc/keyprovider 50000:50000" 2>/dev/null || true
-# Delete the key provider.
+pkill -f "kubectl port-forward -n ${NAMESPACE} svc/keyprovider 50000:50000" 2>/dev/null || true
+# Delete the key provider and the Key Broker Service. These live in this demo's own
+# ${NAMESPACE} and have no Namespace resource of their own, so deleting the rendered
+# manifests removes exactly what the demo created and never the namespace other
+# workloads may share.
 kubectl delete -f k8s/key-provider.yaml --ignore-not-found
-# Delete only the Key Broker Service resources, not the `trustee` namespace itself:
-# other workloads (CoCo/KBS, other demos) may already share that namespace.
-kubectl delete -n trustee --ignore-not-found \
-  deployment/kbs \
-  service/kbs \
-  configmap/kbs-config \
-  configmap/kbs-policy \
-  configmap/dcap-attestation-conf \
-  secret/kbs-admin-public-key
+kubectl delete -f k8s/kbs.yaml --ignore-not-found
 # Remove the sigstore-attachments config this demo added; it's a separate file in
 # registries.d, so this never touches any other registries.d configuration.
 rm -f ~/.config/containers/registries.d/image-signing-demo.yaml

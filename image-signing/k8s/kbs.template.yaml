@@ -1,13 +1,8 @@
 apiVersion: v1
-kind: Namespace
-metadata:
-  name: trustee
----
-apiVersion: v1
 kind: Service
 metadata:
   name: kbs
-  namespace: trustee
+  namespace: ${NAMESPACE}
 spec:
   # ClusterIP is enough: the key provider reaches KBS over service DNS, and the
   # walkthrough never hits a node port. Avoids clashing with node ports already in use.
@@ -23,7 +18,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: kbs-config
-  namespace: trustee
+  namespace: ${NAMESPACE}
 data:
   kbs-config.toml: |
     [http_server]
@@ -49,7 +44,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: kbs-admin-public-key
-  namespace: trustee
+  namespace: ${NAMESPACE}
 type: Opaque
 stringData:
   kbs.pem: |
@@ -61,7 +56,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: kbs-policy
-  namespace: trustee
+  namespace: ${NAMESPACE}
 data:
   allow_all.rego: |
     package policy
@@ -72,7 +67,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: dcap-attestation-conf
-  namespace: trustee
+  namespace: ${NAMESPACE}
 data:
   sgx_default_qcnl.conf: |
     {"collateral_service": "https://api.trustedservices.intel.com/sgx/certification/v4/"}
@@ -81,7 +76,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kbs
-  namespace: trustee
+  namespace: ${NAMESPACE}
 spec:
   selector:
     matchLabels:

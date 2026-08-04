@@ -228,8 +228,24 @@ printf '%s\n' ''
 printf '%s\n' 'The signing and encryption flow requires a Key Broker Service (KBS) and a key provider running in'
 printf '%s\n' 'the cluster. The key provider exposes a gRPC endpoint that `skopeo` uses during image encryption.'
 printf '%s\n' ''
+printf '%s\n' 'The KBS and key provider run in this demo'\''s own `${NAMESPACE}`, not the shared `trustee`'
+printf '%s\n' 'namespace used by a cluster-wide CoCo/Trustee install, so applying and cleaning them up never'
+printf '%s\n' 'touches another workload'\''s resources.'
+printf '%s\n' ''
 printf "%b" "$RESET"
 
+pe "$(cat <<'EOF'
+# Render the KBS and key-provider manifests into this demo's namespace.
+EOF
+)"
+pe "$(cat <<'EOF'
+tplenv --file k8s/kbs.template.yaml --create-values-file --output k8s/kbs.yaml
+EOF
+)"
+pe "$(cat <<'EOF'
+tplenv --file k8s/key-provider.template.yaml --create-values-file --output k8s/key-provider.yaml
+EOF
+)"
 pe "$(cat <<'EOF'
 # Deploy the Key Broker Service.
 EOF
@@ -251,7 +267,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl wait --for=condition=available deployment/kbs -n trustee --timeout=120s
+kubectl wait --for=condition=available deployment/kbs -n ${NAMESPACE} --timeout=120s
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -259,7 +275,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl wait --for=condition=available deployment/keyprovider -n trustee --timeout=120s
+kubectl wait --for=condition=available deployment/keyprovider -n ${NAMESPACE} --timeout=120s
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -271,7 +287,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-while true; do kubectl port-forward -n trustee svc/keyprovider 50000:50000 2>/dev/null; sleep 2; done &
+while true; do kubectl port-forward -n ${NAMESPACE} svc/keyprovider 50000:50000 2>/dev/null; sleep 2; done &
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -658,7 +674,15 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Stop the key provider port-forward.
+# Stop the key provider port-forward. Kill the restart loop first so it does not respawn,
+EOF
+)"
+pe "$(cat <<'EOF'
+# then the kubectl child it spawned -- killing only the wrapper PID leaves that child alive
+EOF
+)"
+pe "$(cat <<'EOF'
+# and owning port 50000, which breaks the next run.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -666,7 +690,23 @@ kill ${PORT_FORWARD_PID} 2>/dev/null || true
 EOF
 )"
 pe "$(cat <<'EOF'
-# Delete the key provider.
+pkill -f "kubectl port-forward -n ${NAMESPACE} svc/keyprovider 50000:50000" 2>/dev/null || true
+EOF
+)"
+pe "$(cat <<'EOF'
+# Delete the key provider and the Key Broker Service. These live in this demo's own
+EOF
+)"
+pe "$(cat <<'EOF'
+# ${NAMESPACE} and have no Namespace resource of their own, so deleting the rendered
+EOF
+)"
+pe "$(cat <<'EOF'
+# manifests removes exactly what the demo created and never the namespace other
+EOF
+)"
+pe "$(cat <<'EOF'
+# workloads may share.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -674,21 +714,7 @@ kubectl delete -f k8s/key-provider.yaml --ignore-not-found
 EOF
 )"
 pe "$(cat <<'EOF'
-# Delete only the Key Broker Service resources, not the `trustee` namespace itself:
-EOF
-)"
-pe "$(cat <<'EOF'
-# other workloads (CoCo/KBS, other demos) may already share that namespace.
-EOF
-)"
-pe "$(cat <<'EOF'
-kubectl delete -n trustee --ignore-not-found \
-  deployment/kbs \
-  service/kbs \
-  configmap/kbs-config \
-  configmap/kbs-policy \
-  configmap/dcap-attestation-conf \
-  secret/kbs-admin-public-key
+kubectl delete -f k8s/kbs.yaml --ignore-not-found
 EOF
 )"
 pe "$(cat <<'EOF'

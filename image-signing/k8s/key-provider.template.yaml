@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: keyprovider
-  namespace: trustee
+  namespace: ${NAMESPACE}
 spec:
   # ClusterIP is enough: the walkthrough reaches the key provider through
   # `kubectl port-forward svc/keyprovider 50000:50000`, not a node port. Avoids
@@ -19,7 +19,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: kbs-admin-private-key
-  namespace: trustee
+  namespace: ${NAMESPACE}
 type: Opaque
 stringData:
   private.key: |
@@ -31,7 +31,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: keyprovider
-  namespace: trustee
+  namespace: ${NAMESPACE}
 spec:
   replicas: 1
   selector:
@@ -50,7 +50,7 @@ spec:
             - "--socket"
             - "0.0.0.0:50000"
             - "--kbs"
-            - "http://kbs.trustee.svc.cluster.local:30080"
+            - "http://kbs.${NAMESPACE}.svc.cluster.local:30080"
             - "--auth-private-key"
             - "/etc/private-key/private.key"
           ports:

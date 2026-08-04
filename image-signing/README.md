@@ -76,18 +76,25 @@ tplenv --file manifest.job.template.yaml --create-values-file --output manifest.
 The signing and encryption flow requires a Key Broker Service (KBS) and a key provider running in
 the cluster. The key provider exposes a gRPC endpoint that `skopeo` uses during image encryption.
 
+The KBS and key provider run in this demo's own `${NAMESPACE}`, not the shared `trustee`
+namespace used by a cluster-wide CoCo/Trustee install, so applying and cleaning them up never
+touches another workload's resources.
+
 ```bash
+# Render the KBS and key-provider manifests into this demo's namespace.
+tplenv --file k8s/kbs.template.yaml --create-values-file --output k8s/kbs.yaml
+tplenv --file k8s/key-provider.template.yaml --create-values-file --output k8s/key-provider.yaml
 # Deploy the Key Broker Service.
 kubectl apply -f k8s/kbs.yaml
 # Deploy the key provider.
 kubectl apply -f k8s/key-provider.yaml
 # Wait for KBS to be ready.
-kubectl wait --for=condition=available deployment/kbs -n trustee --timeout=120s
+kubectl wait --for=condition=available deployment/kbs -n ${NAMESPACE} --timeout=120s
 # Wait for the key provider to be ready.
-kubectl wait --for=condition=available deployment/keyprovider -n trustee --timeout=120s
+kubectl wait --for=condition=available deployment/keyprovider -n ${NAMESPACE} --timeout=120s
 # Forward the key provider port to localhost so skopeo can reach it.
 # Self-restarting loop avoids killing unrelated processes that may already use port 50000.
-while true; do kubectl port-forward -n trustee svc/keyprovider 50000:50000 2>/dev/null; sleep 2; done &
+while true; do kubectl port-forward -n ${NAMESPACE} svc/keyprovider 50000:50000 2>/dev/null; sleep 2; done &
 export PORT_FORWARD_PID=$!
 # Give the port-forward a moment to establish the connection.
 sleep 3
@@ -277,18 +284,13 @@ cosign verify --key ./config/image-signing-key.pub --insecure-ignore-tlog ${DEST
 # then the kubectl child it spawned -- killing only the wrapper PID leaves that child alive
 # and owning port 50000, which breaks the next run.
 kill ${PORT_FORWARD_PID} 2>/dev/null || true
-pkill -f "kubectl port-forward -n trustee svc/keyprovider 50000:50000" 2>/dev/null || true
-# Delete the key provider.
+pkill -f "kubectl port-forward -n ${NAMESPACE} svc/keyprovider 50000:50000" 2>/dev/null || true
+# Delete the key provider and the Key Broker Service. These live in this demo's own
+# ${NAMESPACE} and have no Namespace resource of their own, so deleting the rendered
+# manifests removes exactly what the demo created and never the namespace other
+# workloads may share.
 kubectl delete -f k8s/key-provider.yaml --ignore-not-found
-# Delete only the Key Broker Service resources, not the `trustee` namespace itself:
-# other workloads (CoCo/KBS, other demos) may already share that namespace.
-kubectl delete -n trustee --ignore-not-found \
-  deployment/kbs \
-  service/kbs \
-  configmap/kbs-config \
-  configmap/kbs-policy \
-  configmap/dcap-attestation-conf \
-  secret/kbs-admin-public-key
+kubectl delete -f k8s/kbs.yaml --ignore-not-found
 # Remove the sigstore-attachments config this demo added; it's a separate file in
 # registries.d, so this never touches any other registries.d configuration.
 rm -f ~/.config/containers/registries.d/image-signing-demo.yaml
