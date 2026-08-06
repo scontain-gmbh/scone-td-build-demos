@@ -133,7 +133,7 @@ rm -f software-updates-demo.json scone.v1.yaml scone.v2.yaml k8s/manifest.v1.yam
 printf "${VIOLET}"
 printf '%s\n' ''
 printf '%s\n' 'Load the full variable set from `environment-variables.md` first, so `NAMESPACE` and'
-printf '%s\n' '`CVM_MODE` are available to derive the CAS session namespace below:'
+printf '%s\n' '`TEE_TYPE` are available to derive the CAS session namespace below:'
 printf '%s\n' ''
 printf "${RESET}"
 
@@ -154,7 +154,7 @@ printf "${RESET}"
 printf "${ORANGE}"
 printf '%s\n' '# Export the required environment variable for the next steps.'
 printf '%s\n' 'export SIGNER="$(scone self show-session-signing-key)"'
-printf '%s\n' '# Fixed per Kubernetes NAMESPACE and CVM_MODE on purpose: CAS sessions are append-only'
+printf '%s\n' '# Fixed per Kubernetes NAMESPACE and TEE_TYPE on purpose: CAS sessions are append-only'
 printf '%s\n' '# (there'\''s no delete operation in the CLI), so a fresh random namespace on every run'
 printf '%s\n' '# would leave a new, never-cleaned-up session behind each time. Reusing the same name'
 printf '%s\n' '# for repeat runs of the *same* NAMESPACE and mode means a rerun updates the existing'
@@ -164,7 +164,7 @@ printf '%s\n' '# property while still isolating different Kubernetes namespaces 
 printf '%s\n' '# different environments) and the SGX vs CVM CI sweeps from sharing one CAS session'
 printf '%s\n' '# and one generated API_PASSWORD.'
 printf '%s\n' 'mode_suffix="sgx"'
-printf '%s\n' 'if [ "${CVM_MODE}" = "true" ]; then'
+printf '%s\n' 'if [ "${TEE_TYPE}" = "cvm" ]; then'
 printf '%s\n' '  mode_suffix="cvm"'
 printf '%s\n' 'fi'
 printf '%s\n' 'export SESSION_NAMESPACE="software-update-demo-${NAMESPACE}-${mode_suffix}"'
@@ -174,7 +174,7 @@ printf "${RESET}"
 
 # Export the required environment variable for the next steps.
 export SIGNER="$(scone self show-session-signing-key)"
-# Fixed per Kubernetes NAMESPACE and CVM_MODE on purpose: CAS sessions are append-only
+# Fixed per Kubernetes NAMESPACE and TEE_TYPE on purpose: CAS sessions are append-only
 # (there's no delete operation in the CLI), so a fresh random namespace on every run
 # would leave a new, never-cleaned-up session behind each time. Reusing the same name
 # for repeat runs of the *same* NAMESPACE and mode means a rerun updates the existing
@@ -184,7 +184,7 @@ export SIGNER="$(scone self show-session-signing-key)"
 # different environments) and the SGX vs CVM CI sweeps from sharing one CAS session
 # and one generated API_PASSWORD.
 mode_suffix="sgx"
-if [ "${CVM_MODE}" = "true" ]; then
+if [ "${TEE_TYPE}" = "cvm" ]; then
   mode_suffix="cvm"
 fi
 export SESSION_NAMESPACE="software-update-demo-${NAMESPACE}-${mode_suffix}"
@@ -359,13 +359,13 @@ printf "${ORANGE}"
 printf '%s\n' '# Remove any existing state file.'
 printf '%s\n' 'rm -f software-updates-demo.json || true'
 printf '%s\n' '# Generate the confidential image and sanitized manifest from the SCONE configuration.'
-printf '%s\n' 'scone-td-build from -y scone.v1.yaml'
+printf '%s\n' 'scone-td-build apply -f scone.v1.yaml'
 printf "${RESET}"
 
 # Remove any existing state file.
 rm -f software-updates-demo.json || true
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
-scone-td-build from -y scone.v1.yaml
+scone-td-build apply -f scone.v1.yaml
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -455,11 +455,11 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Generate the confidential image and sanitized manifest from the SCONE configuration.'
-printf '%s\n' 'scone-td-build from -y scone.v2.yaml'
+printf '%s\n' 'scone-td-build apply -f scone.v2.yaml'
 printf "${RESET}"
 
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
-scone-td-build from -y scone.v2.yaml
+scone-td-build apply -f scone.v2.yaml
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -597,7 +597,7 @@ printf '%s\n' 'This does not, and cannot, delete the CAS-side session under `${S
 printf '%s\n' 'sessions are append-only and the `scone` CLI has no session-delete operation, by design,'
 printf '%s\n' 'so the audit trail of every update stays intact. Since `${SESSION_NAMESPACE}` is fixed'
 printf '%s\n' 'per `NAMESPACE`/mode (see Step 1), re-running this demo later with the same `NAMESPACE`'
-printf '%s\n' 'and `CVM_MODE` updates that same session in place instead of leaving a new one behind, so'
+printf '%s\n' 'and `TEE_TYPE` updates that same session in place instead of leaving a new one behind, so'
 printf '%s\n' 'there'\''s no unbounded buildup of sessions or generated `API_PASSWORD` values across runs.'
 printf '%s\n' 'Different namespaces or modes (including the SGX and CVM CI sweeps) each get their own'
 printf '%s\n' 'isolated session instead of sharing one.'

@@ -175,45 +175,25 @@ all_values_files=(
   "${repo_root}/image-signing/Values.yaml"
 )
 
+# tee-type replaced the old cvm boolean, so the migrated demos consume SCONE_ENCLAVE as a
+# boolean value. image-signing (added upstream) still ships the flag-style SCONE_ENCLAVE,
+# so it is overridden after the shared loop below.
 flag_mode_files=(
-  "${repo_root}/hello-world/Values.yaml"
-  "${repo_root}/web-server/Values.yaml"
   "${repo_root}/image-signing/Values.yaml"
 )
-
-boolean_mode_files=(
-  "${repo_root}/configmap/Values.yaml"
-  "${repo_root}/network-policy/Values.yaml"
-  "${repo_root}/go-args-env-file/Values.yaml"
-  "${repo_root}/flask-redis/Values.yaml"
-  "${repo_root}/flask-redis-netshield/Values.yaml"
-  "${repo_root}/java-args-env-file/Values.yaml"
-  "${repo_root}/software-updates/Values.yaml"
-)
-
 if [[ "$mode" == "sgx" ]]; then
-  flag_cvm_mode="''"
+  tee_type="sgx"
+  scone_enclave="'false'"
   flag_scone_enclave="''"
-  boolean_cvm_mode="'false'"
-  boolean_scone_enclave="'false'"
 else
-  flag_cvm_mode="--cvm"
+  tee_type="cvm"
+  scone_enclave="'true'"
   flag_scone_enclave="--scone-enclave"
-  boolean_cvm_mode="'true'"
-  boolean_scone_enclave="'true'"
 fi
 
-for values_file in "${flag_mode_files[@]}"; do
-  upsert_scalar "$values_file" "CVM_MODE" "$flag_cvm_mode"
-  upsert_scalar "$values_file" "SCONE_ENCLAVE" "$flag_scone_enclave"
-done
-
-for values_file in "${boolean_mode_files[@]}"; do
-  upsert_scalar "$values_file" "CVM_MODE" "$boolean_cvm_mode"
-  upsert_scalar "$values_file" "SCONE_ENCLAVE" "$boolean_scone_enclave"
-done
-
 for values_file in "${all_values_files[@]}"; do
+  upsert_scalar "$values_file" "TEE_TYPE" "$tee_type"
+  upsert_scalar "$values_file" "SCONE_ENCLAVE" "$scone_enclave"
   upsert_scalar "$values_file" "IMAGE_PULL_SECRET_NAME" "$image_pull_secret_name"
   upsert_scalar "$values_file" "REGISTRY" "$registry"
   if [[ -n "$namespace" ]]; then
@@ -225,6 +205,24 @@ for values_file in "${all_values_files[@]}"; do
   if [[ -n "${CAS_NAMESPACE:-}" ]]; then
     upsert_scalar "$values_file" "CAS_NAMESPACE" "$CAS_NAMESPACE"
   fi
+  # CAS_ENDPOINT is the address the manifest targets. Keep it in sync with the in-cluster
+  # CAS (CAS_NAME.CAS_NAMESPACE) so changing the CAS name or namespace does not leave the
+  # manifest pointed at a stale endpoint. Set CAS_ENDPOINT explicitly to run against an
+  # external CAS, e.g. edge.scone-cas.cf.
+  if [[ -n "${CAS_ENDPOINT:-}" ]]; then
+    upsert_scalar "$values_file" "CAS_ENDPOINT" "$CAS_ENDPOINT"
+  else
+    eff_cas_name="$(awk -F': ' '/^  CAS_NAME:/ { gsub(/["'\''[:space:]]/, "", $2); print $2; exit }' "$values_file")"
+    eff_cas_namespace="$(awk -F': ' '/^  CAS_NAMESPACE:/ { gsub(/["'\''[:space:]]/, "", $2); print $2; exit }' "$values_file")"
+    if [[ -n "$eff_cas_name" && -n "$eff_cas_namespace" ]]; then
+      upsert_scalar "$values_file" "CAS_ENDPOINT" "${eff_cas_name}.${eff_cas_namespace}"
+    fi
+  fi
+done
+
+# image-signing still uses the flag-style SCONE_ENCLAVE; override the boolean set above.
+for values_file in "${flag_mode_files[@]}"; do
+  upsert_scalar "$values_file" "SCONE_ENCLAVE" "$flag_scone_enclave"
 done
 
 declare -A seen_namespaces=()

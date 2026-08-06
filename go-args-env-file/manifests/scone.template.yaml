@@ -3,14 +3,14 @@ kind: Register
 metadata:
   name: go-args-env-file-example
 spec:
-  protected_image: ${DEMO_IMAGE}
-  unprotected_image: ${DEMO_IMAGE}
-  destination_image: ${DESTINATION_IMAGE_NAME}
-  enforce: ["/usr/local/bin/go-args-env-file"]
-  push_scone_image: true
-  version: ${SCONE_RUNTIME_VERSION}
-  cvm: ${CVM_MODE}
-  manifest_env:
+  source-image: ${DEMO_IMAGE}
+  reference-image: ${DEMO_IMAGE}
+  output-image: ${DESTINATION_IMAGE_NAME}
+  protected-binaries: ["/usr/local/bin/go-args-env-file"]
+  push-image: true
+  scone-version: ${SCONE_RUNTIME_VERSION}
+  tee-type: ${TEE_TYPE}
+  container-env:
     - {name: SCONE_VERSION, value: "1"}
     - {name: SCONE_SYSLIBS, value: "1"}
     - {name: SCONE_PRODUCTION, value: "0"}
@@ -21,21 +21,21 @@ kind: Apply
 metadata:
   name: go-args-env-file-example
 spec:
-  version: ${SCONE_RUNTIME_VERSION}
+  scone-version: ${SCONE_RUNTIME_VERSION}
   file:
     - "manifests/manifest.yaml"
-  output_manifest_file: "manifests/manifest.prod.sanitized.yaml"
-  output_session_file: "manifests/manifest.prod.session.yaml"
-  cas_address:
-    address: ${CAS_NAME}.${CAS_NAMESPACE}
-  session_env:
+  output-manifest: "manifests/manifest.prod.sanitized.yaml"
+  output-session: "manifests/manifest.prod.session.yaml"
+  cas-endpoint:
+    address: ${CAS_ENDPOINT}
+  cas-policy-env:
     - {name: SCONE_VERSION, value: "1"}
-  manifest_env:
+  container-env:
     - {name: SCONE_VERSION, value: "1"}
     - {name: SCONE_SYSLIBS, value: "1"}
     - {name: SCONE_PRODUCTION, value: "0"}
     - {name: SCONE_HEAP, value: "2G"}
   permissive: true
-  spol: true
-  cvm: ${CVM_MODE}
-  scone_enclave: ${SCONE_ENCLAVE}
+  encrypted-cas-policy: false
+  tee-type: ${TEE_TYPE}
+  scone-enclave: ${SCONE_ENCLAVE}

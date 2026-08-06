@@ -268,7 +268,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-scone-td-build from -y ./scone.yaml
+scone-td-build apply -f ./scone.yaml
 EOF
 )"
 

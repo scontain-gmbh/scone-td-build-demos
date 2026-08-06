@@ -7,10 +7,11 @@ This file defines the environment variables used to configure the `configmap` ex
 4. The SCONE version is stored in `${SCONE_RUNTIME_VERSION}`.
    The recommended value is `6.1.0-rc.0`.
 5. The CAS runs in Kubernetes namespace `${CAS_NAMESPACE}`.
-   The templates resolve `${CAS_NAME}.${CAS_NAMESPACE}` to the CAS endpoint, so for SCONE's public CAS at `scone-cas.cf` set `CAS_NAMESPACE=cf`.
+   `${CAS_NAME}` and `${CAS_NAMESPACE}` address the in-cluster CAS for `kubectl` calls.
 6. The CAS name is stored in `${CAS_NAME}`.
-   For SCONE's public CAS, set `CAS_NAME=scone-cas`.
-7. If you want to use CVM mode, set `${CVM_MODE}` to `true`. For SGX, set to `false`.
+   The manifests use `${CAS_ENDPOINT}` instead, which defaults to `cas.default`. Point it at
+   a public CAS to run against one, for example `CAS_ENDPOINT=edge.scone-cas.cf`.
+7. Set `${TEE_TYPE}` to `cvm` for CVM mode or `sgx` for SGX.
 8. In CVM mode, you can run on confidential Kubernetes nodes or Kata Pods.
    We recommend using confidential nodes and setting `${SCONE_ENCLAVE}` to `true`.
 9. Set the local signer key in `${SIGNER}`.

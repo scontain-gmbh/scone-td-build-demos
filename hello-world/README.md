@@ -41,8 +41,9 @@ For the confidential deployment:
 - `$SCONE_VERSION` - SCONE version to use (for example, `6.1.0-rc.0`)
 - `$CAS_NAMESPACE` - CAS Kubernetes namespace (for example, `default`)
 - `$CAS_NAME` - CAS Kubernetes name (for example, `cas`)
-- `$CVM_MODE` - Set to `--cvm` for CVM mode, otherwise leave empty for SGX
-- `$SCONE_ENCLAVE` - In CVM mode, set to `--scone-enclave` for confidential nodes, or leave empty for Kata Pods
+- `$CAS_ENDPOINT` - Address the manifest targets; keep it in sync with `$CAS_NAME`.`$CAS_NAMESPACE` (default: `cas.default`), or set to an external CAS address to run against one
+- `$TEE_TYPE` - Set to `cvm` for CVM mode or `sgx` for SGX
+- `$SCONE_ENCLAVE` - In CVM mode, set to `true` for confidential nodes, or `false` for Kata Pods
 - `$NAMESPACE` - Kubernetes namespace where the demo runs (default: `default`)
 
 Defaults are stored in `Values.yaml`. We use [`tplenv`](https://github.com/scontainug/tplenv) to confirm or override values:
@@ -62,6 +63,8 @@ Generate the job manifest with the selected image and pull-secret values:
 ```bash
 # Render the template with the selected values.
 tplenv --file manifest.job.template.yaml --create-values-file --output manifest.job.yaml
+# Render the SCONE manifest that drives register plus apply.
+tplenv --file scone.template.yaml --create-values-file --output scone.yaml --indent
 ```
 
 ## 3. Build the Native Container Image
@@ -158,36 +161,36 @@ kubectl wait --for=delete pod -l app=hello-world -n ${NAMESPACE} --timeout=300s
 
 ## 6. Attest SCONE CAS
 
-Attest CAS before sending encrypted policies. The kubectl path covers in-cluster CAS; if it fails (typical when `${CAS_NAME}.${CAS_NAMESPACE}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.
+Attest CAS before sending encrypted policies. The kubectl path covers in-cluster CAS; if it fails (typical when `${CAS_ENDPOINT}` points at an external CAS like `edge.scone-cas.cf`), the second branch attests the public CAS directly.
 
 ```bash
 # Attest the CAS instance before sending encrypted policies.
 kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S \
-    || scone cas attest ${CAS_NAME}.${CAS_NAMESPACE} -C -G -S \
-        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
+    || scone cas attest ${CAS_ENDPOINT} -C -G -S \
+        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any \
+    || echo "CAS attestation skipped: ${CAS_ENDPOINT} runs in simulation mode, so it cannot produce a DCAP quote"
 ```
 
 If attestation fails, inspect the command output for detected vulnerabilities and suggested tolerance flags.
 
 ## 7. Register the Confidential Image
 
-Register the image for confidential execution:
+`scone.yaml` holds both documents: the `Register` that produces the protected image and
+the `Apply` that turns `manifest.job.yaml` into a sanitized confidential manifest. A
+single command runs both:
 
 ```bash
-# Register the image for confidential execution.
-scone-td-build register --protected-image $IMAGE_NAME --unprotected-image rust:latest --manifest-env SCONE_PRODUCTION=0 -s ./storage.json --destination-image ${DESTINATION_IMAGE_NAME} --push --version ${SCONE_RUNTIME_VERSION} ${CVM_MODE}
+# Register the image and transform the manifest in one step.
+scone-td-build apply -f scone.yaml
 ```
 
-This creates a protected image (or uses `--destination-image` if provided) and decouples your deployment from upstream image changes.
+This creates a protected image (or uses `output-image` if provided) and decouples your
+deployment from upstream image changes.
 
 ## 8. Transform the Kubernetes Manifest
 
-Convert the native manifest into a sanitized confidential manifest:
-
-```bash
-# Convert the native manifest into a confidential manifest.
-scone-td-build apply -f manifest.job.yaml -c ${CAS_NAME}.${CAS_NAMESPACE} -p -s ./storage.json --manifest-env SCONE_SYSLIBS=1 --manifest-env SCONE_PRODUCTION=0 --manifest-env SCONE_HEAP=1G --spol --manifest-env SCONE_VERSION=1 --output-manifest-file manifest.job.sanitized.yaml --version ${SCONE_RUNTIME_VERSION} ${CVM_MODE} ${SCONE_ENCLAVE}
-```
+The previous step already wrote `manifest.job.sanitized.yaml`, the confidential manifest
+declared as `output-manifest` in `scone.yaml`.
 
 ## 9. Deploy the Confidential Manifest
 

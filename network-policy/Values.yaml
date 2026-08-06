@@ -2,15 +2,12 @@ environment:
   IMAGE_PULL_SECRET_NAME: sconeapps
   CAS_NAMESPACE: default
   CAS_NAME: cas
+  CAS_ENDPOINT: cas.default
   SCONE_RUNTIME_VERSION: 6.1.0-rc.0
-  CVM_MODE: 'false'
+  TEE_TYPE: sgx
   SCONE_ENCLAVE: 'false'
   REGISTRY: registry.scontain.com
   NAMESPACE: default
-  CLIENT_IMAGE: registry.scontain.com/workshop/network-policy:client
-  SERVER_IMAGE: registry.scontain.com/workshop/network-policy:server
+  CLIENT_IMAGE: registry.scontain.com/k8s-scone-images/network-policy:client
+  SERVER_IMAGE: registry.scontain.com/k8s-scone-images/network-policy:server
   SCRIPT_DIR: .
-  SIGNER: |-
-    -----BEGIN PUBLIC KEY-----
-    MCowBQYDK2VwAyEAvSRST+dhEaX42c6VkY1Sv+KVelnSup96M6TMHOlqcrg=
-    -----END PUBLIC KEY-----
