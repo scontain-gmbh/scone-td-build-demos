@@ -172,11 +172,13 @@ all_values_files=(
   "${repo_root}/flask-redis-netshield/Values.yaml"
   "${repo_root}/java-args-env-file/Values.yaml"
   "${repo_root}/software-updates/Values.yaml"
+  "${repo_root}/image-signing/Values.yaml"
 )
 
 flag_mode_files=(
   "${repo_root}/hello-world/Values.yaml"
   "${repo_root}/web-server/Values.yaml"
+  "${repo_root}/image-signing/Values.yaml"
 )
 
 boolean_mode_files=(
