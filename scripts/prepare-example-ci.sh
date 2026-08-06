@@ -185,10 +185,12 @@ if [[ "$mode" == "sgx" ]]; then
   tee_type="sgx"
   scone_enclave="'false'"
   flag_scone_enclave="''"
+  flag_cvm_mode="''"
 else
   tee_type="cvm"
   scone_enclave="'true'"
   flag_scone_enclave="--scone-enclave"
+  flag_cvm_mode="--cvm"
 fi
 
 for values_file in "${all_values_files[@]}"; do
@@ -220,9 +222,12 @@ for values_file in "${all_values_files[@]}"; do
   fi
 done
 
-# image-signing still uses the flag-style SCONE_ENCLAVE; override the boolean set above.
+# image-signing still uses the flag-style SCONE_ENCLAVE and CVM_MODE (it passes --cvm into
+# `scone-td-build register`), so override the boolean/tee-type set above; otherwise the CVM
+# sweep would leave it on the SGX path.
 for values_file in "${flag_mode_files[@]}"; do
   upsert_scalar "$values_file" "SCONE_ENCLAVE" "$flag_scone_enclave"
+  upsert_scalar "$values_file" "CVM_MODE" "$flag_cvm_mode"
 done
 
 declare -A seen_namespaces=()
