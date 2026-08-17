@@ -1,9 +1,7 @@
 environment:
-  # Personal: set this to an image path in a registry you can push to,
-  # e.g. registry.scontain.com/<your-namespace>/pet-clinic:native
-  NATIVE_IMAGE_NAME: ''
-
-  DESTINATION_IMAGE_NAME: ''
+  # Set these to image paths in a registry you can push to.
+  NATIVE_IMAGE_NAME: registry.scontain.com/k8s-scone-images/pet-clinic:native
+  DESTINATION_IMAGE_NAME: registry.scontain.com/k8s-scone-images/pet-clinic:protected
 
   # MariaDB image (runs natively next to the confidential PetClinic).
   MARIADB_IMAGE: mariadb:11.4
@@ -45,4 +43,3 @@ environment:
   DB_USER: petclinic
   DB_PASSWORD: petclinic
   DB_ROOT_PASSWORD: rootpass
-  

@@ -26,8 +26,8 @@ This repository includes an automation script for this workflow (note: this is g
 
 It uses:
 
-- `tplenv` with [`creating-own-repository/environment-variables.md`](creating-own-repository/environment-variables.md)
-- persisted defaults in [`creating-own-repository/Values.yaml`](creating-own-repository/Values.yaml)
+- `tplenv` with [`create-own-repository-env-variables.md`](create-own-repository-env-variables.md)
+- persisted defaults in `Values.yaml` in this directory (generated on first run)
 - `gh` to create or update the GitHub repository
 - `gh auth token` for Docker login and the optional Kubernetes pull secret
 

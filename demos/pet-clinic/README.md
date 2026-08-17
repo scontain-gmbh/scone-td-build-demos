@@ -18,12 +18,12 @@ Only PetClinic is confidential. MariaDB is intentionally native: it keeps its st
 | File | Purpose |
 | --- | --- |
 | `Dockerfile` | Multi-stage build of PetClinic from a pinned upstream commit. |
-| `Values.yaml` | All demo configuration (images, namespace, CAS, DB credentials, `PETCLINIC_REF`). |
-| `environment-variables.md` | The variables `tplenv` collects. |
+| `values.template.yaml` | Defaults for all demo configuration (images, namespace, CAS, DB credentials, `PETCLINIC_REF`); copied to `Values.yaml` on the first run. |
+| `../environment-variables.md` | The variables `tplenv` collects (shared by all demos). |
 | `manifests/secret.template.yaml` | Database credentials Secret. |
 | `manifests/mariadb.template.yaml` | Native MariaDB Deployment and Service. |
 | `manifests/petclinic.template.yaml` | Confidential PetClinic Deployment and Service (apply input). |
-| `scone.template.yaml` | `Register` + `Apply` custom resources for `scone-td-build`. |
+| `manifests/scone.template.yaml` | `Register` + `Apply` custom resources for `scone-td-build`. |
 
 ## 1. Prerequisites
 

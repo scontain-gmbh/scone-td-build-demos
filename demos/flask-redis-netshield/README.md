@@ -3,7 +3,7 @@
 A Flask REST API backed by a TLS-secured Redis instance, packaged for Kubernetes.
 This guide walks through deploying the **native** version first, running integration tests, and then building and deploying the **confidential** (SCONE) version before testing it again.
 
-[![Flask Redis Netshield Example](../docs/flask-redis-netshield.gif)](../docs/flask-redis-netshield.mp4)
+[![Flask Redis Netshield Example](../../docs/flask-redis-netshield.gif)](../../docs/flask-redis-netshield.mp4)
 
 ## Project Structure
 

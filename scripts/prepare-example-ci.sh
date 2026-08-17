@@ -12,7 +12,7 @@ missing) and Kubernetes pull secrets for CI.
 Environment:
   REGISTRY_USER   Registry username used to create the image pull secret.
   REGISTRY_TOKEN  Registry token/password used to create the image pull secret.
-  SCONE_CAS_ADDR  SCONE_CAS_ADDR to use.
+  SCONE_CAS_ADDR  CAS address to write into every Values.yaml (default: keeps each demo's current value).
 
 Options:
   --mode <mode>              One of: sgx, cvm
@@ -117,6 +117,11 @@ upsert_scalar() {
       found = 1
       next
     }
+    in_environment && $0 ~ /^[[:space:]]*(#.*)?$/ {
+      # Blank and comment lines do not end the environment block.
+      print
+      next
+    }
     in_environment && $0 !~ /^  / {
       if (!found) {
         print "  " key ": " value
@@ -207,8 +212,10 @@ for values_file in "${all_values_files[@]}"; do
   upsert_scalar "$values_file" "SCONE_ENCLAVE" "$boolean_scone_enclave"
   upsert_scalar "$values_file" "IMAGE_PULL_SECRET_NAME" "$image_pull_secret_name"
   upsert_scalar "$values_file" "REGISTRY" "$registry"
-  upsert_scalar "$values_file" "SCONE_CAS_ADDR" "$scone_cas_addr"
-  
+  if [[ -n "$scone_cas_addr" ]]; then
+    upsert_scalar "$values_file" "SCONE_CAS_ADDR" "$scone_cas_addr"
+  fi
+
   if [[ -n "$namespace" ]]; then
     upsert_scalar "$values_file" "NAMESPACE" "$namespace"
   fi

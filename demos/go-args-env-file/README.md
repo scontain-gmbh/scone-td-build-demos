@@ -4,7 +4,7 @@ A Go utility that prints command-line arguments, environment variables, and read
 
 This example shows how to manage and access configuration data in Kubernetes with a `ConfigMap` and a Go application. You start with a plain (unencrypted) deployment and then move to a fully protected SCONE deployment.
 
-[![go-args-env-file Example](../docs/go-args-env-file.gif)](../docs/go-args-env-file.mp4)
+[![go-args-env-file Example](../../docs/go-args-env-file.gif)](../../docs/go-args-env-file.mp4)
 
 ---
 
