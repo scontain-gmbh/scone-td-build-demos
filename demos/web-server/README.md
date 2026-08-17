@@ -61,7 +61,7 @@ Every file reference below goes through `$DEMO_DIR`, this demo's directory. The 
 export DEMO_DIR="${DEMO_DIR:-$PWD}"
 
 # Remove `storage.json` if it exists.
-rm -f "$DEMO_DIR/storage.json" || true
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 ```
 
 Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml` if that file does not already exist:
@@ -87,7 +87,7 @@ Attest CAS before sending encrypted policies. The kubectl path covers in-cluster
 
 ```bash
 # Attest the CAS instance before sending encrypted policies.
-kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \
+kubectl scone cas attest --namespace "${SCONE_CAS_ADDR#*.}" "${SCONE_CAS_ADDR%%.*}" -C -G -S \
     || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 ```

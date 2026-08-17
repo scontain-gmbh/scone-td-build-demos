@@ -1,12 +1,12 @@
 apiVersion: scone.cloud/v1
 kind: Register
 metadata:
-  name: hello-world-example
+  name: web-server-example
 spec:
   protected_image: ${NATIVE_IMAGE_NAME}
-  unprotected_image: rust:latest
+  unprotected_image: ${NATIVE_IMAGE_NAME}
   destination_image: ${DESTINATION_IMAGE_NAME}
-  enforce: ["/usr/local/bin/hello-world"]
+  enforce: ["/app/web-server"]
   push_scone_image: true
   version: ${SCONE_RUNTIME_VERSION}
   scone_runtime_image: ${SCONE_RUNTIME_IMAGE}
@@ -21,7 +21,7 @@ spec:
 apiVersion: scone.cloud/v1
 kind: Apply
 metadata:
-  name: hello-world-example
+  name: web-server-example
 spec:
   version: ${SCONE_RUNTIME_VERSION}
   scone_runtime_image: ${SCONE_RUNTIME_IMAGE}
@@ -37,7 +37,7 @@ spec:
     - {name: SCONE_VERSION, value: "1"}
     - {name: SCONE_SYSLIBS, value: "1"}
     - {name: SCONE_PRODUCTION, value: "0"}
-    - {name: SCONE_HEAP, value: "1G"}
+    - {name: SCONE_HEAP, value: "2G"}
   permissive: true
   spol: true
   cvm: ${CVM_MODE}

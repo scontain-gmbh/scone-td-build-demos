@@ -11,3 +11,5 @@ environment:
   SCONE_ENCLAVE: false
   NAMESPACE: default
   API_USER: myself
+  SCONE_RUNTIME_IMAGE: registry.scontain.com/sergey/test:scone-deb-pkgs-scone7.0.0-rc-cvm-mode
+  CVM_SIGNING_KEY_FILE: /tmp/kbs-signer.pem

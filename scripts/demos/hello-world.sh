@@ -324,13 +324,13 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Attest the CAS instance before sending encrypted policies.'
-printf '%s\n' 'kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \'
+printf '%s\n' 'kubectl scone cas attest --namespace "${SCONE_CAS_ADDR#*.}" "${SCONE_CAS_ADDR%%.*}" -C -G -S \'
 printf '%s\n' '    || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \'
 printf '%s\n' '        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any'
 printf "${RESET}"
 
 # Attest the CAS instance before sending encrypted policies.
-kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \
+kubectl scone cas attest --namespace "${SCONE_CAS_ADDR#*.}" "${SCONE_CAS_ADDR%%.*}" -C -G -S \
     || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 

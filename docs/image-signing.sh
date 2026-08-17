@@ -152,7 +152,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-rm -f "$DEMO_DIR/storage.json" || true
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 EOF
 )"
 
@@ -213,6 +213,21 @@ EOF
 )"
 pe "$(cat <<'EOF'
 kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
+EOF
+)"
+
+printf "%b" "$LILAC"
+printf '%s\n' ''
+printf '%s\n' 'Generate the job manifest with the selected image and pull-secret values:'
+printf '%s\n' ''
+printf "%b" "$RESET"
+
+pe "$(cat <<'EOF'
+# Render the template with the selected values.
+EOF
+)"
+pe "$(cat <<'EOF'
+tplenv --file "$DEMO_DIR/manifests/manifest.job.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/manifest.job.yaml"
 EOF
 )"
 
@@ -512,7 +527,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \
+kubectl scone cas attest --namespace "${SCONE_CAS_ADDR#*.}" "${SCONE_CAS_ADDR%%.*}" -C -G -S \
     || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 EOF
@@ -612,36 +627,16 @@ printf '%s\n' '## 11. Deploy the Signed Confidential Application'
 printf '%s\n' ''
 printf '%s\n' '> **Blocked:** This step requires `ctd-decoder` to be installed on every cluster node and containerd to be configured with the `ocicrypt` stream processor so it can decrypt the encrypted image layers at pull time. Plain k3d clusters do not include this. See [containers/ocicrypt](https://github.com/containers/ocicrypt) for setup instructions.'
 printf '%s\n' '>'
-printf '%s\n' '> Once the cluster has `ctd-decoder`, deploy the sanitized manifest:'
+printf '%s\n' '> Once the cluster has `ctd-decoder`, deploy the sanitized manifest (this block is'
+printf '%s\n' '> intentionally not part of the generated script, so it does not fail on clusters'
+printf '%s\n' '> without `ctd-decoder`):'
 printf '%s\n' ''
-printf "%b" "$RESET"
-
-pe "$(cat <<'EOF'
-# Apply the Kubernetes manifest.
-EOF
-)"
-pe "$(cat <<'EOF'
-kubectl apply -f "$DEMO_DIR/manifests/manifest.job.sanitized.yaml" -n ${NAMESPACE}
-EOF
-)"
-pe "$(cat <<'EOF'
-# Wait for the Kubernetes resource to reach the expected state.
-EOF
-)"
-pe "$(cat <<'EOF'
-kubectl wait --for=condition=complete job/image-signing -n ${NAMESPACE} --timeout=300s
-EOF
-)"
-pe "$(cat <<'EOF'
-# Show logs from the Kubernetes workload.
-EOF
-)"
-pe "$(cat <<'EOF'
-kubectl logs job/image-signing -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps
-EOF
-)"
-
-printf "%b" "$LILAC"
+printf '%s\n' '# Apply the Kubernetes manifest.'
+printf '%s\n' 'kubectl apply -f "$DEMO_DIR/manifests/manifest.job.sanitized.yaml" -n ${NAMESPACE}'
+printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
+printf '%s\n' 'kubectl wait --for=condition=complete job/image-signing -n ${NAMESPACE} --timeout=300s'
+printf '%s\n' '# Show logs from the Kubernetes workload.'
+printf '%s\n' 'kubectl logs job/image-signing -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps'
 printf '%s\n' ''
 printf '%s\n' '## 12. Clean Up'
 printf '%s\n' ''

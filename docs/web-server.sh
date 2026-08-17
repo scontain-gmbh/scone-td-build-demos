@@ -187,7 +187,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-rm -f "$DEMO_DIR/storage.json" || true
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 EOF
 )"
 
@@ -245,7 +245,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \
+kubectl scone cas attest --namespace "${SCONE_CAS_ADDR#*.}" "${SCONE_CAS_ADDR%%.*}" -C -G -S \
     || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 EOF

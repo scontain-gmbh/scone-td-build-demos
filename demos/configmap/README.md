@@ -24,8 +24,8 @@ Every file reference below goes through `$DEMO_DIR`, this demo's directory. The 
 # The generated scripts set DEMO_DIR to this demo's directory. When following
 # this README by hand, run the commands from `demos/configmap`.
 export DEMO_DIR="${DEMO_DIR:-$PWD}"
-# Remove `configmap-example.json` if it exists.
-rm -f "$DEMO_DIR/configmap-example.json" || true
+# Remove `storage.json` if it exists.
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 ```
 
 Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml` if that file does not already exist:
@@ -48,8 +48,6 @@ Load the full variable set from `environment-variables.md`, which also defines t
 # Load environment variables from the tplenv definition file.
 eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
 ```
-
-values-file
 
 Create the demo namespace if it does not already exist. The fallback echo keeps re-runs idempotent.
 
@@ -118,7 +116,7 @@ First, attest the CAS so the local SCONE CLI has the correct session encryption 
 
 ```bash
 # Attest the CAS instance before sending encrypted policies.
-kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \
+kubectl scone cas attest --namespace "${SCONE_CAS_ADDR#*.}" "${SCONE_CAS_ADDR%%.*}" -C -G -S \
   || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \
     --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 ```

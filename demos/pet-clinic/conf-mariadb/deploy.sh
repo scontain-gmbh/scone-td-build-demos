@@ -4,10 +4,10 @@
 # replaces the native MariaDB with a confidential (SGX) MariaDB that PetClinic
 # talks to through a confidential MaxScale over TLS.
 #
-# All configuration comes from ../Values.yaml via tplenv (CAS_NAME,
-# CAS_NAMESPACE, NAMESPACE, MARIADB_SCONE_IMAGE, MAXME_IMAGE). Edit Values.yaml,
-# then run this script. GITHUB_TOKEN (for the sconeappsee helm repo) comes from
-# the environment, e.g. `source ~/.env`.
+# All configuration comes from ../Values.yaml via tplenv (SCONE_CAS_ADDR,
+# NAMESPACE, MARIADB_SCONE_IMAGE, MAXME_IMAGE). Edit Values.yaml, then run this
+# script. GITHUB_TOKEN (for the sconeappsee helm repo) comes from the
+# environment.
 #
 # Differences from the upstream maria.sh this is based on:
 #   * uses the local `scone` CLI (matches the cluster version) instead of the

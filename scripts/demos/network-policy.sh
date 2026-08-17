@@ -107,28 +107,32 @@ printf '%s\n' '# The generated scripts set DEMO_DIR to this demo'\''s directory.
 printf '%s\n' '# this README by hand, run the commands from `demos/network-policy`.'
 printf '%s\n' 'export DEMO_DIR="${DEMO_DIR:-$PWD}"'
 printf '%s\n' ''
-printf '%s\n' '# Remove `netshield.json` if it exists.'
-printf '%s\n' 'rm -f "$DEMO_DIR/netshield.json" || true'
+printf '%s\n' '# Remove `storage.json` if it exists.'
+printf '%s\n' 'rm -f "$DEMO_DIR/manifests/storage.json" || true'
 printf "${RESET}"
 
 # The generated scripts set DEMO_DIR to this demo's directory. When following
 # this README by hand, run the commands from `demos/network-policy`.
 export DEMO_DIR="${DEMO_DIR:-$PWD}"
 
-# Remove `netshield.json` if it exists.
-rm -f "$DEMO_DIR/netshield.json" || true
+# Remove `storage.json` if it exists.
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 
 printf "${VIOLET}"
 printf '%s\n' ''
-printf '%s\n' 'Initialize environment variables from `environment-variables.md` using `tplenv`:'
+printf '%s\n' 'Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml` if that file does not already exist, then initialize environment variables from `environment-variables.md` using `tplenv`:'
 printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
+printf '%s\n' '# Seed Values.yaml from the template on first run only.'
+printf '%s\n' '[ -f "$DEMO_DIR/Values.yaml" ] || cp "$DEMO_DIR/values.template.yaml" "$DEMO_DIR/Values.yaml"'
 printf '%s\n' '# Load environment variables from the tplenv definition file.'
 printf '%s\n' 'eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)'
 printf "${RESET}"
 
+# Seed Values.yaml from the template on first run only.
+[ -f "$DEMO_DIR/Values.yaml" ] || cp "$DEMO_DIR/values.template.yaml" "$DEMO_DIR/Values.yaml"
 # Load environment variables from the tplenv definition file.
 eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 

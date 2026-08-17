@@ -109,11 +109,15 @@ printf "${ORANGE}"
 printf '%s\n' '# The generated scripts set DEMO_DIR to this demo'\''s directory. When following'
 printf '%s\n' '# this README by hand, run the commands from `demos/pet-clinic`.'
 printf '%s\n' 'export DEMO_DIR="${DEMO_DIR:-$PWD}"'
+printf '%s\n' '# Remove `storage.json` if it exists.'
+printf '%s\n' 'rm -f "$DEMO_DIR/manifests/storage.json" || true'
 printf "${RESET}"
 
 # The generated scripts set DEMO_DIR to this demo's directory. When following
 # this README by hand, run the commands from `demos/pet-clinic`.
 export DEMO_DIR="${DEMO_DIR:-$PWD}"
+# Remove `storage.json` if it exists.
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -301,13 +305,13 @@ printf "${ORANGE}"
 printf '%s\n' '# Apply the Kubernetes manifest.'
 printf '%s\n' 'kubectl apply -n "$NAMESPACE" -f "$DEMO_DIR/manifests/secret.yaml" -f "$DEMO_DIR/manifests/mariadb.yaml"'
 printf '%s\n' '# Wait for the deployment rollout to complete.'
-printf '%s\n' 'kubectl rollout status deployment/petclinic-db -n "$NAMESPACE"'
+printf '%s\n' 'kubectl rollout status deployment/petclinic-db -n "$NAMESPACE" --timeout=300s'
 printf "${RESET}"
 
 # Apply the Kubernetes manifest.
 kubectl apply -n "$NAMESPACE" -f "$DEMO_DIR/manifests/secret.yaml" -f "$DEMO_DIR/manifests/mariadb.yaml"
 # Wait for the deployment rollout to complete.
-kubectl rollout status deployment/petclinic-db -n "$NAMESPACE"
+kubectl rollout status deployment/petclinic-db -n "$NAMESPACE" --timeout=300s
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -319,13 +323,13 @@ printf "${ORANGE}"
 printf '%s\n' '# Apply the Kubernetes manifest.'
 printf '%s\n' 'kubectl apply -n "$NAMESPACE" -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml"'
 printf '%s\n' '# Wait for the deployment rollout to complete.'
-printf '%s\n' 'kubectl rollout status deployment/petclinic -n "$NAMESPACE"'
+printf '%s\n' 'kubectl rollout status deployment/petclinic -n "$NAMESPACE" --timeout=600s'
 printf "${RESET}"
 
 # Apply the Kubernetes manifest.
 kubectl apply -n "$NAMESPACE" -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml"
 # Wait for the deployment rollout to complete.
-kubectl rollout status deployment/petclinic -n "$NAMESPACE"
+kubectl rollout status deployment/petclinic -n "$NAMESPACE" --timeout=600s
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -343,29 +347,49 @@ kubectl get pods -n "$NAMESPACE"
 
 printf "${VIOLET}"
 printf '%s\n' ''
-printf '%s\n' 'Open a port-forward to reach the UI:'
+printf '%s\n' 'Check that the application answers over a temporary port-forward:'
 printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' 'kubectl port-forward -n "$NAMESPACE" svc/petclinic 8080:80'
+printf '%s\n' '# Forward the service port in the background, probe the UI, then stop the port-forward.'
+printf '%s\n' 'kubectl port-forward -n "$NAMESPACE" svc/petclinic 8080:80 >/dev/null 2>&1 &'
+printf '%s\n' 'PORT_FORWARD_PID=$!'
+printf '%s\n' 'sleep 3'
+printf '%s\n' 'curl -fsS -o /dev/null -w "PetClinic answered with HTTP %{http_code}\n" http://localhost:8080/ || echo "PetClinic did not answer on http://localhost:8080/"'
+printf '%s\n' 'kill "$PORT_FORWARD_PID" 2>/dev/null || true'
 printf "${RESET}"
 
-kubectl port-forward -n "$NAMESPACE" svc/petclinic 8080:80
+# Forward the service port in the background, probe the UI, then stop the port-forward.
+kubectl port-forward -n "$NAMESPACE" svc/petclinic 8080:80 >/dev/null 2>&1 &
+PORT_FORWARD_PID=$!
+sleep 3
+curl -fsS -o /dev/null -w "PetClinic answered with HTTP %{http_code}\n" http://localhost:8080/ || echo "PetClinic did not answer on http://localhost:8080/"
+kill "$PORT_FORWARD_PID" 2>/dev/null || true
 
 printf "${VIOLET}"
 printf '%s\n' ''
+printf '%s\n' 'To browse the UI yourself, keep a port-forward open in a separate terminal (this block is intentionally not part of the generated script):'
+printf '%s\n' ''
+printf '%s\n' 'kubectl port-forward -n "$NAMESPACE" svc/petclinic 8080:80'
+printf '%s\n' ''
 printf '%s\n' '## 8. Clean Up'
+printf '%s\n' ''
+printf '%s\n' 'Delete the demo resources (the namespace itself is kept, since it may hold the pull secret or other workloads):'
 printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Delete the Kubernetes namespace.'
-printf '%s\n' 'kubectl delete namespace "$NAMESPACE"'
+printf '%s\n' '# Delete the Kubernetes resources created by this demo.'
+printf '%s\n' 'kubectl delete -n "$NAMESPACE" --ignore-not-found -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" -f "$DEMO_DIR/manifests/mariadb.yaml" -f "$DEMO_DIR/manifests/secret.yaml"'
+printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
+printf '%s\n' 'kubectl wait --for=delete pod -l app=petclinic -n "$NAMESPACE" --timeout=300s || true'
 printf "${RESET}"
 
-# Delete the Kubernetes namespace.
-kubectl delete namespace "$NAMESPACE"
+# Delete the Kubernetes resources created by this demo.
+kubectl delete -n "$NAMESPACE" --ignore-not-found -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" -f "$DEMO_DIR/manifests/mariadb.yaml" -f "$DEMO_DIR/manifests/secret.yaml"
+# Wait for the Kubernetes resource to reach the expected state.
+kubectl wait --for=delete pod -l app=petclinic -n "$NAMESPACE" --timeout=300s || true
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -385,9 +409,9 @@ printf '%s\n' ''
 printf '%s\n' 'SCONE_PRODUCTION: '\''1'\'''
 printf '%s\n' 'SCONE_CAS_ADDR: scone-cas.cf'
 printf '%s\n' ''
-printf '%s\n' 'Then run `./run.sh`. What changes:'
+printf '%s\n' 'Then re-run the steps above from section 5 (`scone-td-build from`) onwards. What changes:'
 printf '%s\n' ''
-printf '%s\n' '- `SCONE_PRODUCTION=1` makes the enclave non-debug. Production enclaves must be signed, so `run.sh` generates an enclave signing key (`identity.pem`, RSA-3072) on first use and passes it via `SCONE_KEY`. That key is the MRSIGNER of your image; keep it private (it is git-ignored).'
+printf '%s\n' '- `SCONE_PRODUCTION=1` makes the enclave non-debug. Production enclaves must be signed: section 2 generates an enclave signing key (`manifests/identity.pem`, RSA-3072) on first use, which has to be passed to the sconify step via `SCONE_KEY`. That key is the MRSIGNER of your image; keep it private (it is git-ignored).'
 printf '%s\n' '- `scone-cas.cf` is SCONE'\''s public CAS. The policy is signed locally (`spol`) and uploaded there.'
 printf '%s\n' ''
 printf '%s\n' 'Caveats:'

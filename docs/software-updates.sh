@@ -120,19 +120,18 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## Project Structure'
 printf '%s\n' ''
-printf '%s\n' 'software-updates/'
-printf '%s\n' '├── print_env1.py                  # Version 1: prints checksum, loops every 10s'
-printf '%s\n' '├── print_env2.py                  # Version 2: same loop, different greeting'
-printf '%s\n' '├── Dockerfile                     # Builds either version via --build-arg VERSION=1|2'
-printf '%s\n' '├── requirements.txt               # No external dependencies (stdlib only)'
-printf '%s\n' '├── scone.v1.template.yaml         # SCONE Register + Apply template for Version 1'
-printf '%s\n' '├── scone.v2.template.yaml         # SCONE Register + Apply template for Version 2'
-printf '%s\n' '├── environment-variables.md       # tplenv variable definitions'
-printf '%s\n' '├── registry.credentials.md        # tplenv registry credential definitions'
+printf '%s\n' 'demos/software-updates/'
+printf '%s\n' '├── app/'
+printf '%s\n' '│   ├── print_env1.py              # Version 1: prints checksum, loops every 10s'
+printf '%s\n' '│   ├── print_env2.py              # Version 2: same loop, different greeting'
+printf '%s\n' '│   └── Dockerfile                 # Builds either version via --build-arg VERSION=1|2'
 printf '%s\n' '├── manifests/'
 printf '%s\n' '│   ├── manifest.v1.template.yaml  # Kubernetes Deployment template for Version 1'
 printf '%s\n' '│   ├── manifest.v2.template.yaml  # Kubernetes Deployment template for Version 2'
+printf '%s\n' '│   ├── scone.v1.template.yaml     # SCONE Register + Apply template for Version 1'
+printf '%s\n' '│   ├── scone.v2.template.yaml     # SCONE Register + Apply template for Version 2'
 printf '%s\n' '│   └── scone-secret.yaml          # SconeSecret: CAS generates API_PASSWORD'
+printf '%s\n' '├── values.template.yaml           # default values, copied to Values.yaml on first run'
 printf '%s\n' '└── README.md'
 printf '%s\n' ''
 printf '%s\n' '---'
@@ -171,17 +170,25 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-rm -f "$DEMO_DIR/software-updates-demo.json" "$DEMO_DIR/manifests/scone.v1.yaml" "$DEMO_DIR/manifests/scone.v2.yaml" "$DEMO_DIR/manifests/manifest.v1.yaml" "$DEMO_DIR/manifests/manifest.v2.yaml" "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" "$DEMO_DIR/manifests/manifest.prod.session.yaml" || true
+rm -f "$DEMO_DIR/manifests/storage.json" "$DEMO_DIR/manifests/scone.v1.yaml" "$DEMO_DIR/manifests/scone.v2.yaml" "$DEMO_DIR/manifests/manifest.v1.yaml" "$DEMO_DIR/manifests/manifest.v2.yaml" "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" "$DEMO_DIR/manifests/manifest.prod.session.yaml" || true
 EOF
 )"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' 'Load the full variable set from `environment-variables.md` first, so `NAMESPACE` and'
-printf '%s\n' '`CVM_MODE` are available to derive the CAS session namespace below:'
+printf '%s\n' '`CVM_MODE` are available to derive the CAS session namespace below. Default values live in `$DEMO_DIR/values.template.yaml`; copy it to `Values.yaml` if that file does not already exist:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
+pe "$(cat <<'EOF'
+# Seed Values.yaml from the template on first run only.
+EOF
+)"
+pe "$(cat <<'EOF'
+[ -f "$DEMO_DIR/Values.yaml" ] || cp "$DEMO_DIR/values.template.yaml" "$DEMO_DIR/Values.yaml"
+EOF
+)"
 pe "$(cat <<'EOF'
 # Load environment variables from the tplenv definition file.
 EOF
@@ -492,7 +499,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-rm -f "$DEMO_DIR/software-updates-demo.json" || true
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 EOF
 )"
 pe "$(cat <<'EOF'

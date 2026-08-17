@@ -13,7 +13,7 @@ It is adapted from SCONE's upstream `maria.sh` for our SCONE 6.x cluster:
   also works against the public CAS (`scone-cas.cf`) where `epol` is not
   supported yet;
 - pins the newest available product images (`MARIADB_SCONE_IMAGE`, `MAXME_IMAGE`
-  in [`../Values.yaml`](../Values.yaml)).
+  in `../Values.yaml`, seeded from [`../values.template.yaml`](../values.template.yaml)).
 
 ## ⚠️ Debug-only limitation
 
@@ -33,12 +33,13 @@ cannot.
 
 ## Run
 
-Configuration comes from [`../Values.yaml`](../Values.yaml) (CAS, namespace,
-images) — there are no flags. `GITHUB_TOKEN` (for the `sconeappsee` repo) comes
+Configuration comes from `../Values.yaml` (seeded from
+[`../values.template.yaml`](../values.template.yaml); CAS, namespace, images) —
+there are no flags. `GITHUB_TOKEN` (for the `sconeappsee` repo) comes
 from the environment.
 
 ```bash
-source ~/.env            # REGISTRY_* and GITHUB_TOKEN
+export GITHUB_TOKEN=...   # and REGISTRY_USER / REGISTRY_TOKEN if the pull secret is missing
 ./deploy.sh              # attest CAS, create the 6 signed sessions, helm install
 ```
 
@@ -54,7 +55,7 @@ Then wire the confidential PetClinic to it by setting, in
   value: "098098"
 ```
 
-and run the main `../run.sh`. `root@%` has `ALL PRIVILEGES` (the root password
+and run the main demo (`../README.md`, or `scripts/demos/pet-clinic.sh`). `root@%` has `ALL PRIVILEGES` (the root password
 `098098` is defined in `security-policies/certificates.template.yaml`); the
 `petclinic` database is created on first connection.
 

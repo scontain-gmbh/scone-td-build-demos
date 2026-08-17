@@ -161,20 +161,28 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-# Remove `netshield.json` if it exists.
+# Remove `storage.json` if it exists.
 EOF
 )"
 pe "$(cat <<'EOF'
-rm -f "$DEMO_DIR/netshield.json" || true
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 EOF
 )"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' 'Initialize environment variables from `environment-variables.md` using `tplenv`:'
+printf '%s\n' 'Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml` if that file does not already exist, then initialize environment variables from `environment-variables.md` using `tplenv`:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
+pe "$(cat <<'EOF'
+# Seed Values.yaml from the template on first run only.
+EOF
+)"
+pe "$(cat <<'EOF'
+[ -f "$DEMO_DIR/Values.yaml" ] || cp "$DEMO_DIR/values.template.yaml" "$DEMO_DIR/Values.yaml"
+EOF
+)"
 pe "$(cat <<'EOF'
 # Load environment variables from the tplenv definition file.
 EOF

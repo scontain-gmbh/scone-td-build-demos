@@ -8,7 +8,8 @@ spec:
   destination_image: ${DESTINATION_IMAGE_NAME}
   enforce: ["/opt/java/openjdk/bin/java"]
   push_scone_image: true
-  version: ${SCONE_VERSION}
+  version: ${SCONE_RUNTIME_VERSION}
+  scone_runtime_image: ${SCONE_RUNTIME_IMAGE}
   cvm: ${CVM_MODE}
   storage: "manifests/storage.json"
   manifest_env:
@@ -21,7 +22,9 @@ kind: Apply
 metadata:
   name: java-args-env-file-example
 spec:
-  version: ${SCONE_VERSION}
+  version: ${SCONE_RUNTIME_VERSION}
+  scone_runtime_image: ${SCONE_RUNTIME_IMAGE}
+  trusted_cvm_signer_keys: ${CVM_SIGNING_KEY_FILE}
   file:
     - "manifests/manifest.yaml"
   output_manifest_file: "manifests/manifest.prod.sanitized.yaml"

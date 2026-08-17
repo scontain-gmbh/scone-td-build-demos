@@ -29,7 +29,7 @@ Every file reference below goes through `$DEMO_DIR`, this demo's directory. The 
 # this README by hand, run the commands from `demos/image-signing`.
 export DEMO_DIR="${DEMO_DIR:-$PWD}"
 # Remove `storage.json` if it exists.
-rm -f "$DEMO_DIR/storage.json" || true
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 ```
 
 Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml` if that file does not already exist:
@@ -58,6 +58,13 @@ Create the demo namespace if it does not already exist:
 ```bash
 # Create the Kubernetes namespace if it does not already exist.
 kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
+```
+
+Generate the job manifest with the selected image and pull-secret values:
+
+```bash
+# Render the template with the selected values.
+tplenv --file "$DEMO_DIR/manifests/manifest.job.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/manifest.job.yaml"
 ```
 
 ## 3. Add a Docker Registry Secret
@@ -171,7 +178,7 @@ Before sending encrypted policies to CAS, attest CAS via the Kubernetes API. The
 
 ```bash
 # Attest the CAS instance before sending encrypted policies.
-kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \
+kubectl scone cas attest --namespace "${SCONE_CAS_ADDR#*.}" "${SCONE_CAS_ADDR%%.*}" -C -G -S \
     || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 ```
@@ -217,9 +224,11 @@ cosign verify --key "$DEMO_DIR/app/config/image-signing-key.pub" --insecure-igno
 
 > **Blocked:** This step requires `ctd-decoder` to be installed on every cluster node and containerd to be configured with the `ocicrypt` stream processor so it can decrypt the encrypted image layers at pull time. Plain k3d clusters do not include this. See [containers/ocicrypt](https://github.com/containers/ocicrypt) for setup instructions.
 >
-> Once the cluster has `ctd-decoder`, deploy the sanitized manifest:
+> Once the cluster has `ctd-decoder`, deploy the sanitized manifest (this block is
+> intentionally not part of the generated script, so it does not fail on clusters
+> without `ctd-decoder`):
 
-```bash
+```text
 # Apply the Kubernetes manifest.
 kubectl apply -f "$DEMO_DIR/manifests/manifest.job.sanitized.yaml" -n ${NAMESPACE}
 # Wait for the Kubernetes resource to reach the expected state.

@@ -94,15 +94,15 @@ printf "${ORANGE}"
 printf '%s\n' '# The generated scripts set DEMO_DIR to this demo'\''s directory. When following'
 printf '%s\n' '# this README by hand, run the commands from `demos/configmap`.'
 printf '%s\n' 'export DEMO_DIR="${DEMO_DIR:-$PWD}"'
-printf '%s\n' '# Remove `configmap-example.json` if it exists.'
-printf '%s\n' 'rm -f "$DEMO_DIR/configmap-example.json" || true'
+printf '%s\n' '# Remove `storage.json` if it exists.'
+printf '%s\n' 'rm -f "$DEMO_DIR/manifests/storage.json" || true'
 printf "${RESET}"
 
 # The generated scripts set DEMO_DIR to this demo's directory. When following
 # this README by hand, run the commands from `demos/configmap`.
 export DEMO_DIR="${DEMO_DIR:-$PWD}"
-# Remove `configmap-example.json` if it exists.
-rm -f "$DEMO_DIR/configmap-example.json" || true
+# Remove `storage.json` if it exists.
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -147,8 +147,6 @@ printf "${RESET}"
 eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 
 printf "${VIOLET}"
-printf '%s\n' ''
-printf '%s\n' 'values-file'
 printf '%s\n' ''
 printf '%s\n' 'Create the demo namespace if it does not already exist. The fallback echo keeps re-runs idempotent.'
 printf '%s\n' ''
@@ -274,13 +272,13 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Attest the CAS instance before sending encrypted policies.'
-printf '%s\n' 'kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \'
+printf '%s\n' 'kubectl scone cas attest --namespace "${SCONE_CAS_ADDR#*.}" "${SCONE_CAS_ADDR%%.*}" -C -G -S \'
 printf '%s\n' '  || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \'
 printf '%s\n' '    --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any'
 printf "${RESET}"
 
 # Attest the CAS instance before sending encrypted policies.
-kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \
+kubectl scone cas attest --namespace "${SCONE_CAS_ADDR#*.}" "${SCONE_CAS_ADDR%%.*}" -C -G -S \
   || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \
     --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 

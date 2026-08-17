@@ -2,7 +2,8 @@ FROM rust:latest AS build
 
 WORKDIR /usr/src/hello-world
 
-COPY . .
+COPY Cargo.toml .
+COPY src ./src
 
 RUN cargo build --release
 

@@ -30,13 +30,15 @@ Every file reference below goes through `$DEMO_DIR`, this demo's directory. The 
 # this README by hand, run the commands from `demos/network-policy`.
 export DEMO_DIR="${DEMO_DIR:-$PWD}"
 
-# Remove `netshield.json` if it exists.
-rm -f "$DEMO_DIR/netshield.json" || true
+# Remove `storage.json` if it exists.
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 ```
 
-Initialize environment variables from `environment-variables.md` using `tplenv`:
+Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml` if that file does not already exist, then initialize environment variables from `environment-variables.md` using `tplenv`:
 
 ```bash
+# Seed Values.yaml from the template on first run only.
+[ -f "$DEMO_DIR/Values.yaml" ] || cp "$DEMO_DIR/values.template.yaml" "$DEMO_DIR/Values.yaml"
 # Load environment variables from the tplenv definition file.
 eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
 ```

@@ -10,15 +10,17 @@ This example shows how to manage and access configuration data in Kubernetes wit
 
 ```
 .
-├── Main.java                  # application source
-├── Dockerfile                 # two-stage image: JDK builder → JRE runtime
-├── environment-variables.md   # tplenv variable definitions and defaults
-└── manifests/
-    ├── manifest.yaml                 # rendered native manifest
-    ├── scone.yaml                      # rendered SCONE manifest
-    ├── manifest.template.yaml          # Kubernetes Job + ConfigMap + Secret template (tplenv)
-    ├── scone.template.yaml             # SCONE manifest template
-    └── manifest.prod.sanitized.yaml    # produced by scone-td-build
+├── app/
+│   ├── Main.java              # application source
+│   └── Dockerfile             # two-stage image: JDK builder → JRE runtime
+├── manifests/
+│   ├── manifest.template.yaml          # Kubernetes Job + ConfigMap + Secret template (tplenv)
+│   ├── scone.template.yaml             # SCONE manifest template
+│   ├── manifest.yaml                   # rendered native manifest (generated)
+│   ├── scone.yaml                      # rendered SCONE manifest (generated)
+│   └── manifest.prod.sanitized.yaml    # produced by scone-td-build (generated)
+├── values.template.yaml       # default values, copied to Values.yaml on first run
+└── README.md
 ```
 
 ---
@@ -54,8 +56,8 @@ Every file reference below goes through `$DEMO_DIR`, this demo's directory. The 
 # The generated scripts set DEMO_DIR to this demo's directory. When following
 # this README by hand, run the commands from `demos/java-args-env-file`.
 export DEMO_DIR="${DEMO_DIR:-$PWD}"
-
-rm -f "$DEMO_DIR/java-args-env-file-example.json" || true
+# Remove `storage.json` if it exists.
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 ```
 
 Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml` if that file does not already exist:
@@ -149,7 +151,7 @@ First, attest the CAS so the local SCONE CLI has the correct session encryption 
 
 ```bash
 # Attest the CAS instance before sending encrypted policies.
-kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \
+kubectl scone cas attest --namespace "${SCONE_CAS_ADDR#*.}" "${SCONE_CAS_ADDR%%.*}" -C -G -S \
     || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 ```

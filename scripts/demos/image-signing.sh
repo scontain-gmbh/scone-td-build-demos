@@ -99,14 +99,14 @@ printf '%s\n' '# The generated scripts set DEMO_DIR to this demo'\''s directory.
 printf '%s\n' '# this README by hand, run the commands from `demos/image-signing`.'
 printf '%s\n' 'export DEMO_DIR="${DEMO_DIR:-$PWD}"'
 printf '%s\n' '# Remove `storage.json` if it exists.'
-printf '%s\n' 'rm -f "$DEMO_DIR/storage.json" || true'
+printf '%s\n' 'rm -f "$DEMO_DIR/manifests/storage.json" || true'
 printf "${RESET}"
 
 # The generated scripts set DEMO_DIR to this demo's directory. When following
 # this README by hand, run the commands from `demos/image-signing`.
 export DEMO_DIR="${DEMO_DIR:-$PWD}"
 # Remove `storage.json` if it exists.
-rm -f "$DEMO_DIR/storage.json" || true
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -163,6 +163,20 @@ printf "${RESET}"
 
 # Create the Kubernetes namespace if it does not already exist.
 kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
+
+printf "${VIOLET}"
+printf '%s\n' ''
+printf '%s\n' 'Generate the job manifest with the selected image and pull-secret values:'
+printf '%s\n' ''
+printf "${RESET}"
+
+printf "${ORANGE}"
+printf '%s\n' '# Render the template with the selected values.'
+printf '%s\n' 'tplenv --file "$DEMO_DIR/manifests/manifest.job.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/manifest.job.yaml"'
+printf "${RESET}"
+
+# Render the template with the selected values.
+tplenv --file "$DEMO_DIR/manifests/manifest.job.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/manifest.job.yaml"
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -374,13 +388,13 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Attest the CAS instance before sending encrypted policies.'
-printf '%s\n' 'kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \'
+printf '%s\n' 'kubectl scone cas attest --namespace "${SCONE_CAS_ADDR#*.}" "${SCONE_CAS_ADDR%%.*}" -C -G -S \'
 printf '%s\n' '    || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \'
 printf '%s\n' '        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any'
 printf "${RESET}"
 
 # Attest the CAS instance before sending encrypted policies.
-kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \
+kubectl scone cas attest --namespace "${SCONE_CAS_ADDR#*.}" "${SCONE_CAS_ADDR%%.*}" -C -G -S \
     || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 
@@ -458,27 +472,16 @@ printf '%s\n' '## 11. Deploy the Signed Confidential Application'
 printf '%s\n' ''
 printf '%s\n' '> **Blocked:** This step requires `ctd-decoder` to be installed on every cluster node and containerd to be configured with the `ocicrypt` stream processor so it can decrypt the encrypted image layers at pull time. Plain k3d clusters do not include this. See [containers/ocicrypt](https://github.com/containers/ocicrypt) for setup instructions.'
 printf '%s\n' '>'
-printf '%s\n' '> Once the cluster has `ctd-decoder`, deploy the sanitized manifest:'
+printf '%s\n' '> Once the cluster has `ctd-decoder`, deploy the sanitized manifest (this block is'
+printf '%s\n' '> intentionally not part of the generated script, so it does not fail on clusters'
+printf '%s\n' '> without `ctd-decoder`):'
 printf '%s\n' ''
-printf "${RESET}"
-
-printf "${ORANGE}"
 printf '%s\n' '# Apply the Kubernetes manifest.'
 printf '%s\n' 'kubectl apply -f "$DEMO_DIR/manifests/manifest.job.sanitized.yaml" -n ${NAMESPACE}'
 printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
 printf '%s\n' 'kubectl wait --for=condition=complete job/image-signing -n ${NAMESPACE} --timeout=300s'
 printf '%s\n' '# Show logs from the Kubernetes workload.'
 printf '%s\n' 'kubectl logs job/image-signing -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps'
-printf "${RESET}"
-
-# Apply the Kubernetes manifest.
-kubectl apply -f "$DEMO_DIR/manifests/manifest.job.sanitized.yaml" -n ${NAMESPACE}
-# Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=condition=complete job/image-signing -n ${NAMESPACE} --timeout=300s
-# Show logs from the Kubernetes workload.
-kubectl logs job/image-signing -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps
-
-printf "${VIOLET}"
 printf '%s\n' ''
 printf '%s\n' '## 12. Clean Up'
 printf '%s\n' ''

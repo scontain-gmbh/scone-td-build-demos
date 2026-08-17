@@ -3,7 +3,7 @@
 # Stage 1: Build the Java app
 FROM eclipse-temurin:17-jdk AS build
 WORKDIR /app
-COPY app/Main.java .
+COPY Main.java .
 RUN javac Main.java
 
 # Stage 2: Run with JRE only

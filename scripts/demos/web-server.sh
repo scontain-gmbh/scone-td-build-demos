@@ -131,7 +131,7 @@ printf '%s\n' '# this README by hand, run the commands from `demos/web-server`.'
 printf '%s\n' 'export DEMO_DIR="${DEMO_DIR:-$PWD}"'
 printf '%s\n' ''
 printf '%s\n' '# Remove `storage.json` if it exists.'
-printf '%s\n' 'rm -f "$DEMO_DIR/storage.json" || true'
+printf '%s\n' 'rm -f "$DEMO_DIR/manifests/storage.json" || true'
 printf "${RESET}"
 
 # The generated scripts set DEMO_DIR to this demo's directory. When following
@@ -139,7 +139,7 @@ printf "${RESET}"
 export DEMO_DIR="${DEMO_DIR:-$PWD}"
 
 # Remove `storage.json` if it exists.
-rm -f "$DEMO_DIR/storage.json" || true
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -189,13 +189,13 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Attest the CAS instance before sending encrypted policies.'
-printf '%s\n' 'kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \'
+printf '%s\n' 'kubectl scone cas attest --namespace "${SCONE_CAS_ADDR#*.}" "${SCONE_CAS_ADDR%%.*}" -C -G -S \'
 printf '%s\n' '    || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \'
 printf '%s\n' '        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any'
 printf "${RESET}"
 
 # Attest the CAS instance before sending encrypted policies.
-kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \
+kubectl scone cas attest --namespace "${SCONE_CAS_ADDR#*.}" "${SCONE_CAS_ADDR%%.*}" -C -G -S \
     || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 

@@ -144,11 +144,11 @@ export DEMO_DIR="${DEMO_DIR:-$PWD}"
 EOF
 )"
 pe "$(cat <<'EOF'
-# Remove `configmap-example.json` if it exists.
+# Remove `storage.json` if it exists.
 EOF
 )"
 pe "$(cat <<'EOF'
-rm -f "$DEMO_DIR/configmap-example.json" || true
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 EOF
 )"
 
@@ -198,8 +198,6 @@ EOF
 )"
 
 printf "%b" "$LILAC"
-printf '%s\n' ''
-printf '%s\n' 'values-file'
 printf '%s\n' ''
 printf '%s\n' 'Create the demo namespace if it does not already exist. The fallback echo keeps re-runs idempotent.'
 printf '%s\n' ''
@@ -373,7 +371,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \
+kubectl scone cas attest --namespace "${SCONE_CAS_ADDR#*.}" "${SCONE_CAS_ADDR%%.*}" -C -G -S \
   || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \
     --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 EOF

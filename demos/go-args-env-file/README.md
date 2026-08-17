@@ -12,16 +12,19 @@ This example shows how to manage and access configuration data in Kubernetes wit
 
 ```
 .
-├── main.go                    # application source
-├── Makefile                   # build helpers
-├── Dockerfile                 # two-stage container image
-├── environment-variables.md   # tplenv variable definitions and defaults
-└── manifests/
-    ├── manifest.template.yaml     # Kubernetes Job/ConfigMap/Secret template (tplenv)
-    ├── scone.template.yaml        # SCONE manifest template
-    ├── manifest.yaml                  # rendered native manifest
-    ├── scone.yaml                     # rendered SCONE manifest
-    └── manifest.prod.sanitized.yaml   # produced by scone-td-build
+├── app/
+│   ├── main.go                # application source
+│   ├── go.mod
+│   ├── Makefile               # build helpers
+│   └── Dockerfile             # container image
+├── manifests/
+│   ├── manifest.template.yaml     # Kubernetes Job/ConfigMap/Secret template (tplenv)
+│   ├── scone.template.yaml        # SCONE manifest template
+│   ├── manifest.yaml                  # rendered native manifest (generated)
+│   ├── scone.yaml                     # rendered SCONE manifest (generated)
+│   └── manifest.prod.sanitized.yaml   # produced by scone-td-build (generated)
+├── values.template.yaml       # default values, copied to Values.yaml on first run
+└── README.md
 ```
 
 ---
@@ -58,8 +61,8 @@ Every file reference below goes through `$DEMO_DIR`, this demo's directory. The 
 # The generated scripts set DEMO_DIR to this demo's directory. When following
 # this README by hand, run the commands from `demos/go-args-env-file`.
 export DEMO_DIR="${DEMO_DIR:-$PWD}"
-# Remove `go-args-env-file-example.json` if it exists.
-rm -f "$DEMO_DIR/go-args-env-file-example.json" || true
+# Remove `storage.json` if it exists.
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 ```
 
 Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml` if that file does not already exist:
@@ -87,7 +90,7 @@ kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -
 
 ## 4. Build and Push the Native Docker Image
 
-The Dockerfile uses a two-stage build: a `golang:1.22-alpine` builder stage compiles a fully static binary, which is then copied into a minimal `scratch` runtime image.
+The Dockerfile builds the binary with the SCONE-enhanced Go toolchain (`ghcr.io/scontain/golang:1.25.4-alpine`, whose runtime issues system calls through libc) and runs it from the same image.
 
 ```bash
 # Build the container image.
@@ -190,7 +193,7 @@ First, attest the CAS so the local SCONE CLI has the correct session encryption 
 
 ```bash
 # Attest the CAS instance before sending encrypted policies.
-kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \
+kubectl scone cas attest --namespace "${SCONE_CAS_ADDR#*.}" "${SCONE_CAS_ADDR%%.*}" -C -G -S \
     || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 ```
