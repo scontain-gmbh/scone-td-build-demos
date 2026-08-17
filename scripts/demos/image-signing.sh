@@ -11,7 +11,7 @@ show_help() {
   cat <<USAGE
 Usage: $0 [--help] [--non-interactive]
 
-Runs shell commands extracted from /home/daniel/scone-td-build-demos/scripts/../demos/image-signing/README.md.
+Runs shell commands extracted from demos/image-signing/README.md.
 
 Options:
   --help             Show this help message and exit.
@@ -60,6 +60,10 @@ if ! $NON_INTERACTIVE; then
 fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Directory of the README this script was generated from. The README
+# code blocks use it for every file reference so the script works from
+# any working directory.
+export DEMO_DIR="$(cd "${script_dir}/../../demos/image-signing" && pwd)"
 
 printf "${VIOLET}"
 printf '%s\n' '# SCONE: Image Signing'
@@ -86,21 +90,21 @@ printf '%s\n' '- Kubernetes-based setup: [k8s.md](https://github.com/scontain/sc
 printf '%s\n' ''
 printf '%s\n' '## 2. Set Up Environment Variables'
 printf '%s\n' ''
-printf '%s\n' 'Resolve the directory this demo lives in, so every file reference below works regardless of the caller'\''s current working directory, and clean up state left over from a previous run:'
+printf '%s\n' 'Every file reference below goes through `$DEMO_DIR`, this demo'\''s directory. The generated scripts set it for you; when following this README by hand, run the commands from this directory. Then clean up state left over from a previous run:'
 printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Resolve this demo'\''s directory.'
-printf '%s\n' 'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"'
-printf '%s\n' 'export DEMO_DIR="$SCRIPT_DIR/../../demos/image-signing/"'
+printf '%s\n' '# The generated scripts set DEMO_DIR to this demo'\''s directory. When following'
+printf '%s\n' '# this README by hand, run the commands from `demos/image-signing`.'
+printf '%s\n' 'export DEMO_DIR="${DEMO_DIR:-$PWD}"'
 printf '%s\n' '# Remove `storage.json` if it exists.'
 printf '%s\n' 'rm -f "$DEMO_DIR/storage.json" || true'
 printf "${RESET}"
 
-# Resolve this demo's directory.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export DEMO_DIR="$SCRIPT_DIR/../../demos/image-signing/"
+# The generated scripts set DEMO_DIR to this demo's directory. When following
+# this README by hand, run the commands from `demos/image-signing`.
+export DEMO_DIR="${DEMO_DIR:-$PWD}"
 # Remove `storage.json` if it exists.
 rm -f "$DEMO_DIR/storage.json" || true
 
@@ -140,11 +144,11 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Load environment variables from the tplenv definition file.'
-printf '%s\n' 'eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --eval-export-values --output /dev/null)'
+printf '%s\n' 'eval $(tplenv --file "$DEMO_DIR/../environment-variables.md"  --values-file "$DEMO_DIR/Values.yaml" --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --eval-export-values --output /dev/null)'
 printf "${RESET}"
 
 # Load environment variables from the tplenv definition file.
-eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --eval-export-values --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md"  --values-file "$DEMO_DIR/Values.yaml" --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --eval-export-values --output /dev/null)
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -206,8 +210,8 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Render the KBS and key-provider manifests into this demo'\''s namespace.'
-printf '%s\n' 'tplenv --file "$DEMO_DIR/manifests/kbs.template.yaml" --create-values-file --output "$DEMO_DIR/manifests/kbs.yaml"'
-printf '%s\n' 'tplenv --file "$DEMO_DIR/manifests/key-provider.template.yaml" --create-values-file --output "$DEMO_DIR/manifests/key-provider.yaml"'
+printf '%s\n' 'tplenv --file "$DEMO_DIR/manifests/kbs.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/kbs.yaml"'
+printf '%s\n' 'tplenv --file "$DEMO_DIR/manifests/key-provider.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/key-provider.yaml"'
 printf '%s\n' '# Deploy the Key Broker Service.'
 printf '%s\n' 'kubectl apply -f "$DEMO_DIR/manifests/kbs.yaml"'
 printf '%s\n' '# Deploy the key provider.'
@@ -225,8 +229,8 @@ printf '%s\n' 'sleep 3'
 printf "${RESET}"
 
 # Render the KBS and key-provider manifests into this demo's namespace.
-tplenv --file "$DEMO_DIR/manifests/kbs.template.yaml" --create-values-file --output "$DEMO_DIR/manifests/kbs.yaml"
-tplenv --file "$DEMO_DIR/manifests/key-provider.template.yaml" --create-values-file --output "$DEMO_DIR/manifests/key-provider.yaml"
+tplenv --file "$DEMO_DIR/manifests/kbs.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/kbs.yaml"
+tplenv --file "$DEMO_DIR/manifests/key-provider.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/key-provider.yaml"
 # Deploy the Key Broker Service.
 kubectl apply -f "$DEMO_DIR/manifests/kbs.yaml"
 # Deploy the key provider.
@@ -414,17 +418,17 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Render the template with the selected values.'
-printf '%s\n' 'tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --create-values-file --output "$DEMO_DIR/manifests/scone.yaml" --indent'
+printf '%s\n' 'tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/scone.yaml" --indent'
 printf '%s\n' '# Generate the confidential image and sanitized manifest from the SCONE configuration.'
-printf '%s\n' 'OCICRYPT_KEYPROVIDER_CONFIG="$DEMO_DIR/app/config/ocicrypt.conf" \'
-printf '%s\n' '  scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"'
+printf '%s\n' '(cd "$DEMO_DIR" && OCICRYPT_KEYPROVIDER_CONFIG="$DEMO_DIR/app/config/ocicrypt.conf" \'
+printf '%s\n' '  scone-td-build from -y manifests/scone.yaml)'
 printf "${RESET}"
 
 # Render the template with the selected values.
-tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --create-values-file --output "$DEMO_DIR/manifests/scone.yaml" --indent
+tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/scone.yaml" --indent
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
-OCICRYPT_KEYPROVIDER_CONFIG="$DEMO_DIR/app/config/ocicrypt.conf" \
-  scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"
+(cd "$DEMO_DIR" && OCICRYPT_KEYPROVIDER_CONFIG="$DEMO_DIR/app/config/ocicrypt.conf" \
+  scone-td-build from -y manifests/scone.yaml)
 
 printf "${VIOLET}"
 printf '%s\n' ''

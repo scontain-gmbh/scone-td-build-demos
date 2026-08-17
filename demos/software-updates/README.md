@@ -43,12 +43,12 @@ software-updates/
 
 ## 1. Set Up the Environment
 
-Resolve the directory this demo lives in, so every file reference below works regardless of the caller's current working directory, and clean up state left over from a previous run:
+Every file reference below goes through `$DEMO_DIR`, this demo's directory. The generated scripts set it for you; when following this README by hand, run the commands from this directory. Then clean up state left over from a previous run:
 
 ```bash
-# Resolve this demo's directory.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export DEMO_DIR="$SCRIPT_DIR/../../demos/software-updates/"
+# The generated scripts set DEMO_DIR to this demo's directory. When following
+# this README by hand, run the commands from `demos/software-updates`.
+export DEMO_DIR="${DEMO_DIR:-$PWD}"
 # Remove generated state files from any previous run.
 rm -f "$DEMO_DIR/software-updates-demo.json" "$DEMO_DIR/manifests/scone.v1.yaml" "$DEMO_DIR/manifests/scone.v2.yaml" "$DEMO_DIR/manifests/manifest.v1.yaml" "$DEMO_DIR/manifests/manifest.v2.yaml" "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" "$DEMO_DIR/manifests/manifest.prod.session.yaml" || true
 ```
@@ -177,7 +177,7 @@ fi
 # Remove any existing state file.
 rm -f "$DEMO_DIR/software-updates-demo.json" || true
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
-scone-td-build from -y "$DEMO_DIR/manifests/scone.v1.yaml"
+(cd "$DEMO_DIR" && scone-td-build from -y manifests/scone.v1.yaml)
 ```
 
 This command:
@@ -236,7 +236,7 @@ Running Version 1. Update by applying the v2 confidential manifest.
 
 ```bash
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
-scone-td-build from -y "$DEMO_DIR/manifests/scone.v2.yaml"
+(cd "$DEMO_DIR" && scone-td-build from -y manifests/scone.v2.yaml)
 ```
 
 This command:

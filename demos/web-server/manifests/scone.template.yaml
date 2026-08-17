@@ -11,7 +11,7 @@ spec:
   version: ${SCONE_RUNTIME_VERSION}
   scone_runtime_image: ${SCONE_RUNTIME_IMAGE}
   cvm: ${CVM_MODE}
-  storage: "$DEMO_DIR/manifests/storage.json"
+  storage: "manifests/storage.json"
   manifest_env:
     - {name: SCONE_VERSION, value: "1"}
     - {name: SCONE_SYSLIBS, value: "1"}
@@ -27,9 +27,9 @@ spec:
   scone_runtime_image: ${SCONE_RUNTIME_IMAGE}
   trusted_cvm_signer_keys: ${CVM_SIGNING_KEY_FILE}
   file:
-    - "$DEMO_DIR/manifests/scone.template.yaml"
-  output_manifest_file: "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml"
-  output_session_file: "$DEMO_DIR/manifests/manifest.prod.session.yaml"
+    - "manifests/scone.template.yaml"
+  output_manifest_file: "manifests/manifest.prod.sanitized.yaml"
+  output_session_file: "manifests/manifest.prod.session.yaml"
   cas_address: ${SCONE_CAS_ADDR}
   session_env:
     - {name: SCONE_VERSION, value: "1"}

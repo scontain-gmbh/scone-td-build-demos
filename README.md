@@ -16,7 +16,7 @@ This approach works independently of whether we run on machines with Intel TDX, 
 
 ## Examples
 
-All demos can be run by with `./scripts/demos/<demo-name>.sh`
+All demos can be run with `./scripts/demos/<demo-name>.sh` from any working directory. To follow a demo by hand, run the commands of its README from the demo's directory (`demos/<demo-name>`).
 
 Use the following examples to learn how `scone-td-build` transforms applications:
 
@@ -29,6 +29,7 @@ Use the following examples to learn how `scone-td-build` transforms applications
 - [go-args-env-file](./demos/go-args-env-file/README.md): Deploy a SCONE-protected Go utility that prints command-line arguments, environment variables, and reads two config files from `/config/`. We use a slightly enhanced Go runtime which uses a libc to issue system calls.
 - [java-args-env-file](./demos/java-args-env-file/README.md): Deploy a Java utility that prints command-line arguments, environment variables, and reads two config files from `/config/`.
 - [software-updates](./demos/software-updates/README.md): Perform a **software update** of a confidential Python application. `API_PASSWORD` is encrypted into the CAS session (never visible in any Kubernetes object) and preserved across the rolling update from Version 1 to Version 2.
+- [image-signing](./demos/image-signing/README.md): Sign and encrypt a confidential container image with a Sigstore private key, then verify the signature before deploying it to Kubernetes.
 - [pet-clinic](./demos/pet-clinic/README.md): This demo runs the upstream [Spring PetClinic](https://github.com/spring-projects/spring-petclinic) application confidentially inside an Intel SGX enclave using SCONE, backed by a native MariaDB. The Java application (JVM, heap, and the JDBC credentials it uses) is protected inside the enclave and attests to a CAS before it starts.
 
 ## Background
@@ -39,7 +40,7 @@ Use the following examples to learn how `scone-td-build` transforms applications
 
 ## Automation and Testing
 
-Each example includes a generated script. These scripts suggest default values and prompt you to confirm or change them. Values are stored in each example's `Values.yaml`.
+Each example includes a generated script in `scripts/demos/`. These scripts suggest default values and prompt you to confirm or change them. Values are stored in each example's `Values.yaml` (seeded from its `values.template.yaml` on the first run). If you edit a README, regenerate the scripts with `./scripts/extract-all-demo-scripts.sh -y`.
 
 Once these `Values.yaml` files are initialized, you can run all examples with:
 

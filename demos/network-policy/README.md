@@ -23,12 +23,12 @@ Set `SIGNER` for policy signing:
 export SIGNER="$(scone self show-session-signing-key)"
 ```
 
-Resolve the directory this demo lives in, so every file reference below works regardless of the caller's current working directory, and clean up state left over from a previous run:
+Every file reference below goes through `$DEMO_DIR`, this demo's directory. The generated scripts set it for you; when following this README by hand, run the commands from this directory. Then clean up state left over from a previous run:
 
 ```bash
-# Resolve this demo's directory.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export DEMO_DIR="$SCRIPT_DIR/../../demos/network-policy/"
+# The generated scripts set DEMO_DIR to this demo's directory. When following
+# this README by hand, run the commands from `demos/network-policy`.
+export DEMO_DIR="${DEMO_DIR:-$PWD}"
 
 # Remove `netshield.json` if it exists.
 rm -f "$DEMO_DIR/netshield.json" || true
@@ -72,7 +72,7 @@ tplenv --file "$DEMO_DIR/manifests/manifest.template.yaml" --values-file "$DEMO_
 # Render the template with the selected values.
 tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --output "$DEMO_DIR/manifests/scone.yaml" --indent
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
-scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"
+(cd "$DEMO_DIR" && scone-td-build from -y manifests/scone.yaml)
 ```
 
 Push the generated SCONE images:

@@ -11,7 +11,7 @@ show_help() {
   cat <<USAGE
 Usage: $0 [--help] [--non-interactive]
 
-Runs shell commands extracted from /home/daniel/scone-td-build-demos/scripts/../demos/configmap/README.md.
+Runs shell commands extracted from demos/configmap/README.md.
 
 Options:
   --help             Show this help message and exit.
@@ -60,6 +60,10 @@ if ! $NON_INTERACTIVE; then
 fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Directory of the README this script was generated from. The README
+# code blocks use it for every file reference so the script works from
+# any working directory.
+export DEMO_DIR="$(cd "${script_dir}/../../demos/configmap" && pwd)"
 
 printf "${VIOLET}"
 printf '%s\n' '# SCONE ConfigMap Example: Secure Configuration Data in Kubernetes'
@@ -82,21 +86,21 @@ printf '%s\n' 'Follow the [Setup environment](https://github.com/scontain/scone)
 printf '%s\n' ''
 printf '%s\n' '## 3. Set Up Environment Variables'
 printf '%s\n' ''
-printf '%s\n' 'Resolve the directory this demo lives in, so every file reference below works regardless of the caller'\''s current working directory, and clean up state left over from a previous run:'
+printf '%s\n' 'Every file reference below goes through `$DEMO_DIR`, this demo'\''s directory. The generated scripts set it for you; when following this README by hand, run the commands from this directory. Then clean up state left over from a previous run:'
 printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Resolve this demo'\''s directory.'
-printf '%s\n' 'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"'
-printf '%s\n' 'export DEMO_DIR="$SCRIPT_DIR/../../demos/configmap/"'
+printf '%s\n' '# The generated scripts set DEMO_DIR to this demo'\''s directory. When following'
+printf '%s\n' '# this README by hand, run the commands from `demos/configmap`.'
+printf '%s\n' 'export DEMO_DIR="${DEMO_DIR:-$PWD}"'
 printf '%s\n' '# Remove `configmap-example.json` if it exists.'
 printf '%s\n' 'rm -f "$DEMO_DIR/configmap-example.json" || true'
 printf "${RESET}"
 
-# Resolve this demo's directory.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export DEMO_DIR="$SCRIPT_DIR/../../demos/configmap/"
+# The generated scripts set DEMO_DIR to this demo's directory. When following
+# this README by hand, run the commands from `demos/configmap`.
+export DEMO_DIR="${DEMO_DIR:-$PWD}"
 # Remove `configmap-example.json` if it exists.
 rm -f "$DEMO_DIR/configmap-example.json" || true
 
@@ -286,11 +290,11 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Generate the confidential image and sanitized manifest from the SCONE configuration.'
-printf '%s\n' 'scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"'
+printf '%s\n' '(cd "$DEMO_DIR" && scone-td-build from -y manifests/scone.yaml)'
 printf "${RESET}"
 
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
-scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"
+(cd "$DEMO_DIR" && scone-td-build from -y manifests/scone.yaml)
 
 printf "${VIOLET}"
 printf '%s\n' ''

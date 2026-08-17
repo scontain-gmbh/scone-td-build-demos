@@ -19,12 +19,12 @@ Follow the [Setup environment](https://github.com/scontain/scone) guide to insta
 
 ## 2. Set Up Environment Variables
 
-Resolve the directory this demo lives in, so every file reference below works regardless of the caller's current working directory, and clean up state left over from a previous run:
+Every file reference below goes through `$DEMO_DIR`, this demo's directory. The generated scripts set it for you; when following this README by hand, run the commands from this directory. Then clean up state left over from a previous run:
 
 ```bash
-# Resolve this demo's directory.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export DEMO_DIR="$SCRIPT_DIR/../../demos/hello-world/"
+# The generated scripts set DEMO_DIR to this demo's directory. When following
+# this README by hand, run the commands from `demos/hello-world`.
+export DEMO_DIR="${DEMO_DIR:-$PWD}"
 # Remove `storage.json` if it exists.
 rm -f "$DEMO_DIR/manifests/storage.json"
 ```
@@ -156,7 +156,7 @@ Render the SCONE manifest, which contains everything needed to register the conf
 # Render the template with the selected values.
 tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/scone.yaml" --indent
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
-scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"
+(cd "$DEMO_DIR" && scone-td-build from -y manifests/scone.yaml)
 ```
 
 This command registers the confidential image, creates the SCONE session, and produces `$DEMO_DIR/manifests/manifest.prod.sanitized.yaml` from `manifest.job.yaml`.
@@ -209,7 +209,7 @@ kubectl wait --for=delete pod -l app=hello-world -n ${NAMESPACE} --timeout=300s
 You can run this workflow with:
 
 ```
-./scripts/hello-world.sh
+./scripts/demos/hello-world.sh
 ```
 
 It asks for user input unless you set:
@@ -218,6 +218,6 @@ It asks for user input unless you set:
 export CONFIRM_ALL_ENVIRONMENT_VARIABLES="--value-file-only"
 ```
 
-This uses values from `hello-world/Values.yaml` and skips interactive prompts. By default, this variable is set to `--force`, which prompts for confirmation of current values.
+This uses values from `demos/hello-world/Values.yaml` and skips interactive prompts. By default, this variable is set to `--force`, which prompts for confirmation of current values.
 
-If you update commands in this document, run `./scripts/extract-all-scripts.sh` to regenerate `./scripts/hello-world.sh`.
+If you update commands in this document, run `./scripts/extract-all-demo-scripts.sh` to regenerate `./scripts/demos/hello-world.sh`.

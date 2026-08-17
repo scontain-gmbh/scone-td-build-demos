@@ -24,7 +24,6 @@ This file defines the environment variables used to configure this demo. The var
    We recommend using confidential nodes and setting `$SCONE_ENCLAVE` to `true`.
 9. The Kubernetes namespace where the demo manifests are deployed is stored in `$NAMESPACE`.
    The default value is `default`.
-10. The demo directory path is stored in `$DEMO_DIR`.
-11. Docker registry that stores the protected image: `$REGISTRY`.
-12. Your username in this registry: `$REGISTRY_USER`.
-13. Your token for this registry: `$REGISTRY_TOKEN`.
+10. Docker registry that stores the protected image: `$REGISTRY`.
+11. Your username in this registry: `$REGISTRY_USER`.
+12. Your token for this registry: `$REGISTRY_TOKEN`.

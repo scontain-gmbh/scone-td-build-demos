@@ -33,12 +33,12 @@ Only PetClinic is confidential. MariaDB is intentionally native: it keeps its st
 
 ## 2. Set Up Environment Variables
 
-Resolve the directory this demo lives in, so every file reference below works regardless of the caller's current working directory:
+Every file reference below goes through `$DEMO_DIR`, this demo's directory. The generated scripts set it for you; when following this README by hand, run the commands from this directory:
 
 ```bash
-# Resolve this demo's directory.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export DEMO_DIR="$SCRIPT_DIR/../../demos/pet-clinic/"
+# The generated scripts set DEMO_DIR to this demo's directory. When following
+# this README by hand, run the commands from `demos/pet-clinic`.
+export DEMO_DIR="${DEMO_DIR:-$PWD}"
 ```
 
 Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml` if that file does not already exist:
@@ -125,7 +125,7 @@ tplenv --file "$DEMO_DIR/manifests/scone.template.yaml"  --values-file "$DEMO_DI
 
 ```bash
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
-scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"
+(cd "$DEMO_DIR" && scone-td-build from -y manifests/scone.yaml)
 ```
 
 ## 6. Deploy MariaDB and PetClinic

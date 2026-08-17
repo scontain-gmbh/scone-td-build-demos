@@ -22,12 +22,12 @@ Follow the [Setup environment](https://github.com/scontain/scone) guide to insta
 
 ## 2. Set Up Environment Variables
 
-Resolve the directory this demo lives in, so every file reference below works regardless of the caller's current working directory, and clean up state left over from a previous run:
+Every file reference below goes through `$DEMO_DIR`, this demo's directory. The generated scripts set it for you; when following this README by hand, run the commands from this directory. Then clean up state left over from a previous run:
 
 ```bash
-# Resolve this demo's directory.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export DEMO_DIR="$SCRIPT_DIR/../../demos/image-signing/"
+# The generated scripts set DEMO_DIR to this demo's directory. When following
+# this README by hand, run the commands from `demos/image-signing`.
+export DEMO_DIR="${DEMO_DIR:-$PWD}"
 # Remove `storage.json` if it exists.
 rm -f "$DEMO_DIR/storage.json" || true
 ```
@@ -86,8 +86,8 @@ The KBS and key provider run in this demo's own `${NAMESPACE}`, not the shared `
 
 ```bash
 # Render the KBS and key-provider manifests into this demo's namespace.
-tplenv --file "$DEMO_DIR/manifests/kbs.template.yaml" --create-values-file --output "$DEMO_DIR/manifests/kbs.yaml"
-tplenv --file "$DEMO_DIR/manifests/key-provider.template.yaml" --create-values-file --output "$DEMO_DIR/manifests/key-provider.yaml"
+tplenv --file "$DEMO_DIR/manifests/kbs.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/kbs.yaml"
+tplenv --file "$DEMO_DIR/manifests/key-provider.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/key-provider.yaml"
 # Deploy the Key Broker Service.
 kubectl apply -f "$DEMO_DIR/manifests/kbs.yaml"
 # Deploy the key provider.
@@ -195,10 +195,10 @@ Render the SCONE manifest template, then run `scone-td-build from` to register, 
 
 ```bash
 # Render the template with the selected values.
-tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --create-values-file --output "$DEMO_DIR/manifests/scone.yaml" --indent
+tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/scone.yaml" --indent
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
-OCICRYPT_KEYPROVIDER_CONFIG="$DEMO_DIR/app/config/ocicrypt.conf" \
-  scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"
+(cd "$DEMO_DIR" && OCICRYPT_KEYPROVIDER_CONFIG="$DEMO_DIR/app/config/ocicrypt.conf" \
+  scone-td-build from -y manifests/scone.yaml)
 ```
 
 ## 10. Verify Image Signature

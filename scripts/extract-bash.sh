@@ -69,6 +69,51 @@ if [[ ! -f "$INPUT_FILE" ]]; then
   exit 1
 fi
 
+# Compute the path from one directory to another without relying on GNU
+# `realpath --relative-to`, which is missing on macOS.
+relative_path() {
+  local from="$1"
+  local to="$2"
+  local common="$from"
+  local up=""
+
+  while [[ "$to" != "$common" && "$to" != "$common/"* ]]; do
+    common="$(dirname "$common")"
+    up="${up}../"
+  done
+
+  local rest="${to#"$common"}"
+  rest="${rest#/}"
+  if [[ -z "$rest" ]]; then
+    printf '%s' "${up:-.}"
+  else
+    printf '%s' "${up}${rest}"
+  fi
+}
+
+# Directory that holds the input README (absolute) and, when an output script is
+# written, its location relative to that script so the generated file does not
+# embed machine-specific absolute paths.
+INPUT_DIR="$(cd "$(dirname "$INPUT_FILE")" && pwd)"
+if [[ -n "$OUTPUT_FILE" ]]; then
+  OUTPUT_DIR="$(cd "$(dirname "$OUTPUT_FILE")" 2>/dev/null && pwd || true)"
+  if [[ -z "$OUTPUT_DIR" ]]; then
+    echo "Error: Output directory for '$OUTPUT_FILE' does not exist." >&2
+    exit 1
+  fi
+  DEMO_DIR_REL="$(relative_path "$OUTPUT_DIR" "$INPUT_DIR")"
+else
+  DEMO_DIR_REL="$INPUT_DIR"
+fi
+
+# Name of the source file as shown in the generated --help text. Prefer a path
+# relative to the current directory (extract-all-demo-scripts.sh runs from the
+# repository root) over an absolute one.
+INPUT_DISPLAY="$INPUT_FILE"
+if [[ "$INPUT_FILE" == "$PWD/"* ]]; then
+  INPUT_DISPLAY="${INPUT_FILE#"$PWD/"}"
+fi
+
 TMP_OUTPUT=$(mktemp)
 trap 'rm -f "$TMP_OUTPUT"' EXIT
 
@@ -163,6 +208,14 @@ write_generated_help() {
       echo
     fi
     echo 'script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"'
+    echo '# Directory of the README this script was generated from. The README'
+    echo '# code blocks use it for every file reference so the script works from'
+    echo '# any working directory.'
+    if [[ "$DEMO_DIR_REL" == /* ]]; then
+      echo "export DEMO_DIR=\"${DEMO_DIR_REL}\""
+    else
+      echo "export DEMO_DIR=\"\$(cd \"\${script_dir}/${DEMO_DIR_REL}\" && pwd)\""
+    fi
     echo
   } >>"$output_file"
 }
@@ -180,7 +233,7 @@ write_default_header() {
     echo
   } >>"$TMP_OUTPUT"
 
-  write_generated_help "$TMP_OUTPUT" "$INPUT_FILE" "default"
+  write_generated_help "$TMP_OUTPUT" "$INPUT_DISPLAY" "default"
 }
 
 write_docs_header() {
@@ -239,7 +292,7 @@ stty cols "$COLUMNS" rows "$LINES"
 
 EOF
 
-  write_generated_help "$TMP_OUTPUT" "$INPUT_FILE" "docs-pe"
+  write_generated_help "$TMP_OUTPUT" "$INPUT_DISPLAY" "docs-pe"
 }
 
 escape_single_quotes() {

@@ -54,7 +54,7 @@ show_help() {
   cat <<USAGE
 Usage: $0 [--help] [--non-interactive]
 
-Runs a demo-style shell script generated from /home/daniel/scone-td-build-demos/scripts/../demos/pet-clinic/README.md.
+Runs a demo-style shell script generated from demos/pet-clinic/README.md.
 
 Options:
   --help             Show this help message and exit.
@@ -101,6 +101,10 @@ fi
 unset CONFIRM_ALL_ENVIRONMENT_VARIABLES || true
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Directory of the README this script was generated from. The README
+# code blocks use it for every file reference so the script works from
+# any working directory.
+export DEMO_DIR="$(cd "${script_dir}/../demos/pet-clinic" && pwd)"
 
 printf "%b" "$LILAC"
 printf '%s\n' '# SCONE PetClinic Demo: Confidential Spring Boot + MariaDB'
@@ -138,20 +142,20 @@ printf '%s\n' '- `NATIVE_IMAGE_NAME` set in `Values.yaml` to an image path in a 
 printf '%s\n' ''
 printf '%s\n' '## 2. Set Up Environment Variables'
 printf '%s\n' ''
-printf '%s\n' 'Resolve the directory this demo lives in, so every file reference below works regardless of the caller'\''s current working directory:'
+printf '%s\n' 'Every file reference below goes through `$DEMO_DIR`, this demo'\''s directory. The generated scripts set it for you; when following this README by hand, run the commands from this directory:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Resolve this demo's directory.
+# The generated scripts set DEMO_DIR to this demo's directory. When following
 EOF
 )"
 pe "$(cat <<'EOF'
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# this README by hand, run the commands from `demos/pet-clinic`.
 EOF
 )"
 pe "$(cat <<'EOF'
-export DEMO_DIR="$SCRIPT_DIR/../../demos/pet-clinic/"
+export DEMO_DIR="${DEMO_DIR:-$PWD}"
 EOF
 )"
 
@@ -370,7 +374,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"
+(cd "$DEMO_DIR" && scone-td-build from -y manifests/scone.yaml)
 EOF
 )"
 

@@ -54,7 +54,7 @@ show_help() {
   cat <<USAGE
 Usage: $0 [--help] [--non-interactive]
 
-Runs a demo-style shell script generated from /home/daniel/scone-td-build-demos/scripts/../demos/image-signing/README.md.
+Runs a demo-style shell script generated from demos/image-signing/README.md.
 
 Options:
   --help             Show this help message and exit.
@@ -101,6 +101,10 @@ fi
 unset CONFIRM_ALL_ENVIRONMENT_VARIABLES || true
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Directory of the README this script was generated from. The README
+# code blocks use it for every file reference so the script works from
+# any working directory.
+export DEMO_DIR="$(cd "${script_dir}/../demos/image-signing" && pwd)"
 
 printf "%b" "$LILAC"
 printf '%s\n' '# SCONE: Image Signing'
@@ -127,20 +131,20 @@ printf '%s\n' '- Kubernetes-based setup: [k8s.md](https://github.com/scontain/sc
 printf '%s\n' ''
 printf '%s\n' '## 2. Set Up Environment Variables'
 printf '%s\n' ''
-printf '%s\n' 'Resolve the directory this demo lives in, so every file reference below works regardless of the caller'\''s current working directory, and clean up state left over from a previous run:'
+printf '%s\n' 'Every file reference below goes through `$DEMO_DIR`, this demo'\''s directory. The generated scripts set it for you; when following this README by hand, run the commands from this directory. Then clean up state left over from a previous run:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Resolve this demo's directory.
+# The generated scripts set DEMO_DIR to this demo's directory. When following
 EOF
 )"
 pe "$(cat <<'EOF'
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# this README by hand, run the commands from `demos/image-signing`.
 EOF
 )"
 pe "$(cat <<'EOF'
-export DEMO_DIR="$SCRIPT_DIR/../../demos/image-signing/"
+export DEMO_DIR="${DEMO_DIR:-$PWD}"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -193,7 +197,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --eval-export-values --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md"  --values-file "$DEMO_DIR/Values.yaml" --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --eval-export-values --output /dev/null)
 EOF
 )"
 
@@ -277,11 +281,11 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-tplenv --file "$DEMO_DIR/manifests/kbs.template.yaml" --create-values-file --output "$DEMO_DIR/manifests/kbs.yaml"
+tplenv --file "$DEMO_DIR/manifests/kbs.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/kbs.yaml"
 EOF
 )"
 pe "$(cat <<'EOF'
-tplenv --file "$DEMO_DIR/manifests/key-provider.template.yaml" --create-values-file --output "$DEMO_DIR/manifests/key-provider.yaml"
+tplenv --file "$DEMO_DIR/manifests/key-provider.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/key-provider.yaml"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -560,7 +564,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --create-values-file --output "$DEMO_DIR/manifests/scone.yaml" --indent
+tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/scone.yaml" --indent
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -568,8 +572,8 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-OCICRYPT_KEYPROVIDER_CONFIG="$DEMO_DIR/app/config/ocicrypt.conf" \
-  scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"
+(cd "$DEMO_DIR" && OCICRYPT_KEYPROVIDER_CONFIG="$DEMO_DIR/app/config/ocicrypt.conf" \
+  scone-td-build from -y manifests/scone.yaml)
 EOF
 )"
 

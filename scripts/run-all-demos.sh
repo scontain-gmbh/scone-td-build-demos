@@ -114,17 +114,17 @@ handle_exit() {
 trap handle_exit EXIT
 
 scripts=(
-  "$script_dir/demos/hello-world.sh",
-  "$script_dir/demos/configmap.sh",
-  "$script_dir/demos/web-server.sh",
-  "$script_dir/demos/network-policy.sh",
-  "$script_dir/demos/flask-redis.sh",
-  "$script_dir/demos/flask-redis-netshield.sh",
-  "$script_dir/demos/go-args-env-file.sh",
-  "$script_dir/demos/java-args-env-file.sh",
-  "$script_dir/demos/software-updates.sh",
-  "$script_dir/demos/pet-clinic.sh",
-  "$script_dir/demos/image-signing.sh",
+  "demos/hello-world.sh"
+  "demos/configmap.sh"
+  "demos/web-server.sh"
+  "demos/network-policy.sh"
+  "demos/flask-redis.sh"
+  "demos/flask-redis-netshield.sh"
+  "demos/go-args-env-file.sh"
+  "demos/java-args-env-file.sh"
+  "demos/software-updates.sh"
+  "demos/pet-clinic.sh"
+  "demos/image-signing.sh"
 )
 
 for ((i = 0; i < ${#scripts[@]}; i++)); do

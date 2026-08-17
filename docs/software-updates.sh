@@ -54,7 +54,7 @@ show_help() {
   cat <<USAGE
 Usage: $0 [--help] [--non-interactive]
 
-Runs a demo-style shell script generated from /home/daniel/scone-td-build-demos/scripts/../demos/software-updates/README.md.
+Runs a demo-style shell script generated from demos/software-updates/README.md.
 
 Options:
   --help             Show this help message and exit.
@@ -101,6 +101,10 @@ fi
 unset CONFIRM_ALL_ENVIRONMENT_VARIABLES || true
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Directory of the README this script was generated from. The README
+# code blocks use it for every file reference so the script works from
+# any working directory.
+export DEMO_DIR="$(cd "${script_dir}/../demos/software-updates" && pwd)"
 
 printf "%b" "$LILAC"
 printf '%s\n' '# Software Updates for Confidential Python Applications'
@@ -146,20 +150,20 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## 1. Set Up the Environment'
 printf '%s\n' ''
-printf '%s\n' 'Resolve the directory this demo lives in, so every file reference below works regardless of the caller'\''s current working directory, and clean up state left over from a previous run:'
+printf '%s\n' 'Every file reference below goes through `$DEMO_DIR`, this demo'\''s directory. The generated scripts set it for you; when following this README by hand, run the commands from this directory. Then clean up state left over from a previous run:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Resolve this demo's directory.
+# The generated scripts set DEMO_DIR to this demo's directory. When following
 EOF
 )"
 pe "$(cat <<'EOF'
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# this README by hand, run the commands from `demos/software-updates`.
 EOF
 )"
 pe "$(cat <<'EOF'
-export DEMO_DIR="$SCRIPT_DIR/../../demos/software-updates/"
+export DEMO_DIR="${DEMO_DIR:-$PWD}"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -496,7 +500,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-scone-td-build from -y "$DEMO_DIR/manifests/scone.v1.yaml"
+(cd "$DEMO_DIR" && scone-td-build from -y manifests/scone.v1.yaml)
 EOF
 )"
 
@@ -625,7 +629,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-scone-td-build from -y "$DEMO_DIR/manifests/scone.v2.yaml"
+(cd "$DEMO_DIR" && scone-td-build from -y manifests/scone.v2.yaml)
 EOF
 )"
 

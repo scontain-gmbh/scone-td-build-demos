@@ -2,12 +2,18 @@
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+# Work with repository-relative paths so the generated scripts embed no
+# machine-specific absolute paths (they show the source README in --help).
+cd "$REPO_ROOT"
 
 show_help() {
   cat <<USAGE
 Usage: $0 [-y]
 
-Regenerates all extracted scripts and scripts/run-all-scripts.sh.
+Regenerates all extracted scripts under scripts/demos/ and docs/, and
+scripts/run-all-demos.sh.
 
 Options:
   -y    Overwrite existing generated scripts without confirmation.
@@ -45,17 +51,17 @@ fi
 
 # Array of input/output file pairs
 files=(
-  "$SCRIPT_DIR/../demos/hello-world/README.md $SCRIPT_DIR/demos/hello-world.sh"
-  "$SCRIPT_DIR/../demos/configmap/README.md $SCRIPT_DIR/demos/configmap.sh"
-  "$SCRIPT_DIR/../demos/web-server/README.md $SCRIPT_DIR/demos/web-server.sh"
-  "$SCRIPT_DIR/../demos/network-policy/README.md $SCRIPT_DIR/demos/network-policy.sh"
-  "$SCRIPT_DIR/../demos/flask-redis/README.md $SCRIPT_DIR/demos/flask-redis.sh"
-  "$SCRIPT_DIR/../demos/flask-redis-netshield/README.md $SCRIPT_DIR/demos/flask-redis-netshield.sh"
-  "$SCRIPT_DIR/../demos/go-args-env-file/README.md $SCRIPT_DIR/demos/go-args-env-file.sh"
-  "$SCRIPT_DIR/../demos/java-args-env-file/README.md $SCRIPT_DIR/demos/java-args-env-file.sh"
-  "$SCRIPT_DIR/../demos/software-updates/README.md $SCRIPT_DIR/demos/software-updates.sh"
-  "$SCRIPT_DIR/../demos/pet-clinic/README.md $SCRIPT_DIR/demos/pet-clinic.sh"
-  "$SCRIPT_DIR/../demos/image-signing/README.md $SCRIPT_DIR/demos/image-signing.sh"
+  "demos/hello-world/README.md scripts/demos/hello-world.sh"
+  "demos/configmap/README.md scripts/demos/configmap.sh"
+  "demos/web-server/README.md scripts/demos/web-server.sh"
+  "demos/network-policy/README.md scripts/demos/network-policy.sh"
+  "demos/flask-redis/README.md scripts/demos/flask-redis.sh"
+  "demos/flask-redis-netshield/README.md scripts/demos/flask-redis-netshield.sh"
+  "demos/go-args-env-file/README.md scripts/demos/go-args-env-file.sh"
+  "demos/java-args-env-file/README.md scripts/demos/java-args-env-file.sh"
+  "demos/software-updates/README.md scripts/demos/software-updates.sh"
+  "demos/pet-clinic/README.md scripts/demos/pet-clinic.sh"
+  "demos/image-signing/README.md scripts/demos/image-signing.sh"
 )
 
 generated_scripts=()
@@ -86,20 +92,20 @@ confirm_overwrite() {
 for pair in "${files[@]}"; do
   read -r input_file output_file <<<"$pair"
   if $assume_yes; then
-    $SCRIPT_DIR/extract-bash.sh -y "$input_file" "$output_file"
+    "$SCRIPT_DIR/extract-bash.sh" -y "$input_file" "$output_file"
   else
-    $SCRIPT_DIR/extract-bash.sh "$input_file" "$output_file"
+    "$SCRIPT_DIR/extract-bash.sh" "$input_file" "$output_file"
   fi
-  docs_output_file="$SCRIPT_DIR/../docs/$(basename "$output_file")"
+  docs_output_file="docs/$(basename "$output_file")"
   if $assume_yes; then
-    $SCRIPT_DIR/extract-bash.sh -y --docs-pe "$input_file" "$docs_output_file"
+    "$SCRIPT_DIR/extract-bash.sh" -y --docs-pe "$input_file" "$docs_output_file"
   else
-    $SCRIPT_DIR/extract-bash.sh --docs-pe "$input_file" "$docs_output_file"
+    "$SCRIPT_DIR/extract-bash.sh" --docs-pe "$input_file" "$docs_output_file"
   fi
   generated_scripts+=("$output_file")
 done
 
-run_all_script="$SCRIPT_DIR/run-all-demos.sh"
+run_all_script="scripts/run-all-demos.sh"
 {
   echo '#!/usr/bin/env bash'
   echo '# Generated file. Do not edit manually.'
@@ -219,7 +225,7 @@ run_all_script="$SCRIPT_DIR/run-all-demos.sh"
   echo 'scripts=('
   for script_path in "${generated_scripts[@]}"; do
     script_name="$(basename "$script_path")"
-    echo "  \"\$script_dir/demos/${script_name}\""
+    echo "  \"demos/${script_name}\""
   done
   echo ')'
   echo
