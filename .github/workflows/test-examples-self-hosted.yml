@@ -57,7 +57,7 @@ jobs:
 
       - name: Check container toolchain
         run: |
-          for cmd in bash docker kubectl scone scone-td-build tplenv retry-spinner openssl jq curl cargo; do
+          for cmd in bash docker kubectl scone scone-td-build tplenv retry-spinner openssl jq curl cargo skopeo cosign; do
             command -v "$cmd" >/dev/null 2>&1 || {
               echo "Missing required command: $cmd" >&2
               exit 1

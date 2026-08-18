@@ -2,7 +2,7 @@
 
 This section explains the basic concepts involved in working with container images and registries.
 
-![RegistryConcepts](docs/registry-concepts.png)
+![RegistryConcepts](../registry-concepts.png)
 
 ## Registry
 
@@ -210,4 +210,4 @@ ghcr.io/myorg/myapp:1.0
 
 Image pull workflow:
 
-![Image Pull Workflow](docs/image-workflow.png)
+![Image Pull Workflow](../image-workflow.png)

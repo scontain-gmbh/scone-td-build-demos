@@ -4,7 +4,7 @@
 
 This Rust application is a minimal web service built with [Axum](https://github.com/tokio-rs/axum). It is intentionally small and easy to follow.
 
-[![Web-Server Example](../docs/web-server.gif)](../docs/web-server.mp4)
+[![Web-Server Example](../../docs/web-server.gif)](../../docs/web-server.mp4)
 
 ## Endpoints
 
@@ -53,15 +53,15 @@ Follow the [Setup environment](https://github.com/scontain/scone) guide. The eas
 
 ## 3. Set Up Environment Variables
 
-Resolve the directory this demo lives in, so every file reference below works regardless of the caller's current working directory, and clean up state left over from a previous run:
+Every file reference below goes through `$DEMO_DIR`, this demo's directory. The generated scripts set it for you; when following this README by hand, run the commands from this directory. Then clean up state left over from a previous run:
 
 ```bash
-# Enter `web-server` and remember the previous directory.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export DEMO_DIR="$SCRIPT_DIR/../../demos/web-server/"
+# The generated scripts set DEMO_DIR to this demo's directory. When following
+# this README by hand, run the commands from `demos/web-server`.
+export DEMO_DIR="${DEMO_DIR:-$PWD}"
 
 # Remove `storage.json` if it exists.
-rm -f "$DEMO_DIR/storage.json" || true
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 ```
 
 Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml` if that file does not already exist:
@@ -87,7 +87,7 @@ Attest CAS before sending encrypted policies. The kubectl path covers in-cluster
 
 ```bash
 # Attest the CAS instance before sending encrypted policies.
-kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \
+kubectl scone cas attest --namespace "${SCONE_CAS_ADDR#*.}" "${SCONE_CAS_ADDR%%.*}" -C -G -S \
     || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 ```
@@ -146,7 +146,7 @@ Generate the SCONE config from its template, then run `scone-td-build` to produc
 # Render the template with the selected values.
 tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/scone.yaml" --indent
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
-scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"
+(cd "$DEMO_DIR" && scone-td-build from -y manifests/scone.yaml)
 ```
 
 If you want to inspect registration details, see [register-image](https://github.com/scontain/k8s-scone/blob/main/register-image.md).

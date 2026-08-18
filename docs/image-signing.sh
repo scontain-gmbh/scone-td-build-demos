@@ -54,7 +54,7 @@ show_help() {
   cat <<USAGE
 Usage: $0 [--help] [--non-interactive]
 
-Runs a demo-style shell script generated from /home/daniel/scone-td-build-demos/scripts/../demos/image-signing/README.md.
+Runs a demo-style shell script generated from demos/image-signing/README.md.
 
 Options:
   --help             Show this help message and exit.
@@ -101,6 +101,10 @@ fi
 unset CONFIRM_ALL_ENVIRONMENT_VARIABLES || true
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Directory of the README this script was generated from. The README
+# code blocks use it for every file reference so the script works from
+# any working directory.
+export DEMO_DIR="$(cd "${script_dir}/../demos/image-signing" && pwd)"
 
 printf "%b" "$LILAC"
 printf '%s\n' '# SCONE: Image Signing'
@@ -127,20 +131,20 @@ printf '%s\n' '- Kubernetes-based setup: [k8s.md](https://github.com/scontain/sc
 printf '%s\n' ''
 printf '%s\n' '## 2. Set Up Environment Variables'
 printf '%s\n' ''
-printf '%s\n' 'Resolve the directory this demo lives in, so every file reference below works regardless of the caller'\''s current working directory, and clean up state left over from a previous run:'
+printf '%s\n' 'Every file reference below goes through `$DEMO_DIR`, this demo'\''s directory. The generated scripts set it for you; when following this README by hand, run the commands from this directory. Then clean up state left over from a previous run:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Resolve this demo's directory.
+# The generated scripts set DEMO_DIR to this demo's directory. When following
 EOF
 )"
 pe "$(cat <<'EOF'
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# this README by hand, run the commands from `demos/image-signing`.
 EOF
 )"
 pe "$(cat <<'EOF'
-export DEMO_DIR="$SCRIPT_DIR/../../demos/image-signing/"
+export DEMO_DIR="${DEMO_DIR:-$PWD}"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -148,7 +152,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-rm -f "$DEMO_DIR/storage.json" || true
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 EOF
 )"
 
@@ -193,7 +197,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --eval-export-values --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md"  --values-file "$DEMO_DIR/Values.yaml" --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --eval-export-values --output /dev/null)
 EOF
 )"
 
@@ -209,6 +213,21 @@ EOF
 )"
 pe "$(cat <<'EOF'
 kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
+EOF
+)"
+
+printf "%b" "$LILAC"
+printf '%s\n' ''
+printf '%s\n' 'Generate the job manifest with the selected image and pull-secret values:'
+printf '%s\n' ''
+printf "%b" "$RESET"
+
+pe "$(cat <<'EOF'
+# Render the template with the selected values.
+EOF
+)"
+pe "$(cat <<'EOF'
+tplenv --file "$DEMO_DIR/manifests/manifest.job.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/manifest.job.yaml"
 EOF
 )"
 
@@ -277,11 +296,11 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-tplenv --file "$DEMO_DIR/manifests/kbs.template.yaml" --create-values-file --output "$DEMO_DIR/manifests/kbs.yaml"
+tplenv --file "$DEMO_DIR/manifests/kbs.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/kbs.yaml"
 EOF
 )"
 pe "$(cat <<'EOF'
-tplenv --file "$DEMO_DIR/manifests/key-provider.template.yaml" --create-values-file --output "$DEMO_DIR/manifests/key-provider.yaml"
+tplenv --file "$DEMO_DIR/manifests/key-provider.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/key-provider.yaml"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -508,7 +527,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \
+kubectl scone cas attest --namespace "${SCONE_CAS_ADDR#*.}" "${SCONE_CAS_ADDR%%.*}" -C -G -S \
     || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 EOF
@@ -560,7 +579,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --create-values-file --output "$DEMO_DIR/manifests/scone.yaml" --indent
+tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/scone.yaml" --indent
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -568,8 +587,8 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-OCICRYPT_KEYPROVIDER_CONFIG="$DEMO_DIR/app/config/ocicrypt.conf" \
-  scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"
+(cd "$DEMO_DIR" && OCICRYPT_KEYPROVIDER_CONFIG="$DEMO_DIR/app/config/ocicrypt.conf" \
+  scone-td-build from -y manifests/scone.yaml)
 EOF
 )"
 
@@ -608,36 +627,16 @@ printf '%s\n' '## 11. Deploy the Signed Confidential Application'
 printf '%s\n' ''
 printf '%s\n' '> **Blocked:** This step requires `ctd-decoder` to be installed on every cluster node and containerd to be configured with the `ocicrypt` stream processor so it can decrypt the encrypted image layers at pull time. Plain k3d clusters do not include this. See [containers/ocicrypt](https://github.com/containers/ocicrypt) for setup instructions.'
 printf '%s\n' '>'
-printf '%s\n' '> Once the cluster has `ctd-decoder`, deploy the sanitized manifest:'
+printf '%s\n' '> Once the cluster has `ctd-decoder`, deploy the sanitized manifest (this block is'
+printf '%s\n' '> intentionally not part of the generated script, so it does not fail on clusters'
+printf '%s\n' '> without `ctd-decoder`):'
 printf '%s\n' ''
-printf "%b" "$RESET"
-
-pe "$(cat <<'EOF'
-# Apply the Kubernetes manifest.
-EOF
-)"
-pe "$(cat <<'EOF'
-kubectl apply -f "$DEMO_DIR/manifests/manifest.job.sanitized.yaml" -n ${NAMESPACE}
-EOF
-)"
-pe "$(cat <<'EOF'
-# Wait for the Kubernetes resource to reach the expected state.
-EOF
-)"
-pe "$(cat <<'EOF'
-kubectl wait --for=condition=complete job/image-signing -n ${NAMESPACE} --timeout=300s
-EOF
-)"
-pe "$(cat <<'EOF'
-# Show logs from the Kubernetes workload.
-EOF
-)"
-pe "$(cat <<'EOF'
-kubectl logs job/image-signing -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps
-EOF
-)"
-
-printf "%b" "$LILAC"
+printf '%s\n' '# Apply the Kubernetes manifest.'
+printf '%s\n' 'kubectl apply -f "$DEMO_DIR/manifests/manifest.job.sanitized.yaml" -n ${NAMESPACE}'
+printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
+printf '%s\n' 'kubectl wait --for=condition=complete job/image-signing -n ${NAMESPACE} --timeout=300s'
+printf '%s\n' '# Show logs from the Kubernetes workload.'
+printf '%s\n' 'kubectl logs job/image-signing -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps'
 printf '%s\n' ''
 printf '%s\n' '## 12. Clean Up'
 printf '%s\n' ''

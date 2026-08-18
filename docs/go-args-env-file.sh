@@ -54,7 +54,7 @@ show_help() {
   cat <<USAGE
 Usage: $0 [--help] [--non-interactive]
 
-Runs a demo-style shell script generated from /home/daniel/scone-td-build-demos/scripts/../demos/go-args-env-file/README.md.
+Runs a demo-style shell script generated from demos/go-args-env-file/README.md.
 
 Options:
   --help             Show this help message and exit.
@@ -101,6 +101,10 @@ fi
 unset CONFIRM_ALL_ENVIRONMENT_VARIABLES || true
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Directory of the README this script was generated from. The README
+# code blocks use it for every file reference so the script works from
+# any working directory.
+export DEMO_DIR="$(cd "${script_dir}/../demos/go-args-env-file" && pwd)"
 
 printf "%b" "$LILAC"
 printf '%s\n' '# go-args-env-file'
@@ -109,23 +113,26 @@ printf '%s\n' 'A Go utility that prints command-line arguments, environment vari
 printf '%s\n' ''
 printf '%s\n' 'This example shows how to manage and access configuration data in Kubernetes with a `ConfigMap` and a Go application. You start with a plain (unencrypted) deployment and then move to a fully protected SCONE deployment.'
 printf '%s\n' ''
-printf '%s\n' '[![go-args-env-file Example](../docs/go-args-env-file.gif)](../docs/go-args-env-file.mp4)'
+printf '%s\n' '[![go-args-env-file Example](../../docs/go-args-env-file.gif)](../../docs/go-args-env-file.mp4)'
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## Project layout'
 printf '%s\n' ''
 printf '%s\n' '.'
-printf '%s\n' '├── main.go                    # application source'
-printf '%s\n' '├── Makefile                   # build helpers'
-printf '%s\n' '├── Dockerfile                 # two-stage container image'
-printf '%s\n' '├── environment-variables.md   # tplenv variable definitions and defaults'
-printf '%s\n' '└── manifests/'
-printf '%s\n' '    ├── manifest.template.yaml     # Kubernetes Job/ConfigMap/Secret template (tplenv)'
-printf '%s\n' '    ├── scone.template.yaml        # SCONE manifest template'
-printf '%s\n' '    ├── manifest.yaml                  # rendered native manifest'
-printf '%s\n' '    ├── scone.yaml                     # rendered SCONE manifest'
-printf '%s\n' '    └── manifest.prod.sanitized.yaml   # produced by scone-td-build'
+printf '%s\n' '├── app/'
+printf '%s\n' '│   ├── main.go                # application source'
+printf '%s\n' '│   ├── go.mod'
+printf '%s\n' '│   ├── Makefile               # build helpers'
+printf '%s\n' '│   └── Dockerfile             # container image'
+printf '%s\n' '├── manifests/'
+printf '%s\n' '│   ├── manifest.template.yaml     # Kubernetes Job/ConfigMap/Secret template (tplenv)'
+printf '%s\n' '│   ├── scone.template.yaml        # SCONE manifest template'
+printf '%s\n' '│   ├── manifest.yaml                  # rendered native manifest (generated)'
+printf '%s\n' '│   ├── scone.yaml                     # rendered SCONE manifest (generated)'
+printf '%s\n' '│   └── manifest.prod.sanitized.yaml   # produced by scone-td-build (generated)'
+printf '%s\n' '├── values.template.yaml       # default values, copied to Values.yaml on first run'
+printf '%s\n' '└── README.md'
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
@@ -163,28 +170,28 @@ EOF
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' 'Resolve the directory this demo lives in, so every file reference below works regardless of the caller'\''s current working directory, and clean up state left over from a previous run:'
+printf '%s\n' 'Every file reference below goes through `$DEMO_DIR`, this demo'\''s directory. The generated scripts set it for you; when following this README by hand, run the commands from this directory. Then clean up state left over from a previous run:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Resolve this demo's directory.
+# The generated scripts set DEMO_DIR to this demo's directory. When following
 EOF
 )"
 pe "$(cat <<'EOF'
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# this README by hand, run the commands from `demos/go-args-env-file`.
 EOF
 )"
 pe "$(cat <<'EOF'
-export DEMO_DIR="$SCRIPT_DIR/../../demos/go-args-env-file/"
+export DEMO_DIR="${DEMO_DIR:-$PWD}"
 EOF
 )"
 pe "$(cat <<'EOF'
-# Remove `go-args-env-file-example.json` if it exists.
+# Remove `storage.json` if it exists.
 EOF
 )"
 pe "$(cat <<'EOF'
-rm -f "$DEMO_DIR/go-args-env-file-example.json" || true
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 EOF
 )"
 
@@ -239,7 +246,7 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## 4. Build and Push the Native Docker Image'
 printf '%s\n' ''
-printf '%s\n' 'The Dockerfile uses a two-stage build: a `golang:1.22-alpine` builder stage compiles a fully static binary, which is then copied into a minimal `scratch` runtime image.'
+printf '%s\n' 'The Dockerfile builds the binary with the SCONE-enhanced Go toolchain (`ghcr.io/scontain/golang:1.25.4-alpine`, whose runtime issues system calls through libc) and runs it from the same image.'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
@@ -427,7 +434,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \
+kubectl scone cas attest --namespace "${SCONE_CAS_ADDR#*.}" "${SCONE_CAS_ADDR%%.*}" -C -G -S \
     || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 EOF
@@ -444,7 +451,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"
+(cd "$DEMO_DIR" && scone-td-build from -y manifests/scone.yaml)
 EOF
 )"
 

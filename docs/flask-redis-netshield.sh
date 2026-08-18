@@ -54,7 +54,7 @@ show_help() {
   cat <<USAGE
 Usage: $0 [--help] [--non-interactive]
 
-Runs a demo-style shell script generated from /home/daniel/scone-td-build-demos/scripts/../demos/flask-redis-netshield/README.md.
+Runs a demo-style shell script generated from demos/flask-redis-netshield/README.md.
 
 Options:
   --help             Show this help message and exit.
@@ -101,6 +101,10 @@ fi
 unset CONFIRM_ALL_ENVIRONMENT_VARIABLES || true
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Directory of the README this script was generated from. The README
+# code blocks use it for every file reference so the script works from
+# any working directory.
+export DEMO_DIR="$(cd "${script_dir}/../demos/flask-redis-netshield" && pwd)"
 
 printf "%b" "$LILAC"
 printf '%s\n' '# Flask Redis Netshield'
@@ -108,17 +112,19 @@ printf '%s\n' ''
 printf '%s\n' 'A Flask REST API backed by a TLS-secured Redis instance, packaged for Kubernetes.'
 printf '%s\n' 'This guide walks through deploying the **native** version first, running integration tests, and then building and deploying the **confidential** (SCONE) version before testing it again.'
 printf '%s\n' ''
-printf '%s\n' '[![Flask Redis Netshield Example](../docs/flask-redis-netshield.gif)](../docs/flask-redis-netshield.mp4)'
+printf '%s\n' '[![Flask Redis Netshield Example](../../docs/flask-redis-netshield.gif)](../../docs/flask-redis-netshield.mp4)'
 printf '%s\n' ''
 printf '%s\n' '## Project Structure'
 printf '%s\n' ''
-printf '%s\n' 'flask-redis-netshield/'
-printf '%s\n' '├── app.py                       # Flask application'
-printf '%s\n' '├── Dockerfile                   # Flask image build'
-printf '%s\n' '├── requirements.txt             # Python dependencies'
-printf '%s\n' '├── scone.template.yaml          # SCONE confidential build template'
+printf '%s\n' 'demos/flask-redis-netshield/'
+printf '%s\n' '├── app/'
+printf '%s\n' '│   ├── app.py                   # Flask application'
+printf '%s\n' '│   ├── Dockerfile               # Flask image build'
+printf '%s\n' '│   └── requirements.txt         # Python dependencies'
 printf '%s\n' '├── manifests/'
-printf '%s\n' '│   └── manifest.template.yaml   # Redis + Flask API deployment template'
+printf '%s\n' '│   ├── manifest.template.yaml   # Redis + Flask API deployment template'
+printf '%s\n' '│   └── scone.template.yaml      # SCONE confidential build template'
+printf '%s\n' '├── values.template.yaml         # default values, copied to Values.yaml on first run'
 printf '%s\n' '└── README.md'
 printf '%s\n' ''
 printf '%s\n' '---'
@@ -136,6 +142,25 @@ printf '%s\n' '## Part 1 — Native Deployment'
 printf '%s\n' ''
 printf '%s\n' '### Step 1. Generate TLS certificates'
 printf '%s\n' ''
+printf '%s\n' 'Every file reference below goes through `$DEMO_DIR`, this demo'\''s directory. The generated scripts set it for you; when following this README by hand, run the commands from this directory:'
+printf '%s\n' ''
+printf "%b" "$RESET"
+
+pe "$(cat <<'EOF'
+# The generated scripts set DEMO_DIR to this demo's directory. When following
+EOF
+)"
+pe "$(cat <<'EOF'
+# this README by hand, run the commands from `demos/flask-redis-netshield`.
+EOF
+)"
+pe "$(cat <<'EOF'
+export DEMO_DIR="${DEMO_DIR:-$PWD}"
+EOF
+)"
+
+printf "%b" "$LILAC"
+printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
@@ -144,6 +169,14 @@ EOF
 )"
 pe "$(cat <<'EOF'
 mkdir -p "$DEMO_DIR/certs"
+EOF
+)"
+pe "$(cat <<'EOF'
+# Remove `storage.json` if it exists.
+EOF
+)"
+pe "$(cat <<'EOF'
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -299,29 +332,18 @@ EOF
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' 'Resolve the directory this demo lives in, so every file reference below works regardless of the caller'\''s current working directory:'
+printf '%s\n' 'Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml` if that file does not already exist, then let `tplenv` query all environment variables used by this example:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Resolve this demo's directory.
+# Seed Values.yaml from the template on first run only.
 EOF
 )"
 pe "$(cat <<'EOF'
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+[ -f "$DEMO_DIR/Values.yaml" ] || cp "$DEMO_DIR/values.template.yaml" "$DEMO_DIR/Values.yaml"
 EOF
 )"
-pe "$(cat <<'EOF'
-export DEMO_DIR="$SCRIPT_DIR/../../demos/flask-redis-netshield/"
-EOF
-)"
-
-printf "%b" "$LILAC"
-printf '%s\n' ''
-printf '%s\n' 'Then let `tplenv` query all environment variables used by this example:'
-printf '%s\n' ''
-printf "%b" "$RESET"
-
 pe "$(cat <<'EOF'
 # Load environment variables from the tplenv definition file.
 EOF
@@ -848,11 +870,11 @@ tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --values-file "$DEMO_DIR
 EOF
 )"
 pe "$(cat <<'EOF'
-# Remove `flask-redis-demo.json` if it exists.
+# Remove `storage.json` if it exists.
 EOF
 )"
 pe "$(cat <<'EOF'
-rm -f "$DEMO_DIR/flask-redis-demo.json" || true
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -860,7 +882,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"
+(cd "$DEMO_DIR" && scone-td-build from -y manifests/scone.yaml)
 EOF
 )"
 pe "$(cat <<'EOF'

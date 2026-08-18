@@ -6,12 +6,13 @@ show_help() {
   cat <<USAGE
 Usage: $0 --mode <sgx|cvm> [--registry REGISTRY] [--image-pull-secret-name NAME] [--namespace NAMESPACE] [--scone-cas-addr ADDR]
 
-Prepares the example Values.yaml files and Kubernetes pull secrets for CI.
+Prepares the example Values.yaml files (seeded from values.template.yaml when
+missing) and Kubernetes pull secrets for CI.
 
 Environment:
   REGISTRY_USER   Registry username used to create the image pull secret.
   REGISTRY_TOKEN  Registry token/password used to create the image pull secret.
-  SCONE_CAS_ADDR  SCONE_CAS_ADDR to use.
+  SCONE_CAS_ADDR  CAS address to write into every Values.yaml (default: keeps each demo's current value).
 
 Options:
   --mode <mode>              One of: sgx, cvm
@@ -116,6 +117,11 @@ upsert_scalar() {
       found = 1
       next
     }
+    in_environment && $0 ~ /^[[:space:]]*(#.*)?$/ {
+      # Blank and comment lines do not end the environment block.
+      print
+      next
+    }
     in_environment && $0 !~ /^  / {
       if (!found) {
         print "  " key ": " value
@@ -192,12 +198,24 @@ fi
 
 
 for values_file in "${all_values_files[@]}"; do
+  # Values.yaml is not tracked in git; the demos seed it from values.template.yaml
+  # on their first run. Do the same here so the upserts below have a file to edit.
+  if [[ ! -f "$values_file" ]]; then
+    values_template="$(dirname "$values_file")/values.template.yaml"
+    if [[ ! -f "$values_template" ]]; then
+      echo "Error: Neither '$values_file' nor '$values_template' exists." >&2
+      exit 1
+    fi
+    cp "$values_template" "$values_file"
+  fi
   upsert_scalar "$values_file" "CVM_MODE" "$boolean_cvm_mode"
   upsert_scalar "$values_file" "SCONE_ENCLAVE" "$boolean_scone_enclave"
   upsert_scalar "$values_file" "IMAGE_PULL_SECRET_NAME" "$image_pull_secret_name"
   upsert_scalar "$values_file" "REGISTRY" "$registry"
-  upsert_scalar "$values_file" "SCONE_CAS_ADDR" "$scone_cas_addr"
-  
+  if [[ -n "$scone_cas_addr" ]]; then
+    upsert_scalar "$values_file" "SCONE_CAS_ADDR" "$scone_cas_addr"
+  fi
+
   if [[ -n "$namespace" ]]; then
     upsert_scalar "$values_file" "NAMESPACE" "$namespace"
   fi

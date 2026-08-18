@@ -3,20 +3,20 @@
 A Flask REST API backed by a TLS-secured Redis instance, packaged for Kubernetes.
 This guide walks through deploying the **native** version first, running integration tests, and then building and deploying the **confidential** (SCONE) version before testing it again.
 
-[![Flask Redis Example](../docs/flask-redis.gif)](../docs/flask-redis.mp4)
+[![Flask Redis Example](../../docs/flask-redis.gif)](../../docs/flask-redis.mp4)
 
 ## Project Structure
 
 ```
-flask-redis/
-├── app.py                       # Flask application
-├── Dockerfile                   # Flask image build
-├── requirements.txt             # Python dependencies
-├── scone.template.yaml          # SCONE confidential build template
-├── environment-variables.md     # tplenv variable definitions
-├── registry.credentials.md      # tplenv registry credential definitions
+demos/flask-redis/
+├── app/
+│   ├── app.py                   # Flask application
+│   ├── Dockerfile               # Flask image build
+│   └── requirements.txt         # Python dependencies
 ├── manifests/
-│   └── manifest.template.yaml   # Redis + Flask API deployment template
+│   ├── manifest.template.yaml   # Redis + Flask API deployment template
+│   └── scone.template.yaml      # SCONE confidential build template
+├── values.template.yaml         # default values, copied to Values.yaml on first run
 └── README.md
 ```
 
@@ -35,12 +35,20 @@ flask-redis/
 
 ### Step 1. Generate TLS certificates
 
+Every file reference below goes through `$DEMO_DIR`, this demo's directory. The generated scripts set it for you; when following this README by hand, run the commands from this directory:
+
+```bash
+# The generated scripts set DEMO_DIR to this demo's directory. When following
+# this README by hand, run the commands from `demos/flask-redis`.
+export DEMO_DIR="${DEMO_DIR:-$PWD}"
+```
+
 ```bash
 # Create `certs` if it does not already exist.
 mkdir -p "$DEMO_DIR/certs"
 # Clean up
-# Remove `flask-redis-demo.json` if it exists.
-rm -f "$DEMO_DIR/flask-redis-demo.json" || true
+# Remove `storage.json` if it exists.
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 
 # CA
 # Generate the certificate authority private key.
@@ -95,17 +103,11 @@ Set `SIGNER` for policy signing:
 export SIGNER="$(scone self show-session-signing-key)"
 ```
 
-Resolve the directory this demo lives in, so every file reference below works regardless of the caller's current working directory:
+Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml` if that file does not already exist, then let `tplenv` query all environment variables used by this example:
 
 ```bash
-# Resolve this demo's directory.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export DEMO_DIR="$SCRIPT_DIR/../../demos/flask-redis/"
-```
-
-Then let `tplenv` query all environment variables used by this example:
-
-```bash
+# Seed Values.yaml from the template on first run only.
+[ -f "$DEMO_DIR/Values.yaml" ] || cp "$DEMO_DIR/values.template.yaml" "$DEMO_DIR/Values.yaml"
 # Load environment variables from the tplenv definition file.
 eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
 ```
@@ -334,10 +336,10 @@ Generate the SCONE config from its template, then run `scone-td-build` to produc
 ```bash
 # Render the template with the selected values.
 tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/scone.yaml" --indent
-# Remove `flask-redis-demo.json` if it exists.
-rm -f "$DEMO_DIR/flask-redis-demo.json" || true
+# Remove `storage.json` if it exists.
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
-scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"
+(cd "$DEMO_DIR" && scone-td-build from -y manifests/scone.yaml)
 # Use the registry-backed Redis SCONE image that the Register step pushed.
 if grep -q 'image: redis:7-bookworm-scone' "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml"; then
   sed -i.bak "s|image: redis:7-bookworm-scone|image: ${NATIVE_IMAGE_NAME}-redis-scone|g" "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml"

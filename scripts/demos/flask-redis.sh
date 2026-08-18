@@ -11,7 +11,7 @@ show_help() {
   cat <<USAGE
 Usage: $0 [--help] [--non-interactive]
 
-Runs shell commands extracted from /home/daniel/scone-td-build-demos/scripts/../demos/flask-redis/README.md.
+Runs shell commands extracted from demos/flask-redis/README.md.
 
 Options:
   --help             Show this help message and exit.
@@ -60,6 +60,10 @@ if ! $NON_INTERACTIVE; then
 fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Directory of the README this script was generated from. The README
+# code blocks use it for every file reference so the script works from
+# any working directory.
+export DEMO_DIR="$(cd "${script_dir}/../../demos/flask-redis" && pwd)"
 
 printf "${VIOLET}"
 printf '%s\n' '# Flask Redis'
@@ -67,19 +71,19 @@ printf '%s\n' ''
 printf '%s\n' 'A Flask REST API backed by a TLS-secured Redis instance, packaged for Kubernetes.'
 printf '%s\n' 'This guide walks through deploying the **native** version first, running integration tests, and then building and deploying the **confidential** (SCONE) version before testing it again.'
 printf '%s\n' ''
-printf '%s\n' '[![Flask Redis Example](../docs/flask-redis.gif)](../docs/flask-redis.mp4)'
+printf '%s\n' '[![Flask Redis Example](../../docs/flask-redis.gif)](../../docs/flask-redis.mp4)'
 printf '%s\n' ''
 printf '%s\n' '## Project Structure'
 printf '%s\n' ''
-printf '%s\n' 'flask-redis/'
-printf '%s\n' '├── app.py                       # Flask application'
-printf '%s\n' '├── Dockerfile                   # Flask image build'
-printf '%s\n' '├── requirements.txt             # Python dependencies'
-printf '%s\n' '├── scone.template.yaml          # SCONE confidential build template'
-printf '%s\n' '├── environment-variables.md     # tplenv variable definitions'
-printf '%s\n' '├── registry.credentials.md      # tplenv registry credential definitions'
+printf '%s\n' 'demos/flask-redis/'
+printf '%s\n' '├── app/'
+printf '%s\n' '│   ├── app.py                   # Flask application'
+printf '%s\n' '│   ├── Dockerfile               # Flask image build'
+printf '%s\n' '│   └── requirements.txt         # Python dependencies'
 printf '%s\n' '├── manifests/'
-printf '%s\n' '│   └── manifest.template.yaml   # Redis + Flask API deployment template'
+printf '%s\n' '│   ├── manifest.template.yaml   # Redis + Flask API deployment template'
+printf '%s\n' '│   └── scone.template.yaml      # SCONE confidential build template'
+printf '%s\n' '├── values.template.yaml         # default values, copied to Values.yaml on first run'
 printf '%s\n' '└── README.md'
 printf '%s\n' ''
 printf '%s\n' '---'
@@ -97,14 +101,30 @@ printf '%s\n' '## Part 1 — Native Deployment'
 printf '%s\n' ''
 printf '%s\n' '### Step 1. Generate TLS certificates'
 printf '%s\n' ''
+printf '%s\n' 'Every file reference below goes through `$DEMO_DIR`, this demo'\''s directory. The generated scripts set it for you; when following this README by hand, run the commands from this directory:'
+printf '%s\n' ''
+printf "${RESET}"
+
+printf "${ORANGE}"
+printf '%s\n' '# The generated scripts set DEMO_DIR to this demo'\''s directory. When following'
+printf '%s\n' '# this README by hand, run the commands from `demos/flask-redis`.'
+printf '%s\n' 'export DEMO_DIR="${DEMO_DIR:-$PWD}"'
+printf "${RESET}"
+
+# The generated scripts set DEMO_DIR to this demo's directory. When following
+# this README by hand, run the commands from `demos/flask-redis`.
+export DEMO_DIR="${DEMO_DIR:-$PWD}"
+
+printf "${VIOLET}"
+printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Create `certs` if it does not already exist.'
 printf '%s\n' 'mkdir -p "$DEMO_DIR/certs"'
 printf '%s\n' '# Clean up'
-printf '%s\n' '# Remove `flask-redis-demo.json` if it exists.'
-printf '%s\n' 'rm -f "$DEMO_DIR/flask-redis-demo.json" || true'
+printf '%s\n' '# Remove `storage.json` if it exists.'
+printf '%s\n' 'rm -f "$DEMO_DIR/manifests/storage.json" || true'
 printf '%s\n' ''
 printf '%s\n' '# CA'
 printf '%s\n' '# Generate the certificate authority private key.'
@@ -144,8 +164,8 @@ printf "${RESET}"
 # Create `certs` if it does not already exist.
 mkdir -p "$DEMO_DIR/certs"
 # Clean up
-# Remove `flask-redis-demo.json` if it exists.
-rm -f "$DEMO_DIR/flask-redis-demo.json" || true
+# Remove `storage.json` if it exists.
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 
 # CA
 # Generate the certificate authority private key.
@@ -208,31 +228,19 @@ export SIGNER="$(scone self show-session-signing-key)"
 
 printf "${VIOLET}"
 printf '%s\n' ''
-printf '%s\n' 'Resolve the directory this demo lives in, so every file reference below works regardless of the caller'\''s current working directory:'
+printf '%s\n' 'Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml` if that file does not already exist, then let `tplenv` query all environment variables used by this example:'
 printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Resolve this demo'\''s directory.'
-printf '%s\n' 'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"'
-printf '%s\n' 'export DEMO_DIR="$SCRIPT_DIR/../../demos/flask-redis/"'
-printf "${RESET}"
-
-# Resolve this demo's directory.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export DEMO_DIR="$SCRIPT_DIR/../../demos/flask-redis/"
-
-printf "${VIOLET}"
-printf '%s\n' ''
-printf '%s\n' 'Then let `tplenv` query all environment variables used by this example:'
-printf '%s\n' ''
-printf "${RESET}"
-
-printf "${ORANGE}"
+printf '%s\n' '# Seed Values.yaml from the template on first run only.'
+printf '%s\n' '[ -f "$DEMO_DIR/Values.yaml" ] || cp "$DEMO_DIR/values.template.yaml" "$DEMO_DIR/Values.yaml"'
 printf '%s\n' '# Load environment variables from the tplenv definition file.'
 printf '%s\n' 'eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)'
 printf "${RESET}"
 
+# Seed Values.yaml from the template on first run only.
+[ -f "$DEMO_DIR/Values.yaml" ] || cp "$DEMO_DIR/values.template.yaml" "$DEMO_DIR/Values.yaml"
 # Load environment variables from the tplenv definition file.
 eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 
@@ -648,10 +656,10 @@ printf "${RESET}"
 printf "${ORANGE}"
 printf '%s\n' '# Render the template with the selected values.'
 printf '%s\n' 'tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/scone.yaml" --indent'
-printf '%s\n' '# Remove `flask-redis-demo.json` if it exists.'
-printf '%s\n' 'rm -f "$DEMO_DIR/flask-redis-demo.json" || true'
+printf '%s\n' '# Remove `storage.json` if it exists.'
+printf '%s\n' 'rm -f "$DEMO_DIR/manifests/storage.json" || true'
 printf '%s\n' '# Generate the confidential image and sanitized manifest from the SCONE configuration.'
-printf '%s\n' 'scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"'
+printf '%s\n' '(cd "$DEMO_DIR" && scone-td-build from -y manifests/scone.yaml)'
 printf '%s\n' '# Use the registry-backed Redis SCONE image that the Register step pushed.'
 printf '%s\n' 'if grep -q '\''image: redis:7-bookworm-scone'\'' "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml"; then'
 printf '%s\n' '  sed -i.bak "s|image: redis:7-bookworm-scone|image: ${NATIVE_IMAGE_NAME}-redis-scone|g" "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml"'
@@ -661,10 +669,10 @@ printf "${RESET}"
 
 # Render the template with the selected values.
 tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/scone.yaml" --indent
-# Remove `flask-redis-demo.json` if it exists.
-rm -f "$DEMO_DIR/flask-redis-demo.json" || true
+# Remove `storage.json` if it exists.
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
-scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"
+(cd "$DEMO_DIR" && scone-td-build from -y manifests/scone.yaml)
 # Use the registry-backed Redis SCONE image that the Register step pushed.
 if grep -q 'image: redis:7-bookworm-scone' "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml"; then
   sed -i.bak "s|image: redis:7-bookworm-scone|image: ${NATIVE_IMAGE_NAME}-redis-scone|g" "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml"

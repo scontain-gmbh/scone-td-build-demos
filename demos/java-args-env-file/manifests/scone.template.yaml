@@ -8,9 +8,10 @@ spec:
   destination_image: ${DESTINATION_IMAGE_NAME}
   enforce: ["/opt/java/openjdk/bin/java"]
   push_scone_image: true
-  version: ${SCONE_VERSION}
+  version: ${SCONE_RUNTIME_VERSION}
+  scone_runtime_image: ${SCONE_RUNTIME_IMAGE}
   cvm: ${CVM_MODE}
-  storage: "$DEMO_DIR/manifests/storage.json"
+  storage: "manifests/storage.json"
   manifest_env:
     - {name: SCONE_VERSION, value: "1"}
     - {name: SCONE_SYSLIBS, value: "1"}
@@ -21,13 +22,15 @@ kind: Apply
 metadata:
   name: java-args-env-file-example
 spec:
-  version: ${SCONE_VERSION}
+  version: ${SCONE_RUNTIME_VERSION}
+  scone_runtime_image: ${SCONE_RUNTIME_IMAGE}
+  trusted_cvm_signer_keys: ${CVM_SIGNING_KEY_FILE}
   file:
-    - "$DEMO_DIR/manifests/manifest.yaml"
-  output_manifest_file: "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml"
-  output_session_file: "$DEMO_DIR/manifests/manifest.prod.session.yaml"
+    - "manifests/manifest.yaml"
+  output_manifest_file: "manifests/manifest.prod.sanitized.yaml"
+  output_session_file: "manifests/manifest.prod.session.yaml"
   cas_address: ${SCONE_CAS_ADDR}
-  storage: "$DEMO_DIR/manifests/storage.json"
+  storage: "manifests/storage.json"
   manifest_env:
     - { name: SCONE_VERSION,  value: "1" }
     - { name: SCONE_LOG,      value: "WARNING" }

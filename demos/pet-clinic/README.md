@@ -18,12 +18,12 @@ Only PetClinic is confidential. MariaDB is intentionally native: it keeps its st
 | File | Purpose |
 | --- | --- |
 | `Dockerfile` | Multi-stage build of PetClinic from a pinned upstream commit. |
-| `Values.yaml` | All demo configuration (images, namespace, CAS, DB credentials, `PETCLINIC_REF`). |
-| `environment-variables.md` | The variables `tplenv` collects. |
+| `values.template.yaml` | Defaults for all demo configuration (images, namespace, CAS, DB credentials, `PETCLINIC_REF`); copied to `Values.yaml` on the first run. |
+| `../environment-variables.md` | The variables `tplenv` collects (shared by all demos). |
 | `manifests/secret.template.yaml` | Database credentials Secret. |
 | `manifests/mariadb.template.yaml` | Native MariaDB Deployment and Service. |
 | `manifests/petclinic.template.yaml` | Confidential PetClinic Deployment and Service (apply input). |
-| `scone.template.yaml` | `Register` + `Apply` custom resources for `scone-td-build`. |
+| `manifests/scone.template.yaml` | `Register` + `Apply` custom resources for `scone-td-build`. |
 
 ## 1. Prerequisites
 
@@ -33,12 +33,14 @@ Only PetClinic is confidential. MariaDB is intentionally native: it keeps its st
 
 ## 2. Set Up Environment Variables
 
-Resolve the directory this demo lives in, so every file reference below works regardless of the caller's current working directory:
+Every file reference below goes through `$DEMO_DIR`, this demo's directory. The generated scripts set it for you; when following this README by hand, run the commands from this directory:
 
 ```bash
-# Resolve this demo's directory.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export DEMO_DIR="$SCRIPT_DIR/../../demos/pet-clinic/"
+# The generated scripts set DEMO_DIR to this demo's directory. When following
+# this README by hand, run the commands from `demos/pet-clinic`.
+export DEMO_DIR="${DEMO_DIR:-$PWD}"
+# Remove `storage.json` if it exists.
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 ```
 
 Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml` if that file does not already exist:
@@ -125,7 +127,7 @@ tplenv --file "$DEMO_DIR/manifests/scone.template.yaml"  --values-file "$DEMO_DI
 
 ```bash
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
-scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"
+(cd "$DEMO_DIR" && scone-td-build from -y manifests/scone.yaml)
 ```
 
 ## 6. Deploy MariaDB and PetClinic
@@ -136,7 +138,7 @@ Deploy the native MariaDB and wait for it:
 # Apply the Kubernetes manifest.
 kubectl apply -n "$NAMESPACE" -f "$DEMO_DIR/manifests/secret.yaml" -f "$DEMO_DIR/manifests/mariadb.yaml"
 # Wait for the deployment rollout to complete.
-kubectl rollout status deployment/petclinic-db -n "$NAMESPACE"
+kubectl rollout status deployment/petclinic-db -n "$NAMESPACE" --timeout=300s
 ```
 
 Then deploy the confidential PetClinic:
@@ -145,7 +147,7 @@ Then deploy the confidential PetClinic:
 # Apply the Kubernetes manifest.
 kubectl apply -n "$NAMESPACE" -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml"
 # Wait for the deployment rollout to complete.
-kubectl rollout status deployment/petclinic -n "$NAMESPACE"
+kubectl rollout status deployment/petclinic -n "$NAMESPACE" --timeout=600s
 ```
 
 ## 7. Verify the Deployment
@@ -155,17 +157,32 @@ kubectl rollout status deployment/petclinic -n "$NAMESPACE"
 kubectl get pods -n "$NAMESPACE"
 ```
 
-Open a port-forward to reach the UI:
+Check that the application answers over a temporary port-forward:
 
 ```bash
+# Forward the service port in the background, probe the UI, then stop the port-forward.
+kubectl port-forward -n "$NAMESPACE" svc/petclinic 8080:80 >/dev/null 2>&1 &
+PORT_FORWARD_PID=$!
+sleep 3
+curl -fsS -o /dev/null -w "PetClinic answered with HTTP %{http_code}\n" http://localhost:8080/ || echo "PetClinic did not answer on http://localhost:8080/"
+kill "$PORT_FORWARD_PID" 2>/dev/null || true
+```
+
+To browse the UI yourself, keep a port-forward open in a separate terminal (this block is intentionally not part of the generated script):
+
+```text
 kubectl port-forward -n "$NAMESPACE" svc/petclinic 8080:80
 ```
 
 ## 8. Clean Up
 
+Delete the demo resources (the namespace itself is kept, since it may hold the pull secret or other workloads):
+
 ```bash
-# Delete the Kubernetes namespace.
-kubectl delete namespace "$NAMESPACE"
+# Delete the Kubernetes resources created by this demo.
+kubectl delete -n "$NAMESPACE" --ignore-not-found -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" -f "$DEMO_DIR/manifests/mariadb.yaml" -f "$DEMO_DIR/manifests/secret.yaml"
+# Wait for the Kubernetes resource to reach the expected state.
+kubectl wait --for=delete pod -l app=petclinic -n "$NAMESPACE" --timeout=300s || true
 ```
 
 ## Design Notes
@@ -186,9 +203,9 @@ SCONE_PRODUCTION: '1'
 SCONE_CAS_ADDR: scone-cas.cf
 ```
 
-Then run `./run.sh`. What changes:
+Then re-run the steps above from section 5 (`scone-td-build from`) onwards. What changes:
 
-- `SCONE_PRODUCTION=1` makes the enclave non-debug. Production enclaves must be signed, so `run.sh` generates an enclave signing key (`identity.pem`, RSA-3072) on first use and passes it via `SCONE_KEY`. That key is the MRSIGNER of your image; keep it private (it is git-ignored).
+- `SCONE_PRODUCTION=1` makes the enclave non-debug. Production enclaves must be signed: section 2 generates an enclave signing key (`manifests/identity.pem`, RSA-3072) on first use, which has to be passed to the sconify step via `SCONE_KEY`. That key is the MRSIGNER of your image; keep it private (it is git-ignored).
 - `scone-cas.cf` is SCONE's public CAS. The policy is signed locally (`spol`) and uploaded there.
 
 Caveats:

@@ -10,7 +10,7 @@ spec:
   push_scone_image: true
   version: ${SCONE_RUNTIME_VERSION}
   scone_runtime_image: ${SCONE_RUNTIME_IMAGE}
-  storage: "$DEMO_DIR/manifests/storage.json"
+  storage: "manifests/storage.json"
   cvm: ${CVM_MODE}
   manifest_env:
     - {name: SCONE_VERSION, value: "1"}
@@ -24,11 +24,11 @@ metadata:
   name: configmap-example
 spec:
   file:
-    - "$DEMO_DIR/manifests/manifest.yaml"
-  output_manifest_file: "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml"
-  output_session_file: "$DEMO_DIR/manifests/manifest.prod.session.yaml"
+    - "manifests/manifest.yaml"
+  output_manifest_file: "manifests/manifest.prod.sanitized.yaml"
+  output_session_file: "manifests/manifest.prod.session.yaml"
   cas_address: ${SCONE_CAS_ADDR}
-  storage: "$DEMO_DIR/manifests/storage.json"
+  storage: "manifests/storage.json"
   session_env:
     - {name: SCONE_VERSION, value: "1"}
   manifest_env:

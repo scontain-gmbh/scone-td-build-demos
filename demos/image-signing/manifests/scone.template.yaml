@@ -10,9 +10,9 @@ spec:
   version: ${SCONE_RUNTIME_VERSION}
   scone_runtime_image: ${SCONE_RUNTIME_IMAGE}
   cvm: ${CVM_MODE}
-  storage: "${DEMO_DIR}/manifests/storage.json"
-  signing_key: "${DEMO_DIR}/app/config/image-signing-key.private"
-  signing_passphrase_file: "${DEMO_DIR}/app/config/empty-passphrase.txt"
+  storage: "manifests/storage.json"
+  signing_key: "app/config/image-signing-key.private"
+  signing_passphrase_file: "app/config/empty-passphrase.txt"
   repo_credentials: "${REPO_CREDENTIALS}"
   manifest_env:
     - {name: SCONE_PRODUCTION, value: "0"}
@@ -23,9 +23,9 @@ metadata:
   name: image-signing-example
 spec:
   file:
-    - "${DEMO_DIR}/manifests/manifest.job.yaml"
-  output_manifest_file: "${DEMO_DIR}/manifests/manifest.job.sanitized.yaml"
-  output_session_file: "${DEMO_DIR}/manifests/manifest.job.session.yaml"
+    - "manifests/manifest.job.yaml"
+  output_manifest_file: "manifests/manifest.job.sanitized.yaml"
+  output_session_file: "manifests/manifest.job.session.yaml"
   cas_address: ${SCONE_CAS_ADDR}
   session_env:
     - {name: SCONE_VERSION, value: "1"}

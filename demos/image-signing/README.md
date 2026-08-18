@@ -22,14 +22,14 @@ Follow the [Setup environment](https://github.com/scontain/scone) guide to insta
 
 ## 2. Set Up Environment Variables
 
-Resolve the directory this demo lives in, so every file reference below works regardless of the caller's current working directory, and clean up state left over from a previous run:
+Every file reference below goes through `$DEMO_DIR`, this demo's directory. The generated scripts set it for you; when following this README by hand, run the commands from this directory. Then clean up state left over from a previous run:
 
 ```bash
-# Resolve this demo's directory.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export DEMO_DIR="$SCRIPT_DIR/../../demos/image-signing/"
+# The generated scripts set DEMO_DIR to this demo's directory. When following
+# this README by hand, run the commands from `demos/image-signing`.
+export DEMO_DIR="${DEMO_DIR:-$PWD}"
 # Remove `storage.json` if it exists.
-rm -f "$DEMO_DIR/storage.json" || true
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 ```
 
 Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml` if that file does not already exist:
@@ -60,6 +60,13 @@ Create the demo namespace if it does not already exist:
 kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
 ```
 
+Generate the job manifest with the selected image and pull-secret values:
+
+```bash
+# Render the template with the selected values.
+tplenv --file "$DEMO_DIR/manifests/manifest.job.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/manifest.job.yaml"
+```
+
 ## 3. Add a Docker Registry Secret
 
 If you need a pull secret for native and confidential images, create it when missing:
@@ -86,8 +93,8 @@ The KBS and key provider run in this demo's own `${NAMESPACE}`, not the shared `
 
 ```bash
 # Render the KBS and key-provider manifests into this demo's namespace.
-tplenv --file "$DEMO_DIR/manifests/kbs.template.yaml" --create-values-file --output "$DEMO_DIR/manifests/kbs.yaml"
-tplenv --file "$DEMO_DIR/manifests/key-provider.template.yaml" --create-values-file --output "$DEMO_DIR/manifests/key-provider.yaml"
+tplenv --file "$DEMO_DIR/manifests/kbs.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/kbs.yaml"
+tplenv --file "$DEMO_DIR/manifests/key-provider.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/key-provider.yaml"
 # Deploy the Key Broker Service.
 kubectl apply -f "$DEMO_DIR/manifests/kbs.yaml"
 # Deploy the key provider.
@@ -171,7 +178,7 @@ Before sending encrypted policies to CAS, attest CAS via the Kubernetes API. The
 
 ```bash
 # Attest the CAS instance before sending encrypted policies.
-kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \
+kubectl scone cas attest --namespace "${SCONE_CAS_ADDR#*.}" "${SCONE_CAS_ADDR%%.*}" -C -G -S \
     || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 ```
@@ -195,10 +202,10 @@ Render the SCONE manifest template, then run `scone-td-build from` to register, 
 
 ```bash
 # Render the template with the selected values.
-tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --create-values-file --output "$DEMO_DIR/manifests/scone.yaml" --indent
+tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/scone.yaml" --indent
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
-OCICRYPT_KEYPROVIDER_CONFIG="$DEMO_DIR/app/config/ocicrypt.conf" \
-  scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"
+(cd "$DEMO_DIR" && OCICRYPT_KEYPROVIDER_CONFIG="$DEMO_DIR/app/config/ocicrypt.conf" \
+  scone-td-build from -y manifests/scone.yaml)
 ```
 
 ## 10. Verify Image Signature
@@ -217,9 +224,11 @@ cosign verify --key "$DEMO_DIR/app/config/image-signing-key.pub" --insecure-igno
 
 > **Blocked:** This step requires `ctd-decoder` to be installed on every cluster node and containerd to be configured with the `ocicrypt` stream processor so it can decrypt the encrypted image layers at pull time. Plain k3d clusters do not include this. See [containers/ocicrypt](https://github.com/containers/ocicrypt) for setup instructions.
 >
-> Once the cluster has `ctd-decoder`, deploy the sanitized manifest:
+> Once the cluster has `ctd-decoder`, deploy the sanitized manifest (this block is
+> intentionally not part of the generated script, so it does not fail on clusters
+> without `ctd-decoder`):
 
-```bash
+```text
 # Apply the Kubernetes manifest.
 kubectl apply -f "$DEMO_DIR/manifests/manifest.job.sanitized.yaml" -n ${NAMESPACE}
 # Wait for the Kubernetes resource to reach the expected state.

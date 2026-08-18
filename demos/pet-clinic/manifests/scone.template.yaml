@@ -15,7 +15,7 @@ spec:
   push_scone_image: true
   cvm: ${CVM_MODE}
   version: ${SCONE_RUNTIME_VERSION}
-  storage: "$DEMO_DIR/manifests/storage.json"
+  storage: "manifests/storage.json"
   scone_runtime_image: ${SCONE_RUNTIME_IMAGE}
   manifest_env:
     - {name: SCONE_VERSION, value: "1"}
@@ -29,15 +29,15 @@ kind: Apply
 metadata:
   name: pet-clinic-demo
 spec:
-  # MariaDB is deployed natively (see $DEMO_DIR/manifests/mariadb.yaml) and is intentionally not
+  # MariaDB is deployed natively (see manifests/mariadb.yaml) and is intentionally not
   # part of the apply input. The Secret is included so apply can resolve
   # PetClinic's `secretKeyRef` datasource credentials into the confidential
   # session.
   file:
-    - "$DEMO_DIR/manifests/secret.yaml"
-    - "$DEMO_DIR/manifests/petclinic.yaml"
-  output_manifest_file: "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml"
-  output_session_file: "$DEMO_DIR/manifests/manifest.prod.session.yaml"
+    - "manifests/secret.yaml"
+    - "manifests/petclinic.yaml"
+  output_manifest_file: "manifests/manifest.prod.sanitized.yaml"
+  output_session_file: "manifests/manifest.prod.session.yaml"
   cas_address: ${SCONE_CAS_ADDR}
   manifest_env:
     - {name: SCONE_VERSION, value: "1"}
@@ -49,7 +49,7 @@ spec:
   spol: true
   cvm: ${CVM_MODE}
   scone_enclave: ${SCONE_ENCLAVE}
-  storage: "$DEMO_DIR/manifests/storage.json"
+  storage: "manifests/storage.json"
   version: ${SCONE_RUNTIME_VERSION}
   scone_runtime_image: ${SCONE_RUNTIME_IMAGE}
   trusted_cvm_signer_keys: ${CVM_SIGNING_KEY_FILE}

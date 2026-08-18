@@ -54,7 +54,7 @@ show_help() {
   cat <<USAGE
 Usage: $0 [--help] [--non-interactive]
 
-Runs a demo-style shell script generated from /home/daniel/scone-td-build-demos/scripts/../demos/software-updates/README.md.
+Runs a demo-style shell script generated from demos/software-updates/README.md.
 
 Options:
   --help             Show this help message and exit.
@@ -101,6 +101,10 @@ fi
 unset CONFIRM_ALL_ENVIRONMENT_VARIABLES || true
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Directory of the README this script was generated from. The README
+# code blocks use it for every file reference so the script works from
+# any working directory.
+export DEMO_DIR="$(cd "${script_dir}/../demos/software-updates" && pwd)"
 
 printf "%b" "$LILAC"
 printf '%s\n' '# Software Updates for Confidential Python Applications'
@@ -116,19 +120,18 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## Project Structure'
 printf '%s\n' ''
-printf '%s\n' 'software-updates/'
-printf '%s\n' '├── print_env1.py                  # Version 1: prints checksum, loops every 10s'
-printf '%s\n' '├── print_env2.py                  # Version 2: same loop, different greeting'
-printf '%s\n' '├── Dockerfile                     # Builds either version via --build-arg VERSION=1|2'
-printf '%s\n' '├── requirements.txt               # No external dependencies (stdlib only)'
-printf '%s\n' '├── scone.v1.template.yaml         # SCONE Register + Apply template for Version 1'
-printf '%s\n' '├── scone.v2.template.yaml         # SCONE Register + Apply template for Version 2'
-printf '%s\n' '├── environment-variables.md       # tplenv variable definitions'
-printf '%s\n' '├── registry.credentials.md        # tplenv registry credential definitions'
+printf '%s\n' 'demos/software-updates/'
+printf '%s\n' '├── app/'
+printf '%s\n' '│   ├── print_env1.py              # Version 1: prints checksum, loops every 10s'
+printf '%s\n' '│   ├── print_env2.py              # Version 2: same loop, different greeting'
+printf '%s\n' '│   └── Dockerfile                 # Builds either version via --build-arg VERSION=1|2'
 printf '%s\n' '├── manifests/'
 printf '%s\n' '│   ├── manifest.v1.template.yaml  # Kubernetes Deployment template for Version 1'
 printf '%s\n' '│   ├── manifest.v2.template.yaml  # Kubernetes Deployment template for Version 2'
+printf '%s\n' '│   ├── scone.v1.template.yaml     # SCONE Register + Apply template for Version 1'
+printf '%s\n' '│   ├── scone.v2.template.yaml     # SCONE Register + Apply template for Version 2'
 printf '%s\n' '│   └── scone-secret.yaml          # SconeSecret: CAS generates API_PASSWORD'
+printf '%s\n' '├── values.template.yaml           # default values, copied to Values.yaml on first run'
 printf '%s\n' '└── README.md'
 printf '%s\n' ''
 printf '%s\n' '---'
@@ -146,20 +149,20 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## 1. Set Up the Environment'
 printf '%s\n' ''
-printf '%s\n' 'Resolve the directory this demo lives in, so every file reference below works regardless of the caller'\''s current working directory, and clean up state left over from a previous run:'
+printf '%s\n' 'Every file reference below goes through `$DEMO_DIR`, this demo'\''s directory. The generated scripts set it for you; when following this README by hand, run the commands from this directory. Then clean up state left over from a previous run:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Resolve this demo's directory.
+# The generated scripts set DEMO_DIR to this demo's directory. When following
 EOF
 )"
 pe "$(cat <<'EOF'
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# this README by hand, run the commands from `demos/software-updates`.
 EOF
 )"
 pe "$(cat <<'EOF'
-export DEMO_DIR="$SCRIPT_DIR/../../demos/software-updates/"
+export DEMO_DIR="${DEMO_DIR:-$PWD}"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -167,17 +170,25 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-rm -f "$DEMO_DIR/software-updates-demo.json" "$DEMO_DIR/manifests/scone.v1.yaml" "$DEMO_DIR/manifests/scone.v2.yaml" "$DEMO_DIR/manifests/manifest.v1.yaml" "$DEMO_DIR/manifests/manifest.v2.yaml" "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" "$DEMO_DIR/manifests/manifest.prod.session.yaml" || true
+rm -f "$DEMO_DIR/manifests/storage.json" "$DEMO_DIR/manifests/scone.v1.yaml" "$DEMO_DIR/manifests/scone.v2.yaml" "$DEMO_DIR/manifests/manifest.v1.yaml" "$DEMO_DIR/manifests/manifest.v2.yaml" "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" "$DEMO_DIR/manifests/manifest.prod.session.yaml" || true
 EOF
 )"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' 'Load the full variable set from `environment-variables.md` first, so `NAMESPACE` and'
-printf '%s\n' '`CVM_MODE` are available to derive the CAS session namespace below:'
+printf '%s\n' '`CVM_MODE` are available to derive the CAS session namespace below. Default values live in `$DEMO_DIR/values.template.yaml`; copy it to `Values.yaml` if that file does not already exist:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
+pe "$(cat <<'EOF'
+# Seed Values.yaml from the template on first run only.
+EOF
+)"
+pe "$(cat <<'EOF'
+[ -f "$DEMO_DIR/Values.yaml" ] || cp "$DEMO_DIR/values.template.yaml" "$DEMO_DIR/Values.yaml"
+EOF
+)"
 pe "$(cat <<'EOF'
 # Load environment variables from the tplenv definition file.
 EOF
@@ -488,7 +499,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-rm -f "$DEMO_DIR/software-updates-demo.json" || true
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -496,7 +507,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-scone-td-build from -y "$DEMO_DIR/manifests/scone.v1.yaml"
+(cd "$DEMO_DIR" && scone-td-build from -y manifests/scone.v1.yaml)
 EOF
 )"
 
@@ -625,7 +636,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-scone-td-build from -y "$DEMO_DIR/manifests/scone.v2.yaml"
+(cd "$DEMO_DIR" && scone-td-build from -y manifests/scone.v2.yaml)
 EOF
 )"
 

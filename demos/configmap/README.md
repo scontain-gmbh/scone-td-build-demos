@@ -2,7 +2,7 @@
 
 This example shows how to manage and access configuration data in Kubernetes with a `ConfigMap` and a SCONE-enabled Rust application. You start with a plain (unencrypted) deployment and then move to a fully protected SCONE deployment.
 
-[![ConfigMap Example](../docs/configmap.gif)](../docs/configmap.mp4)
+[![ConfigMap Example](../../docs/configmap.gif)](../../docs/configmap.mp4)
 
 ## 1. Prerequisites
 
@@ -18,14 +18,14 @@ Follow the [Setup environment](https://github.com/scontain/scone) guide. The eas
 
 ## 3. Set Up Environment Variables
 
-Resolve the directory this demo lives in, so every file reference below works regardless of the caller's current working directory, and clean up state left over from a previous run:
+Every file reference below goes through `$DEMO_DIR`, this demo's directory. The generated scripts set it for you; when following this README by hand, run the commands from this directory. Then clean up state left over from a previous run:
 
 ```bash
-# Resolve this demo's directory.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export DEMO_DIR="$SCRIPT_DIR/../../demos/configmap/"
-# Remove `configmap-example.json` if it exists.
-rm -f "$DEMO_DIR/configmap-example.json" || true
+# The generated scripts set DEMO_DIR to this demo's directory. When following
+# this README by hand, run the commands from `demos/configmap`.
+export DEMO_DIR="${DEMO_DIR:-$PWD}"
+# Remove `storage.json` if it exists.
+rm -f "$DEMO_DIR/manifests/storage.json" || true
 ```
 
 Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml` if that file does not already exist:
@@ -48,8 +48,6 @@ Load the full variable set from `environment-variables.md`, which also defines t
 # Load environment variables from the tplenv definition file.
 eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
 ```
-
-values-file
 
 Create the demo namespace if it does not already exist. The fallback echo keeps re-runs idempotent.
 
@@ -118,14 +116,14 @@ First, attest the CAS so the local SCONE CLI has the correct session encryption 
 
 ```bash
 # Attest the CAS instance before sending encrypted policies.
-kubectl scone cas attest --namespace ${SCONE_CAS_ADDR} -C -G -S \
+kubectl scone cas attest --namespace "${SCONE_CAS_ADDR#*.}" "${SCONE_CAS_ADDR%%.*}" -C -G -S \
   || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \
     --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 ```
 
 ```bash
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
-scone-td-build from -y "$DEMO_DIR/manifests/scone.yaml"
+(cd "$DEMO_DIR" && scone-td-build from -y manifests/scone.yaml)
 ```
 
 This command:

@@ -1,17 +1,17 @@
 # GitHub Actions on a Self-Hosted Runner
 
-This repository includes a GitHub Actions workflow at [`.github/workflows/test-examples-self-hosted.yml`](.github/workflows/test-examples-self-hosted.yml) that runs all examples on a self-hosted runner against an existing Kubernetes cluster.
+This repository includes a GitHub Actions workflow at [`.github/workflows/test-examples-self-hosted.yml`](../../.github/workflows/test-examples-self-hosted.yml) that runs all examples on a self-hosted runner against an existing Kubernetes cluster.
 
 The job itself runs inside the container image `registry.scontain.com/workshop/scone`, so the SCONE and Kubernetes tools come from that image instead of being installed directly on the runner host.
 
-The workflow uses [`./scripts/run-all-scripts.sh`](./scripts/run-all-scripts.sh) and runs the examples twice:
+The workflow uses [`./scripts/run-all-demos.sh`](../../scripts/run-all-demos.sh) and runs the examples twice:
 
 1. in SGX mode
 2. in CVM mode
 
 For pull requests from forks, the workflow is skipped because GitHub does not expose repository secrets to those runs.
 
-Before each run it calls [`./scripts/prepare-example-ci.sh`](./scripts/prepare-example-ci.sh) to:
+Before each run it calls [`./scripts/prepare-example-ci.sh`](../../scripts/prepare-example-ci.sh) to:
 
 - update the example `Values.yaml` files for the selected mode
 - ensure the required Kubernetes image-pull secrets exist
@@ -152,9 +152,9 @@ The workflow:
 3. writes `KUBECONFIG_B64` to a kubeconfig file inside the job container
 4. validates the toolchain inside the job container
 5. prepares SGX values and image-pull secrets
-6. runs `./scripts/run-all-scripts.sh --continue-on-failure`
+6. runs `./scripts/run-all-demos.sh --continue-on-failure`
 7. prepares CVM values and image-pull secrets
-8. runs `./scripts/run-all-scripts.sh --continue-on-failure` again
+8. runs `./scripts/run-all-demos.sh --continue-on-failure` again
 9. fails the workflow if either SGX or CVM had failing examples
 
 The runner uses the existing Kubernetes cluster referenced by the provided kubeconfig. No cluster is created by the workflow itself.

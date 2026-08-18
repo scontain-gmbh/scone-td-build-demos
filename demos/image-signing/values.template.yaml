@@ -4,8 +4,10 @@ environment:
   REPO_CREDENTIALS: ${HOME}/.docker/config.json
   SCONE_CAS_ADDR: cas.default
   DESTINATION_IMAGE_NAME: registry.scontain.com/k8s-scone-images/image-signing:scone
-  CVM_MODE: ''
-  SCONE_ENCLAVE: ''
+  CVM_MODE: false
+  SCONE_ENCLAVE: false
   REGISTRY: registry.scontain.com
-  SCONE_RUNTIME_VERSION: 6.1.0-rc.0
+  SCONE_RUNTIME_VERSION: 7.0.0-alpha.4
   NAMESPACE: ci-scone-td-build
+  SCONE_RUNTIME_IMAGE: registry.scontain.com/sergey/test:scone-deb-pkgs-scone7.0.0-rc-cvm-mode
+  CVM_SIGNING_KEY_FILE: /tmp/kbs-signer.pem
