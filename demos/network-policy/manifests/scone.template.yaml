@@ -1,0 +1,71 @@
+apiVersion: scone.cloud/v1
+kind: Register
+metadata:
+  name: netshield
+spec:
+  protected_image: ${CLIENT_IMAGE}
+  unprotected_image: ${CLIENT_IMAGE}
+  enforce: ["/usr/local/bin/client-rust"]
+  push_scone_image: true
+  cvm: ${CVM_MODE}
+  version: ${SCONE_RUNTIME_VERSION}
+  scone_runtime_image: ${SCONE_RUNTIME_IMAGE}
+  storage: "manifests/storage.json"
+  manifest_env:
+    - {name: SCONE_VERSION, value: "1"}
+    - {name: SCONE_SYSLIBS, value: "1"}
+    - {name: SCONE_PRODUCTION, value: "0"}
+    - {name: SCONE_HEAP, value: "2G"}
+---
+apiVersion: scone.cloud/v1
+kind: Register
+metadata:
+  name: netshield
+spec:
+  protected_image: ${SERVER_IMAGE}
+  unprotected_image: ${SERVER_IMAGE}
+  enforce: ["/usr/local/bin/server-rust"]
+  push_scone_image: true
+  cvm: ${CVM_MODE}
+  version: ${SCONE_RUNTIME_VERSION}
+  scone_runtime_image: ${SCONE_RUNTIME_IMAGE}
+  storage: "manifests/storage.json"
+  manifest_env:
+    - {name: SCONE_VERSION, value: "1"}
+    - {name: SCONE_SYSLIBS, value: "1"}
+    - {name: SCONE_PRODUCTION, value: "0"}
+    - {name: SCONE_HEAP, value: "2G"}
+---
+apiVersion: scone.cloud/v1
+kind: Apply
+metadata:
+  name: netshield
+spec:
+  file:
+    - "manifests/manifest.yaml"
+  output_manifest_file: "manifests/manifest.prod.sanitized.yaml"
+  output_session_file: "manifests/manifest.prod.session.yaml"
+  cas_address: ${SCONE_CAS_ADDR}
+  session_env:
+    - {name: SCONE_VERSION, value: "1"}
+  manifest_env:
+    - {name: SCONE_VERSION, value: "1"}
+    - {name: SCONE_SYSLIBS, value: "1"}
+    - {name: SCONE_PRODUCTION, value: "0"}
+    - {name: SCONE_HEAP, value: "2G"}
+  permissive: true
+  spol: true
+  cvm: ${CVM_MODE}
+  scone_enclave: ${SCONE_ENCLAVE}
+  version: ${SCONE_RUNTIME_VERSION}
+  scone_runtime_image: ${SCONE_RUNTIME_IMAGE}
+  trusted_cvm_signer_keys: ${CVM_SIGNING_KEY_FILE}
+  access_policy:
+    read:
+      - ANY
+    update:
+      - signer: |
+          ${SIGNER}
+    create_sessions:
+      - signer: |
+          ${SIGNER}

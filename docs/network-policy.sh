@@ -54,7 +54,7 @@ show_help() {
   cat <<USAGE
 Usage: $0 [--help] [--non-interactive]
 
-Runs a demo-style shell script generated from network-policy/README.md.
+Runs a demo-style shell script generated from demos/network-policy/README.md.
 
 Options:
   --help             Show this help message and exit.
@@ -101,22 +101,17 @@ fi
 unset CONFIRM_ALL_ENVIRONMENT_VARIABLES || true
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-expected_workdir="$(cd "${script_dir}/.." && pwd)"
-expected_invocation="./$(basename "${script_dir}")/$(basename "$0")"
-
-if [[ "$(pwd)" != "$expected_workdir" ]]; then
-  echo "Error: Wrong working directory." >&2
-  echo "Expected working directory: $expected_workdir" >&2
-  echo "Run this script as: $expected_invocation" >&2
-  exit 1
-fi
+# Directory of the README this script was generated from. The README
+# code blocks use it for every file reference so the script works from
+# any working directory.
+export DEMO_DIR="$(cd "${script_dir}/../demos/network-policy" && pwd)"
 
 printf "%b" "$LILAC"
 printf '%s\n' '# Network Policy'
 printf '%s\n' ''
 printf '%s\n' 'This guide explains how to build, deploy, and test the **Network Policy demo** with `scone-td-build`. You will build client and server images, generate SCONE-protected images, apply Kubernetes manifests, and verify the result.'
 printf '%s\n' ''
-printf '%s\n' '[![Network Policy Example](../docs/network-policy.gif)](../docs/network-policy.mp4)'
+printf '%s\n' '[![Network Policy Example](../../docs/network-policy.gif)](../../docs/network-policy.mp4)'
 printf '%s\n' ''
 printf '%s\n' '## 1. Prerequisites'
 printf '%s\n' ''
@@ -127,29 +122,6 @@ printf '%s\n' '- A Kubernetes cluster with `kubectl` configured'
 printf '%s\n' '- `tplenv`'
 printf '%s\n' '- `scone-td-build` built locally'
 printf '%s\n' '- Access to a container registry where you can push images'
-printf '%s\n' ''
-printf '%s\n' 'Switch to the demo directory:'
-printf '%s\n' ''
-printf "%b" "$RESET"
-
-pe "$(cat <<'EOF'
-# Change into `network-policy`.
-EOF
-)"
-pe "$(cat <<'EOF'
-cd network-policy
-EOF
-)"
-pe "$(cat <<'EOF'
-# Remove `netshield.json` if it exists.
-EOF
-)"
-pe "$(cat <<'EOF'
-rm -f netshield.json || true
-EOF
-)"
-
-printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '## 2. Build Images'
 printf '%s\n' ''
@@ -168,16 +140,55 @@ EOF
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' 'Initialize environment variables from `environment-variables.md` using `tplenv`:'
+printf '%s\n' 'Every file reference below goes through `$DEMO_DIR`, this demo'\''s directory. The generated scripts set it for you; when following this README by hand, run the commands from this directory. Then clean up state left over from a previous run:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
+pe "$(cat <<'EOF'
+# The generated scripts set DEMO_DIR to this demo's directory. When following
+EOF
+)"
+pe "$(cat <<'EOF'
+# this README by hand, run the commands from `demos/network-policy`.
+EOF
+)"
+pe "$(cat <<'EOF'
+export DEMO_DIR="${DEMO_DIR:-$PWD}"
+EOF
+)"
+pe "$(cat <<'EOF'
+
+EOF
+)"
+pe "$(cat <<'EOF'
+# Remove `storage.json` if it exists.
+EOF
+)"
+pe "$(cat <<'EOF'
+rm -f "$DEMO_DIR/manifests/storage.json" || true
+EOF
+)"
+
+printf "%b" "$LILAC"
+printf '%s\n' ''
+printf '%s\n' 'Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml` if that file does not already exist, then initialize environment variables from `environment-variables.md` using `tplenv`:'
+printf '%s\n' ''
+printf "%b" "$RESET"
+
+pe "$(cat <<'EOF'
+# Seed Values.yaml from the template on first run only.
+EOF
+)"
+pe "$(cat <<'EOF'
+[ -f "$DEMO_DIR/Values.yaml" ] || cp "$DEMO_DIR/values.template.yaml" "$DEMO_DIR/Values.yaml"
+EOF
+)"
 pe "$(cat <<'EOF'
 # Load environment variables from the tplenv definition file.
 EOF
 )"
 pe "$(cat <<'EOF'
-eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 EOF
 )"
 
@@ -207,7 +218,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-docker build -t $SERVER_IMAGE "server/"
+docker build -t $SERVER_IMAGE "$DEMO_DIR/app/server/"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -215,7 +226,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-docker build -t $CLIENT_IMAGE "client/"
+docker build -t $CLIENT_IMAGE "$DEMO_DIR/app/client/"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -252,7 +263,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-tplenv --file "./manifest.template.yaml" --output "./manifest.yaml"
+tplenv --file "$DEMO_DIR/manifests/manifest.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --output "$DEMO_DIR/manifests/manifest.yaml"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -260,7 +271,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-tplenv --file "./scone.template.yaml" --output "./scone.yaml" --indent
+tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --output "$DEMO_DIR/manifests/scone.yaml" --indent
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -268,7 +279,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-scone-td-build from -y ./scone.yaml
+(cd "$DEMO_DIR" && scone-td-build from -y manifests/scone.yaml)
 EOF
 )"
 
@@ -306,7 +317,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl apply -f "manifest.prod.sanitized.yaml" -n ${NAMESPACE}
+kubectl apply -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" -n ${NAMESPACE}
 EOF
 )"
 
@@ -401,7 +412,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl delete -f manifest.prod.sanitized.yaml -n ${NAMESPACE}
+kubectl delete -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" -n ${NAMESPACE}
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -418,14 +429,6 @@ EOF
 )"
 pe "$(cat <<'EOF'
 rm /tmp/pf-3000.pid
-EOF
-)"
-pe "$(cat <<'EOF'
-# Return to the previous working directory.
-EOF
-)"
-pe "$(cat <<'EOF'
-cd -
 EOF
 )"
 

@@ -1,0 +1,45 @@
+environment:
+  # Set these to image paths in a registry you can push to.
+  NATIVE_IMAGE_NAME: registry.scontain.com/k8s-scone-images/pet-clinic:native
+  DESTINATION_IMAGE_NAME: registry.scontain.com/k8s-scone-images/pet-clinic:protected
+
+  # MariaDB image (runs natively next to the confidential PetClinic).
+  MARIADB_IMAGE: mariadb:11.4
+
+  # Optional confidential-MariaDB variant (conf-mariadb/deploy.sh): the SCONE
+  # product images for the mariadb-spr chart. Newest available builds (there is
+  # no scone6.1.0 build; MaxScale only ships a scone5.8.0 build, its chart
+  # default). These images are debug-signed (see conf-mariadb/README.md).
+  MARIADB_SCONE_IMAGE: 'registry.scontain.com/sconecuratedimages/experimental/mariadb:10.11-alpine-native-encryption-scone6.0.1-rc.1_cloud-multi-cluster'
+  MAXME_IMAGE: 'registry.scontain.com/sconecuratedimages/experimental/maxme:1.0.0-scone-6.0.2'
+
+  # Kubernetes namespace and pull secret used for all resources.
+  NAMESPACE: pet-clinic
+  IMAGE_PULL_SECRET_NAME: sconeapps
+
+  # Defaults to a local in-cluster CAS. For SCONE's public CAS set
+  # (i.e. scone-cas.cf).
+  SCONE_RUNTIME_VERSION: 7.0.0-alpha.4
+  SCONE_CAS_ADDR: cas.default
+  SCONE_RUNTIME_IMAGE: registry.scontain.com/sergey/test:scone-deb-pkgs-scone7.0.0-rc-cvm-mode
+  CVM_SIGNING_KEY_FILE: /tmp/kbs-signer.pem
+
+  # 0 = SGX debug enclaves (easy local testing).
+  # 1 = production (non-debug) enclaves: run.sh generates an enclave signing key
+  #     (identity.pem) and typically you attest against the public CAS
+  #     (scone-cas.cf). See the "Production mode" section in the README.
+  SCONE_PRODUCTION: '0'
+
+  # SGX by default. For CVM set CVM_MODE=true (and SCONE_ENCLAVE=true on
+  # confidential nodes).
+  CVM_MODE: false
+  SCONE_ENCLAVE: false
+
+  # Upstream spring-petclinic git ref built into the app image.
+  PETCLINIC_REF: 51045d1648dad955df586150c1a1a6e22ef400c2
+
+  # Demo database credentials (not personal; change if you like).
+  DB_NAME: petclinic
+  DB_USER: petclinic
+  DB_PASSWORD: petclinic
+  DB_ROOT_PASSWORD: rootpass

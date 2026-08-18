@@ -54,7 +54,7 @@ show_help() {
   cat <<USAGE
 Usage: $0 [--help] [--non-interactive]
 
-Runs a demo-style shell script generated from java-args-env-file/README.md.
+Runs a demo-style shell script generated from demos/java-args-env-file/README.md.
 
 Options:
   --help             Show this help message and exit.
@@ -101,15 +101,10 @@ fi
 unset CONFIRM_ALL_ENVIRONMENT_VARIABLES || true
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-expected_workdir="$(cd "${script_dir}/.." && pwd)"
-expected_invocation="./$(basename "${script_dir}")/$(basename "$0")"
-
-if [[ "$(pwd)" != "$expected_workdir" ]]; then
-  echo "Error: Wrong working directory." >&2
-  echo "Expected working directory: $expected_workdir" >&2
-  echo "Run this script as: $expected_invocation" >&2
-  exit 1
-fi
+# Directory of the README this script was generated from. The README
+# code blocks use it for every file reference so the script works from
+# any working directory.
+export DEMO_DIR="$(cd "${script_dir}/../demos/java-args-env-file" && pwd)"
 
 printf "%b" "$LILAC"
 printf '%s\n' '# java-args-env-file (Java)'
@@ -123,15 +118,17 @@ printf '%s\n' ''
 printf '%s\n' '## Project layout'
 printf '%s\n' ''
 printf '%s\n' '.'
-printf '%s\n' '├── Main.java                  # application source'
-printf '%s\n' '├── Dockerfile                 # two-stage image: JDK builder → JRE runtime'
-printf '%s\n' '├── environment-variables.md   # tplenv variable definitions and defaults'
-printf '%s\n' '└── manifests/'
-printf '%s\n' '    ├── manifest.yaml                 # rendered native manifest'
-printf '%s\n' '    ├── scone.yaml                      # rendered SCONE manifest'
-printf '%s\n' '    ├── manifest.template.yaml          # Kubernetes Job + ConfigMap + Secret template (tplenv)'
-printf '%s\n' '    ├── scone.template.yaml             # SCONE manifest template'
-printf '%s\n' '    └── manifest.prod.sanitized.yaml    # produced by scone-td-build'
+printf '%s\n' '├── app/'
+printf '%s\n' '│   ├── Main.java              # application source'
+printf '%s\n' '│   └── Dockerfile             # two-stage image: JDK builder → JRE runtime'
+printf '%s\n' '├── manifests/'
+printf '%s\n' '│   ├── manifest.template.yaml          # Kubernetes Job + ConfigMap + Secret template (tplenv)'
+printf '%s\n' '│   ├── scone.template.yaml             # SCONE manifest template'
+printf '%s\n' '│   ├── manifest.yaml                   # rendered native manifest (generated)'
+printf '%s\n' '│   ├── scone.yaml                      # rendered SCONE manifest (generated)'
+printf '%s\n' '│   └── manifest.prod.sanitized.yaml    # produced by scone-td-build (generated)'
+printf '%s\n' '├── values.template.yaml       # default values, copied to Values.yaml on first run'
+printf '%s\n' '└── README.md'
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
@@ -154,37 +151,6 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## 3. Set Up Environment Variables'
 printf '%s\n' ''
-printf '%s\n' 'Default values are stored in `Values.yaml`. `tplenv` asks whether to keep the defaults and then sets these variables:'
-printf '%s\n' ''
-printf '%s\n' '- `$DEMO_IMAGE` — Name of the native image to deploy'
-printf '%s\n' '- `$DESTINATION_IMAGE_NAME` — Name of the confidential (SCONE-protected) image'
-printf '%s\n' '- `$IMAGE_PULL_SECRET_NAME` — Pull secret name (default: `sconeapps`)'
-printf '%s\n' '- `$SCONE_VERSION` — SCONE version to use (for example, `6.1.0-rc.0`)'
-printf '%s\n' '- `$CAS_NAMESPACE` — CAS namespace (for example, `default`)'
-printf '%s\n' '- `$CAS_NAME` — CAS name (for example, `cas`)'
-printf '%s\n' '- `$CVM_MODE` — Set to `--cvm` for CVM mode, otherwise leave empty for SGX'
-printf '%s\n' '- `$SCONE_ENCLAVE` — In CVM mode, set to `--scone-enclave` for confidential nodes, or leave empty for Kata Pods'
-printf '%s\n' '- `$NAMESPACE` — namespace name (for example, `java-demo`)'
-printf '%s\n' ''
-printf '%s\n' 'Assume you start in `scone-td-build-demos` and switch into this demo directory:'
-printf '%s\n' ''
-printf "%b" "$RESET"
-
-pe "$(cat <<'EOF'
-# Change into `java-args-env-file`.
-EOF
-)"
-pe "$(cat <<'EOF'
-pushd java-args-env-file
-EOF
-)"
-pe "$(cat <<'EOF'
-rm -f java-args-env-file-example.json || true
-EOF
-)"
-
-printf "%b" "$LILAC"
-printf '%s\n' ''
 printf '%s\n' 'Set `SIGNER` for policy signing:'
 printf '%s\n' ''
 printf "%b" "$RESET"
@@ -196,12 +162,54 @@ EOF
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
+printf '%s\n' 'Every file reference below goes through `$DEMO_DIR`, this demo'\''s directory. The generated scripts set it for you; when following this README by hand, run the commands from this directory. Then clean up state left over from a previous run:'
+printf '%s\n' ''
+printf "%b" "$RESET"
+
+pe "$(cat <<'EOF'
+# The generated scripts set DEMO_DIR to this demo's directory. When following
+EOF
+)"
+pe "$(cat <<'EOF'
+# this README by hand, run the commands from `demos/java-args-env-file`.
+EOF
+)"
+pe "$(cat <<'EOF'
+export DEMO_DIR="${DEMO_DIR:-$PWD}"
+EOF
+)"
+pe "$(cat <<'EOF'
+# Remove `storage.json` if it exists.
+EOF
+)"
+pe "$(cat <<'EOF'
+rm -f "$DEMO_DIR/manifests/storage.json" || true
+EOF
+)"
+
+printf "%b" "$LILAC"
+printf '%s\n' ''
+printf '%s\n' 'Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml` if that file does not already exist:'
+printf '%s\n' ''
+printf "%b" "$RESET"
+
+pe "$(cat <<'EOF'
+# Seed Values.yaml from the template on first run only.
+EOF
+)"
+pe "$(cat <<'EOF'
+[ -f "$DEMO_DIR/Values.yaml" ] || cp "$DEMO_DIR/values.template.yaml" "$DEMO_DIR/Values.yaml"
+EOF
+)"
+
+printf "%b" "$LILAC"
+printf '%s\n' ''
 printf '%s\n' 'Load the full variable set from `environment-variables.md`:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 EOF
 )"
 
@@ -218,11 +226,11 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-docker build -t ${DEMO_IMAGE} .
+docker build -t ${NATIVE_IMAGE_NAME} "$DEMO_DIR/app"
 EOF
 )"
 pe "$(cat <<'EOF'
-docker push ${DEMO_IMAGE}
+docker push ${NATIVE_IMAGE_NAME}
 EOF
 )"
 
@@ -237,11 +245,11 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-tplenv --file manifests/manifest.template.yaml --create-values-file --output manifests/manifest.yaml --indent
+tplenv --file "$DEMO_DIR/manifests/manifest.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/manifest.yaml" --indent
 EOF
 )"
 pe "$(cat <<'EOF'
-tplenv --file manifests/scone.template.yaml    --create-values-file --output manifests/scone.yaml    --indent
+tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --values-file "$DEMO_DIR/Values.yaml"    --create-values-file --output "$DEMO_DIR/manifests/scone.yaml"    --indent
 EOF
 )"
 
@@ -254,10 +262,6 @@ printf '%s\n' ''
 printf '%s\n' '## 6. Add a Docker Registry Secret'
 printf '%s\n' ''
 printf '%s\n' 'If you need a pull secret for native and confidential images, create it when missing:'
-printf '%s\n' ''
-printf '%s\n' '- `$REGISTRY` — Registry hostname (default: `registry.scontain.com`)'
-printf '%s\n' '- `$REGISTRY_USER` — Registry login name'
-printf '%s\n' '- `$REGISTRY_TOKEN` — Registry pull token (see <https://sconedocs.github.io/registry/>)'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
@@ -286,10 +290,6 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
-EOF
-)"
-pe "$(cat <<'EOF'
   kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \
     --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
 EOF
@@ -314,7 +314,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl apply -f manifests/manifest.yaml -n ${NAMESPACE}
+kubectl apply -f "$DEMO_DIR/manifests/manifest.yaml" -n ${NAMESPACE}
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -339,7 +339,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl delete -f manifests/manifest.yaml -n ${NAMESPACE}
+kubectl delete -f "$DEMO_DIR/manifests/manifest.yaml" -n ${NAMESPACE}
 EOF
 )"
 
@@ -353,7 +353,7 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## 8. Prepare and Apply the SCONE Manifest'
 printf '%s\n' ''
-printf '%s\n' 'First, attest the CAS so the local SCONE CLI has the correct session encryption key. The kubectl path covers an in-cluster CAS; if it fails (typical when `${CAS_NAME}.${CAS_NAMESPACE}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.'
+printf '%s\n' 'First, attest the CAS so the local SCONE CLI has the correct session encryption key. The kubectl path covers an in-cluster CAS; if it fails (typical when `${SCONE_CAS_ADDR}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
@@ -362,8 +362,8 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S \
-    || scone cas attest ${CAS_NAME}.${CAS_NAMESPACE} -C -G -S \
+kubectl scone cas attest --namespace "${SCONE_CAS_ADDR#*.}" "${SCONE_CAS_ADDR%%.*}" -C -G -S \
+    || scone cas attest ${SCONE_CAS_ADDR} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 EOF
 )"
@@ -379,7 +379,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-scone-td-build from -y manifests/scone.yaml
+(cd "$DEMO_DIR" && scone-td-build from -y manifests/scone.yaml)
 EOF
 )"
 
@@ -389,7 +389,7 @@ printf '%s\n' 'This command:'
 printf '%s\n' ''
 printf '%s\n' '- Generates a SCONE session'
 printf '%s\n' '- Attaches the session to your manifest'
-printf '%s\n' '- Produces `manifests/manifest.prod.sanitized.yaml`'
+printf '%s\n' '- Produces `$DEMO_DIR/manifests/manifest.prod.sanitized.yaml`'
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
@@ -402,7 +402,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl apply -f manifests/manifest.prod.sanitized.yaml -n ${NAMESPACE}
+kubectl apply -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" -n ${NAMESPACE}
 EOF
 )"
 
@@ -436,15 +436,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl delete -f manifests/manifest.prod.sanitized.yaml -n ${NAMESPACE}
-EOF
-)"
-pe "$(cat <<'EOF'
-# Return to the previous working directory.
-EOF
-)"
-pe "$(cat <<'EOF'
-popd
+kubectl delete -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" -n ${NAMESPACE}
 EOF
 )"
 
