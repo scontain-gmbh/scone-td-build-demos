@@ -41,8 +41,7 @@ spec:
     - "${SCRIPT_DIR}/manifest.yaml"
   output_manifest_file: "${SCRIPT_DIR}/manifest.prod.sanitized.yaml"
   output_session_file: "${SCRIPT_DIR}/manifest.prod.session.yaml"
-  cas_address:
-    address: ${CAS_NAME}.${CAS_NAMESPACE}
+  cas_address: https://${CAS_NAME}.${CAS_NAMESPACE}:8081
   session_env:
     - {name: SCONE_VERSION, value: "1"}
   manifest_env:

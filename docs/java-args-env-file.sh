@@ -415,11 +415,19 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+# Wait until the protected JVM pod is available before selecting it for logs.
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl rollout status deployment/java-args-env-file -n "${NAMESPACE}" --timeout=300s
+EOF
+)"
+pe "$(cat <<'EOF'
 # Follow logs from the Kubernetes workload.
 EOF
 )"
 pe "$(cat <<'EOF'
-retry-spinner -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow
+retry-spinner --retries 150 --wait 2 -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow
 EOF
 )"
 

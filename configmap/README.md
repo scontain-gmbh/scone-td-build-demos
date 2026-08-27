@@ -157,10 +157,14 @@ kubectl apply -f manifests/manifest.prod.sanitized.yaml -n ${NAMESPACE}
 ## 10. View Logs
 
 ```bash
+# Wait for both containers to finish successfully. A container can start before
+# every service from the SignedPolicy is visible in CAS; restartPolicy:
+# OnFailure handles that transient first start.
+kubectl wait --for=condition=complete job/my-rust-app -n ${NAMESPACE} --timeout=300s
 # Retry the wrapped command until it succeeds or reaches the retry limit.
-retry-spinner -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1 --follow
+retry-spinner --retries 150 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1 --follow
 # Retry the wrapped command until it succeeds or reaches the retry limit.
-retry-spinner -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2 --follow
+retry-spinner --retries 150 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2 --follow
 ```
 
 ## 11. Clean Up

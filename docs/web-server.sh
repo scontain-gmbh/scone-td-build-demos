@@ -393,7 +393,7 @@ scone-td-build register \
   --push \
   -s ./storage.json \
   --enforce /app/web-server \
-  --version ${SCONE_RUNTIME_VERSION} \
+  --scone-version ${SCONE_RUNTIME_VERSION} \
   ${CVM_MODE}
 EOF
 )"
@@ -553,7 +553,7 @@ EOF
 pe "$(cat <<'EOF'
 scone-td-build apply \
   -f manifest.yaml \
-  -c ${CAS_NAME}.${CAS_NAMESPACE} \
+  -c https://${CAS_NAME}.${CAS_NAMESPACE}:8081 \
   -s ./storage.json \
   --spol \
   --manifest-env SCONE_SYSLIBS=1 \
@@ -562,7 +562,7 @@ scone-td-build apply \
   --manifest-env SCONE_HEAP=2G \
   --session-env SCONE_VERSION=1 \
   --output-manifest-file manifest.sanitized.yaml \
-  --version ${SCONE_RUNTIME_VERSION} -p \
+  --scone-version ${SCONE_RUNTIME_VERSION} -p \
   ${CVM_MODE} ${SCONE_ENCLAVE}
 EOF
 )"
