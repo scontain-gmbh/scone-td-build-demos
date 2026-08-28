@@ -169,8 +169,9 @@ printf '%s\n' '- `$DESTINATION_IMAGE_NAME` - Name of the confidential image'
 printf '%s\n' '- `$SCONE_VERSION` - SCONE version to use (for example, `6.1.0-rc.0`)'
 printf '%s\n' '- `$CAS_NAMESPACE` - CAS Kubernetes namespace (for example, `default`)'
 printf '%s\n' '- `$CAS_NAME` - CAS Kubernetes name (for example, `cas`)'
-printf '%s\n' '- `$CVM_MODE` - Set to `--cvm` for CVM mode, otherwise leave empty for SGX'
-printf '%s\n' '- `$SCONE_ENCLAVE` - In CVM mode, set to `--scone-enclave` for confidential nodes, or leave empty for Kata Pods'
+printf '%s\n' '- `$CAS_ENDPOINT` - Address the manifest targets; keep it in sync with `$CAS_NAME`.`$CAS_NAMESPACE` (default: `cas.default`), or set to an external CAS address to run against one'
+printf '%s\n' '- `$TEE_TYPE` - Set to `cvm` for CVM mode or `sgx` for SGX'
+printf '%s\n' '- `$SCONE_ENCLAVE` - In CVM mode, set to `true` for confidential nodes, or `false` for Kata Pods'
 printf '%s\n' '- `$NAMESPACE` - Kubernetes namespace where the demo runs (default: `default`)'
 printf '%s\n' ''
 printf '%s\n' 'Defaults are stored in `Values.yaml`. We use [`tplenv`](https://github.com/scontainug/tplenv) to confirm or override values:'
@@ -211,6 +212,14 @@ EOF
 )"
 pe "$(cat <<'EOF'
 tplenv --file manifest.job.template.yaml --create-values-file --output manifest.job.yaml
+EOF
+)"
+pe "$(cat <<'EOF'
+# Render the SCONE manifest that drives register plus apply.
+EOF
+)"
+pe "$(cat <<'EOF'
+tplenv --file scone.template.yaml --create-values-file --output scone.yaml --indent
 EOF
 )"
 
@@ -475,7 +484,7 @@ printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '## 6. Attest SCONE CAS'
 printf '%s\n' ''
-printf '%s\n' 'Attest CAS before sending encrypted policies. The kubectl path covers in-cluster CAS; if it fails (typical when `${CAS_NAME}.${CAS_NAMESPACE}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.'
+printf '%s\n' 'Attest CAS before sending encrypted policies. The kubectl path covers in-cluster CAS; if it fails (typical when `${CAS_ENDPOINT}` points at an external CAS like `edge.scone-cas.cf`), the second branch attests the public CAS directly.'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
@@ -485,8 +494,9 @@ EOF
 )"
 pe "$(cat <<'EOF'
 kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S \
-    || scone cas attest ${CAS_NAME}.${CAS_NAMESPACE} -C -G -S \
-        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
+    || scone cas attest ${CAS_ENDPOINT} -C -G -S \
+        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any \
+    || echo "CAS attestation skipped: ${CAS_ENDPOINT} runs in simulation mode, so it cannot produce a DCAP quote"
 EOF
 )"
 
@@ -496,39 +506,30 @@ printf '%s\n' 'If attestation fails, inspect the command output for detected vul
 printf '%s\n' ''
 printf '%s\n' '## 7. Register the Confidential Image'
 printf '%s\n' ''
-printf '%s\n' 'Register the image for confidential execution:'
+printf '%s\n' '`scone.yaml` holds both documents: the `Register` that produces the protected image and'
+printf '%s\n' 'the `Apply` that turns `manifest.job.yaml` into a sanitized confidential manifest. A'
+printf '%s\n' 'single command runs both:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Register the image for confidential execution.
+# Register the image and transform the manifest in one step.
 EOF
 )"
 pe "$(cat <<'EOF'
-scone-td-build register --protected-image $IMAGE_NAME --unprotected-image rust:latest --manifest-env SCONE_PRODUCTION=0 -s ./storage.json --destination-image ${DESTINATION_IMAGE_NAME} --push --version ${SCONE_RUNTIME_VERSION} ${CVM_MODE}
+scone-td-build apply -f scone.yaml
 EOF
 )"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' 'This creates a protected image (or uses `--destination-image` if provided) and decouples your deployment from upstream image changes.'
+printf '%s\n' 'This creates a protected image (or uses `output-image` if provided) and decouples your'
+printf '%s\n' 'deployment from upstream image changes.'
 printf '%s\n' ''
 printf '%s\n' '## 8. Transform the Kubernetes Manifest'
 printf '%s\n' ''
-printf '%s\n' 'Convert the native manifest into a sanitized confidential manifest:'
-printf '%s\n' ''
-printf "%b" "$RESET"
-
-pe "$(cat <<'EOF'
-# Convert the native manifest into a confidential manifest.
-EOF
-)"
-pe "$(cat <<'EOF'
-scone-td-build apply -f manifest.job.yaml -c ${CAS_NAME}.${CAS_NAMESPACE} -p -s ./storage.json --manifest-env SCONE_SYSLIBS=1 --manifest-env SCONE_PRODUCTION=0 --manifest-env SCONE_HEAP=1G --spol --manifest-env SCONE_VERSION=1 --output-manifest-file manifest.job.sanitized.yaml --version ${SCONE_RUNTIME_VERSION} ${CVM_MODE} ${SCONE_ENCLAVE}
-EOF
-)"
-
-printf "%b" "$LILAC"
+printf '%s\n' 'The previous step already wrote `manifest.job.sanitized.yaml`, the confidential manifest'
+printf '%s\n' 'declared as `output-manifest` in `scone.yaml`.'
 printf '%s\n' ''
 printf '%s\n' '## 9. Deploy the Confidential Manifest'
 printf '%s\n' ''

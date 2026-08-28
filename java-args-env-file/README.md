@@ -50,8 +50,9 @@ Default values are stored in `Values.yaml`. `tplenv` asks whether to keep the de
 - `$SCONE_VERSION` — SCONE version to use (for example, `6.1.0-rc.0`)
 - `$CAS_NAMESPACE` — CAS namespace (for example, `default`)
 - `$CAS_NAME` — CAS name (for example, `cas`)
-- `$CVM_MODE` — Set to `--cvm` for CVM mode, otherwise leave empty for SGX
-- `$SCONE_ENCLAVE` — In CVM mode, set to `--scone-enclave` for confidential nodes, or leave empty for Kata Pods
+- `$CAS_ENDPOINT` - Address the manifest targets; keep it in sync with `$CAS_NAME`.`$CAS_NAMESPACE` (default: `cas.default`), or set to an external CAS address to run against one
+- `$TEE_TYPE` — Set to `cvm` for CVM mode or `sgx` for SGX
+- `$SCONE_ENCLAVE` - In CVM mode, set to `true` for confidential nodes, or `false` for Kata Pods
 - `$NAMESPACE` — namespace name (for example, `java-demo`)
 
 Assume you start in `scone-td-build-demos` and switch into this demo directory:
@@ -133,7 +134,7 @@ Apply the manifest and follow the pod logs to confirm the app prints arguments, 
 # Apply the Kubernetes manifest.
 kubectl apply -f manifests/manifest.yaml -n ${NAMESPACE}
 # Follow logs from the Kubernetes workload.
-retry-spinner --retries 10 --wait 2 -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow
+retry-spinner --retries 30 --wait 5 -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow
 ```
 
 Your container should print the command-line args, all environment variables, the contents of `/config/configs.yaml`, and `/config/secrets`.
@@ -153,20 +154,21 @@ The manifest mounts:
 
 ## 8. Prepare and Apply the SCONE Manifest
 
-First, attest the CAS so the local SCONE CLI has the correct session encryption key. The kubectl path covers an in-cluster CAS; if it fails (typical when `${CAS_NAME}.${CAS_NAMESPACE}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.
+First, attest the CAS so the local SCONE CLI has the correct session encryption key. The kubectl path covers an in-cluster CAS; if it fails (typical when `${CAS_ENDPOINT}` points at an external CAS like `edge.scone-cas.cf`), the second branch attests the public CAS directly.
 
 ```bash
 # Attest the CAS instance before sending encrypted policies.
 kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S \
-    || scone cas attest ${CAS_NAME}.${CAS_NAMESPACE} -C -G -S \
-        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
+    || scone cas attest ${CAS_ENDPOINT} -C -G -S \
+        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any \
+    || echo "CAS attestation skipped: ${CAS_ENDPOINT} runs in simulation mode, so it cannot produce a DCAP quote"
 ```
 
 Then build the confidential image and generate the SCONE session from `manifests/scone.yaml`:
 
 ```bash
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
-scone-td-build from -y manifests/scone.yaml
+scone-td-build apply -f manifests/scone.yaml
 ```
 
 This command:
@@ -189,8 +191,10 @@ kubectl apply -f manifests/manifest.prod.sanitized.yaml -n ${NAMESPACE}
 ## 10. View Logs
 
 ```bash
+# Wait until the protected JVM pod is available before selecting it for logs.
+kubectl rollout status deployment/java-args-env-file -n "${NAMESPACE}" --timeout=300s
 # Follow logs from the Kubernetes workload.
-retry-spinner -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow
+retry-spinner --retries 150 --wait 2 -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow
 ```
 
 ---

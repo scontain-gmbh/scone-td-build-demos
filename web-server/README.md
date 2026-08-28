@@ -70,8 +70,9 @@ Defaults are stored in `Values.yaml`. `tplenv` asks whether to keep them and set
 - `$SCONE_RUNTIME_VERSION` - SCONE version to use (for example, `6.1.0-rc.0`)
 - `$CAS_NAMESPACE` - CAS namespace (for example, `default`)
 - `$CAS_NAME` - CAS name (for example, `cas`)
-- `$CVM_MODE` - Set to `--cvm` for CVM mode, otherwise leave empty for SGX
-- `$SCONE_ENCLAVE` - In CVM mode, set to `--scone-enclave` for confidential nodes, or leave empty for Kata Pods
+- `$CAS_ENDPOINT` - Address the manifest targets; keep it in sync with `$CAS_NAME`.`$CAS_NAMESPACE` (default: `cas.default`), or set to an external CAS address to run against one
+- `$TEE_TYPE` - Set to `cvm` for CVM mode or `sgx` for SGX
+- `$SCONE_ENCLAVE` - In CVM mode, set to `true` for confidential nodes, or `false` for Kata Pods
 - `$NAMESPACE` - Kubernetes namespace where the demo runs (default: `default`)
 
 ```bash
@@ -86,13 +87,14 @@ Create the demo namespace if it does not already exist:
 kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
 ```
 
-Attest CAS before sending encrypted policies. The kubectl path covers in-cluster CAS; if it fails (typical when `${CAS_NAME}.${CAS_NAMESPACE}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.
+Attest CAS before sending encrypted policies. The kubectl path covers in-cluster CAS; if it fails (typical when `${CAS_ENDPOINT}` points at an external CAS like `edge.scone-cas.cf`), the second branch attests the public CAS directly.
 
 ```bash
 # Attest the CAS instance before sending encrypted policies.
 kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S \
-    || scone cas attest ${CAS_NAME}.${CAS_NAMESPACE} -C -G -S \
-        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
+    || scone cas attest ${CAS_ENDPOINT} -C -G -S \
+        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any \
+    || echo "CAS attestation skipped: ${CAS_ENDPOINT} runs in simulation mode, so it cannot produce a DCAP quote"
 ```
 
 If attestation fails, review the output for detected issues and suggested tolerance flags.
@@ -102,6 +104,8 @@ Render the manifest template:
 ```bash
 # Render the template with the selected values.
 tplenv --file manifest.template.yaml --create-values-file --output manifest.yaml
+# Render the SCONE manifest that drives register plus apply.
+tplenv --file scone.template.yaml --create-values-file --output scone.yaml --indent
 ```
 
 ## 4. Create a Pull Secret
@@ -148,20 +152,8 @@ else
 fi
 ```
 
-Register the image with `scone-td-build`:
-
-```bash
-# Register the image for confidential execution.
-scone-td-build register \
-  --protected-image ${IMAGE_NAME} \
-  --unprotected-image ${IMAGE_NAME} \
-  --destination-image ${DESTINATION_IMAGE_NAME} \
-  --push \
-  -s ./storage.json \
-  --enforce /app/web-server \
-  --version ${SCONE_RUNTIME_VERSION} \
-  ${CVM_MODE}
-```
+`scone.yaml` declares the `Register` for this image and the `Apply` that transforms the
+manifest, so both run from a single command in the conversion step below.
 
 ## 6. Test the Native Manifest (Optional)
 
@@ -192,7 +184,7 @@ while true; do kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPA
 set +m
 
 # Retry the wrapped command until it succeeds or reaches the retry limit.
-retry-spinner -- curl http://localhost:8000/env/MY_POD_IP
+retry-spinner --retries 40 --wait 10 -- curl http://localhost:8000/env/MY_POD_IP
 # Run the demo test script.
 ./test.sh
 
@@ -211,20 +203,8 @@ rm /tmp/pf-8000.pid
 If you want to inspect registration details, see [register-image](https://github.com/scontain/k8s-scone/blob/main/register-image.md).
 
 ```bash
-# Convert the native manifest into a confidential manifest.
-scone-td-build apply \
-  -f manifest.yaml \
-  -c ${CAS_NAME}.${CAS_NAMESPACE} \
-  -s ./storage.json \
-  --spol \
-  --manifest-env SCONE_SYSLIBS=1 \
-  --manifest-env SCONE_PRODUCTION=0 \
-  --manifest-env SCONE_VERSION=1 \
-  --manifest-env SCONE_HEAP=2G \
-  --session-env SCONE_VERSION=1 \
-  --output-manifest-file manifest.sanitized.yaml \
-  --version ${SCONE_RUNTIME_VERSION} -p \
-  ${CVM_MODE} ${SCONE_ENCLAVE}
+# Register the image and transform the manifest in one step.
+scone-td-build apply -f scone.yaml
 ```
 
 ## 8. Deploy the Confidential Manifest

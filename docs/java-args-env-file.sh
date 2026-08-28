@@ -162,8 +162,9 @@ printf '%s\n' '- `$IMAGE_PULL_SECRET_NAME` — Pull secret name (default: `scone
 printf '%s\n' '- `$SCONE_VERSION` — SCONE version to use (for example, `6.1.0-rc.0`)'
 printf '%s\n' '- `$CAS_NAMESPACE` — CAS namespace (for example, `default`)'
 printf '%s\n' '- `$CAS_NAME` — CAS name (for example, `cas`)'
-printf '%s\n' '- `$CVM_MODE` — Set to `--cvm` for CVM mode, otherwise leave empty for SGX'
-printf '%s\n' '- `$SCONE_ENCLAVE` — In CVM mode, set to `--scone-enclave` for confidential nodes, or leave empty for Kata Pods'
+printf '%s\n' '- `$CAS_ENDPOINT` - Address the manifest targets; keep it in sync with `$CAS_NAME`.`$CAS_NAMESPACE` (default: `cas.default`), or set to an external CAS address to run against one'
+printf '%s\n' '- `$TEE_TYPE` — Set to `cvm` for CVM mode or `sgx` for SGX'
+printf '%s\n' '- `$SCONE_ENCLAVE` - In CVM mode, set to `true` for confidential nodes, or `false` for Kata Pods'
 printf '%s\n' '- `$NAMESPACE` — namespace name (for example, `java-demo`)'
 printf '%s\n' ''
 printf '%s\n' 'Assume you start in `scone-td-build-demos` and switch into this demo directory:'
@@ -322,7 +323,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-retry-spinner --retries 10 --wait 2 -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow
+retry-spinner --retries 30 --wait 5 -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow
 EOF
 )"
 
@@ -353,7 +354,7 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## 8. Prepare and Apply the SCONE Manifest'
 printf '%s\n' ''
-printf '%s\n' 'First, attest the CAS so the local SCONE CLI has the correct session encryption key. The kubectl path covers an in-cluster CAS; if it fails (typical when `${CAS_NAME}.${CAS_NAMESPACE}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.'
+printf '%s\n' 'First, attest the CAS so the local SCONE CLI has the correct session encryption key. The kubectl path covers an in-cluster CAS; if it fails (typical when `${CAS_ENDPOINT}` points at an external CAS like `edge.scone-cas.cf`), the second branch attests the public CAS directly.'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
@@ -363,8 +364,9 @@ EOF
 )"
 pe "$(cat <<'EOF'
 kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S \
-    || scone cas attest ${CAS_NAME}.${CAS_NAMESPACE} -C -G -S \
-        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
+    || scone cas attest ${CAS_ENDPOINT} -C -G -S \
+        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any \
+    || echo "CAS attestation skipped: ${CAS_ENDPOINT} runs in simulation mode, so it cannot produce a DCAP quote"
 EOF
 )"
 
@@ -379,7 +381,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-scone-td-build from -y manifests/scone.yaml
+scone-td-build apply -f manifests/scone.yaml
 EOF
 )"
 
@@ -415,11 +417,19 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+# Wait until the protected JVM pod is available before selecting it for logs.
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl rollout status deployment/java-args-env-file -n "${NAMESPACE}" --timeout=300s
+EOF
+)"
+pe "$(cat <<'EOF'
 # Follow logs from the Kubernetes workload.
 EOF
 )"
 pe "$(cat <<'EOF'
-retry-spinner -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow
+retry-spinner --retries 150 --wait 2 -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow
 EOF
 )"
 

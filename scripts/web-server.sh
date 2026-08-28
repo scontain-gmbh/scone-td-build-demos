@@ -152,8 +152,9 @@ printf '%s\n' '- `$IMAGE_PULL_SECRET_NAME` - Pull secret name (default: `sconeap
 printf '%s\n' '- `$SCONE_RUNTIME_VERSION` - SCONE version to use (for example, `6.1.0-rc.0`)'
 printf '%s\n' '- `$CAS_NAMESPACE` - CAS namespace (for example, `default`)'
 printf '%s\n' '- `$CAS_NAME` - CAS name (for example, `cas`)'
-printf '%s\n' '- `$CVM_MODE` - Set to `--cvm` for CVM mode, otherwise leave empty for SGX'
-printf '%s\n' '- `$SCONE_ENCLAVE` - In CVM mode, set to `--scone-enclave` for confidential nodes, or leave empty for Kata Pods'
+printf '%s\n' '- `$CAS_ENDPOINT` - Address the manifest targets; keep it in sync with `$CAS_NAME`.`$CAS_NAMESPACE` (default: `cas.default`), or set to an external CAS address to run against one'
+printf '%s\n' '- `$TEE_TYPE` - Set to `cvm` for CVM mode or `sgx` for SGX'
+printf '%s\n' '- `$SCONE_ENCLAVE` - In CVM mode, set to `true` for confidential nodes, or `false` for Kata Pods'
 printf '%s\n' '- `$NAMESPACE` - Kubernetes namespace where the demo runs (default: `default`)'
 printf '%s\n' ''
 printf "${RESET}"
@@ -182,21 +183,23 @@ kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -
 
 printf "${VIOLET}"
 printf '%s\n' ''
-printf '%s\n' 'Attest CAS before sending encrypted policies. The kubectl path covers in-cluster CAS; if it fails (typical when `${CAS_NAME}.${CAS_NAMESPACE}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.'
+printf '%s\n' 'Attest CAS before sending encrypted policies. The kubectl path covers in-cluster CAS; if it fails (typical when `${CAS_ENDPOINT}` points at an external CAS like `edge.scone-cas.cf`), the second branch attests the public CAS directly.'
 printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Attest the CAS instance before sending encrypted policies.'
 printf '%s\n' 'kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S \'
-printf '%s\n' '    || scone cas attest ${CAS_NAME}.${CAS_NAMESPACE} -C -G -S \'
-printf '%s\n' '        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any'
+printf '%s\n' '    || scone cas attest ${CAS_ENDPOINT} -C -G -S \'
+printf '%s\n' '        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any \'
+printf '%s\n' '    || echo "CAS attestation skipped: ${CAS_ENDPOINT} runs in simulation mode, so it cannot produce a DCAP quote"'
 printf "${RESET}"
 
 # Attest the CAS instance before sending encrypted policies.
 kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S \
-    || scone cas attest ${CAS_NAME}.${CAS_NAMESPACE} -C -G -S \
-        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
+    || scone cas attest ${CAS_ENDPOINT} -C -G -S \
+        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any \
+    || echo "CAS attestation skipped: ${CAS_ENDPOINT} runs in simulation mode, so it cannot produce a DCAP quote"
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -209,10 +212,14 @@ printf "${RESET}"
 printf "${ORANGE}"
 printf '%s\n' '# Render the template with the selected values.'
 printf '%s\n' 'tplenv --file manifest.template.yaml --create-values-file --output manifest.yaml'
+printf '%s\n' '# Render the SCONE manifest that drives register plus apply.'
+printf '%s\n' 'tplenv --file scone.template.yaml --create-values-file --output scone.yaml --indent'
 printf "${RESET}"
 
 # Render the template with the selected values.
 tplenv --file manifest.template.yaml --create-values-file --output manifest.yaml
+# Render the SCONE manifest that drives register plus apply.
+tplenv --file scone.template.yaml --create-values-file --output scone.yaml --indent
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -296,35 +303,8 @@ fi
 
 printf "${VIOLET}"
 printf '%s\n' ''
-printf '%s\n' 'Register the image with `scone-td-build`:'
-printf '%s\n' ''
-printf "${RESET}"
-
-printf "${ORANGE}"
-printf '%s\n' '# Register the image for confidential execution.'
-printf '%s\n' 'scone-td-build register \'
-printf '%s\n' '  --protected-image ${IMAGE_NAME} \'
-printf '%s\n' '  --unprotected-image ${IMAGE_NAME} \'
-printf '%s\n' '  --destination-image ${DESTINATION_IMAGE_NAME} \'
-printf '%s\n' '  --push \'
-printf '%s\n' '  -s ./storage.json \'
-printf '%s\n' '  --enforce /app/web-server \'
-printf '%s\n' '  --version ${SCONE_RUNTIME_VERSION} \'
-printf '%s\n' '  ${CVM_MODE}'
-printf "${RESET}"
-
-# Register the image for confidential execution.
-scone-td-build register \
-  --protected-image ${IMAGE_NAME} \
-  --unprotected-image ${IMAGE_NAME} \
-  --destination-image ${DESTINATION_IMAGE_NAME} \
-  --push \
-  -s ./storage.json \
-  --enforce /app/web-server \
-  --version ${SCONE_RUNTIME_VERSION} \
-  ${CVM_MODE}
-
-printf "${VIOLET}"
+printf '%s\n' '`scone.yaml` declares the `Register` for this image and the `Apply` that transforms the'
+printf '%s\n' 'manifest, so both run from a single command in the conversion step below.'
 printf '%s\n' ''
 printf '%s\n' '## 6. Test the Native Manifest (Optional)'
 printf '%s\n' ''
@@ -368,7 +348,7 @@ printf '%s\n' 'while true; do kubectl port-forward deployment/web-server 8000:80
 printf '%s\n' 'set +m'
 printf '%s\n' ''
 printf '%s\n' '# Retry the wrapped command until it succeeds or reaches the retry limit.'
-printf '%s\n' 'retry-spinner -- curl http://localhost:8000/env/MY_POD_IP'
+printf '%s\n' 'retry-spinner --retries 40 --wait 10 -- curl http://localhost:8000/env/MY_POD_IP'
 printf '%s\n' '# Run the demo test script.'
 printf '%s\n' './test.sh'
 printf '%s\n' ''
@@ -395,7 +375,7 @@ while true; do kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPA
 set +m
 
 # Retry the wrapped command until it succeeds or reaches the retry limit.
-retry-spinner -- curl http://localhost:8000/env/MY_POD_IP
+retry-spinner --retries 40 --wait 10 -- curl http://localhost:8000/env/MY_POD_IP
 # Run the demo test script.
 ./test.sh
 
@@ -417,36 +397,12 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Convert the native manifest into a confidential manifest.'
-printf '%s\n' 'scone-td-build apply \'
-printf '%s\n' '  -f manifest.yaml \'
-printf '%s\n' '  -c ${CAS_NAME}.${CAS_NAMESPACE} \'
-printf '%s\n' '  -s ./storage.json \'
-printf '%s\n' '  --spol \'
-printf '%s\n' '  --manifest-env SCONE_SYSLIBS=1 \'
-printf '%s\n' '  --manifest-env SCONE_PRODUCTION=0 \'
-printf '%s\n' '  --manifest-env SCONE_VERSION=1 \'
-printf '%s\n' '  --manifest-env SCONE_HEAP=2G \'
-printf '%s\n' '  --session-env SCONE_VERSION=1 \'
-printf '%s\n' '  --output-manifest-file manifest.sanitized.yaml \'
-printf '%s\n' '  --version ${SCONE_RUNTIME_VERSION} -p \'
-printf '%s\n' '  ${CVM_MODE} ${SCONE_ENCLAVE}'
+printf '%s\n' '# Register the image and transform the manifest in one step.'
+printf '%s\n' 'scone-td-build apply -f scone.yaml'
 printf "${RESET}"
 
-# Convert the native manifest into a confidential manifest.
-scone-td-build apply \
-  -f manifest.yaml \
-  -c ${CAS_NAME}.${CAS_NAMESPACE} \
-  -s ./storage.json \
-  --spol \
-  --manifest-env SCONE_SYSLIBS=1 \
-  --manifest-env SCONE_PRODUCTION=0 \
-  --manifest-env SCONE_VERSION=1 \
-  --manifest-env SCONE_HEAP=2G \
-  --session-env SCONE_VERSION=1 \
-  --output-manifest-file manifest.sanitized.yaml \
-  --version ${SCONE_RUNTIME_VERSION} -p \
-  ${CVM_MODE} ${SCONE_ENCLAVE}
+# Register the image and transform the manifest in one step.
+scone-td-build apply -f scone.yaml
 
 printf "${VIOLET}"
 printf '%s\n' ''

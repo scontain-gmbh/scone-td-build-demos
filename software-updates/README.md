@@ -53,7 +53,7 @@ rm -f software-updates-demo.json scone.v1.yaml scone.v2.yaml k8s/manifest.v1.yam
 ```
 
 Load the full variable set from `environment-variables.md` first, so `NAMESPACE` and
-`CVM_MODE` are available to derive the CAS session namespace below:
+`TEE_TYPE` are available to derive the CAS session namespace below:
 
 ```bash
 # Load environment variables from the tplenv definition file.
@@ -65,7 +65,7 @@ Set `SIGNER` for policy signing and the CAS session namespace shared by both v1 
 ```bash
 # Export the required environment variable for the next steps.
 export SIGNER="$(scone self show-session-signing-key)"
-# Fixed per Kubernetes NAMESPACE and CVM_MODE on purpose: CAS sessions are append-only
+# Fixed per Kubernetes NAMESPACE and TEE_TYPE on purpose: CAS sessions are append-only
 # (there's no delete operation in the CLI), so a fresh random namespace on every run
 # would leave a new, never-cleaned-up session behind each time. Reusing the same name
 # for repeat runs of the *same* NAMESPACE and mode means a rerun updates the existing
@@ -75,7 +75,7 @@ export SIGNER="$(scone self show-session-signing-key)"
 # different environments) and the SGX vs CVM CI sweeps from sharing one CAS session
 # and one generated API_PASSWORD.
 mode_suffix="sgx"
-if [ "${CVM_MODE}" = "true" ]; then
+if [ "${TEE_TYPE}" = "cvm" ]; then
   mode_suffix="cvm"
 fi
 export SESSION_NAMESPACE="software-update-demo-${NAMESPACE}-${mode_suffix}"
@@ -182,7 +182,7 @@ fi
 # Remove any existing state file.
 rm -f software-updates-demo.json || true
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
-scone-td-build from -y scone.v1.yaml
+scone-td-build apply -f scone.v1.yaml
 ```
 
 This command:
@@ -241,7 +241,7 @@ Running Version 1. Update by applying the v2 confidential manifest.
 
 ```bash
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
-scone-td-build from -y scone.v2.yaml
+scone-td-build apply -f scone.v2.yaml
 ```
 
 This command:
@@ -326,7 +326,7 @@ This does not, and cannot, delete the CAS-side session under `${SESSION_NAMESPAC
 sessions are append-only and the `scone` CLI has no session-delete operation, by design,
 so the audit trail of every update stays intact. Since `${SESSION_NAMESPACE}` is fixed
 per `NAMESPACE`/mode (see Step 1), re-running this demo later with the same `NAMESPACE`
-and `CVM_MODE` updates that same session in place instead of leaving a new one behind, so
+and `TEE_TYPE` updates that same session in place instead of leaving a new one behind, so
 there's no unbounded buildup of sessions or generated `API_PASSWORD` values across runs.
 Different namespaces or modes (including the SGX and CVM CI sweeps) each get their own
 isolated session instead of sharing one.
