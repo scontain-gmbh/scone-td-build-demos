@@ -447,11 +447,27 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+# Wait for both containers to finish successfully. A container can start before
+EOF
+)"
+pe "$(cat <<'EOF'
+# every service from the SignedPolicy is visible in CAS; restartPolicy:
+EOF
+)"
+pe "$(cat <<'EOF'
+# OnFailure handles that transient first start.
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl wait --for=condition=complete job/my-rust-app -n ${NAMESPACE} --timeout=300s
+EOF
+)"
+pe "$(cat <<'EOF'
 # Retry the wrapped command until it succeeds or reaches the retry limit.
 EOF
 )"
 pe "$(cat <<'EOF'
-retry-spinner --retries 30 --wait 5 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1 --follow
+retry-spinner --retries 150 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1 --follow
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -459,7 +475,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-retry-spinner --retries 30 --wait 5 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2 --follow
+retry-spinner --retries 150 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2 --follow
 EOF
 )"
 

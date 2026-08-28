@@ -353,12 +353,16 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
+printf '%s\n' '# Wait until the protected JVM pod is available before selecting it for logs.'
+printf '%s\n' 'kubectl rollout status deployment/java-args-env-file -n "${NAMESPACE}" --timeout=300s'
 printf '%s\n' '# Follow logs from the Kubernetes workload.'
-printf '%s\n' 'retry-spinner --retries 30 --wait 5 -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow'
+printf '%s\n' 'retry-spinner --retries 150 --wait 2 -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow'
 printf "${RESET}"
 
+# Wait until the protected JVM pod is available before selecting it for logs.
+kubectl rollout status deployment/java-args-env-file -n "${NAMESPACE}" --timeout=300s
 # Follow logs from the Kubernetes workload.
-retry-spinner --retries 30 --wait 5 -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow
+retry-spinner --retries 150 --wait 2 -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow
 
 printf "${VIOLET}"
 printf '%s\n' ''

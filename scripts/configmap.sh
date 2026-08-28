@@ -342,16 +342,24 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
+printf '%s\n' '# Wait for both containers to finish successfully. A container can start before'
+printf '%s\n' '# every service from the SignedPolicy is visible in CAS; restartPolicy:'
+printf '%s\n' '# OnFailure handles that transient first start.'
+printf '%s\n' 'kubectl wait --for=condition=complete job/my-rust-app -n ${NAMESPACE} --timeout=300s'
 printf '%s\n' '# Retry the wrapped command until it succeeds or reaches the retry limit.'
-printf '%s\n' 'retry-spinner --retries 30 --wait 5 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1 --follow'
+printf '%s\n' 'retry-spinner --retries 150 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1 --follow'
 printf '%s\n' '# Retry the wrapped command until it succeeds or reaches the retry limit.'
-printf '%s\n' 'retry-spinner --retries 30 --wait 5 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2 --follow'
+printf '%s\n' 'retry-spinner --retries 150 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2 --follow'
 printf "${RESET}"
 
+# Wait for both containers to finish successfully. A container can start before
+# every service from the SignedPolicy is visible in CAS; restartPolicy:
+# OnFailure handles that transient first start.
+kubectl wait --for=condition=complete job/my-rust-app -n ${NAMESPACE} --timeout=300s
 # Retry the wrapped command until it succeeds or reaches the retry limit.
-retry-spinner --retries 30 --wait 5 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1 --follow
+retry-spinner --retries 150 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1 --follow
 # Retry the wrapped command until it succeeds or reaches the retry limit.
-retry-spinner --retries 30 --wait 5 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2 --follow
+retry-spinner --retries 150 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2 --follow
 
 printf "${VIOLET}"
 printf '%s\n' ''

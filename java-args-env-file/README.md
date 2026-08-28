@@ -191,8 +191,10 @@ kubectl apply -f manifests/manifest.prod.sanitized.yaml -n ${NAMESPACE}
 ## 10. View Logs
 
 ```bash
+# Wait until the protected JVM pod is available before selecting it for logs.
+kubectl rollout status deployment/java-args-env-file -n "${NAMESPACE}" --timeout=300s
 # Follow logs from the Kubernetes workload.
-retry-spinner --retries 30 --wait 5 -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow
+retry-spinner --retries 150 --wait 2 -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow
 ```
 
 ---
