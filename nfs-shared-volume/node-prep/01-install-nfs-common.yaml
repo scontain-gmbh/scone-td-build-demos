@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: install-nfs-common
+  namespace: kube-system
+  annotations:
+    purpose: "One-shot node prep: install nfs-common (mount.nfs) so k8s nfs: volumes can mount. Safe to delete after; the package persists on the host."
+spec:
+  selector:
+    matchLabels: { app: install-nfs-common }
+  template:
+    metadata:
+      labels: { app: install-nfs-common }
+    spec:
+      hostPID: true
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: install
+          image: debian:bookworm-slim
+          securityContext:
+            privileged: true
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -eu
+              nsenter --target=1 --mount --uts --ipc --net --pid -- bash -c '
+                if command -v mount.nfs >/dev/null 2>&1; then
+                  echo "ALREADY_PRESENT $(hostname): $(command -v mount.nfs)"
+                else
+                  export DEBIAN_FRONTEND=noninteractive
+                  apt-get update
+                  apt-get install -y nfs-common
+                  echo "INSTALLED $(hostname): $(command -v mount.nfs)"
+                fi
+              '
+              echo "NODE_READY"
+              sleep infinity
