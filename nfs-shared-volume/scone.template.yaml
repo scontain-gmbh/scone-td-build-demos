@@ -23,12 +23,12 @@ apiVersion: scone.cloud/v1
 kind: Apply
 metadata:
   name: nfs-shared-volume-demo
-  namespace: ${SESSION_NAMESPACE}
+  namespace: ${NAMESPACE}
 spec:
   file:
-    - "k8s/manifest.yaml"
-  output_manifest_file: "manifest.sanitized.yaml"
-  output_session_file: "manifest.session.yaml"
+    - "manifests/manifest.yaml"
+  output_manifest_file: "manifests/manifest.sanitized.yaml"
+  output_session_file: "manifests/manifest.session.yaml"
   cas_address:
     address: ${CAS_NAME}.${CAS_NAMESPACE}
   manifest_env:
@@ -39,6 +39,9 @@ spec:
     - {name: SCONE_ALLOW_DLOPEN, value: "2"}
   version: ${SCONE_RUNTIME_VERSION}
   permissive: true
-  spol: true
+  # Signed policy (spol) instead of encrypted: skips CAS attestation and policy
+  # encryption, so the setup host needs no SGX2. Only the cluster nodes running
+  # the transformed manifest need SGX. See README "How the security posture is set".
+  encrypted-cas-policy: false
   cvm: ${CVM_MODE}
   scone_enclave: ${SCONE_ENCLAVE}
