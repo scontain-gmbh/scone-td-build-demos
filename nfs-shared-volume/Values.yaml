@@ -9,4 +9,3 @@ environment:
   CVM_MODE: 'false'
   SCONE_ENCLAVE: 'false'
   NAMESPACE: nfs-demo
-  SESSION_NAMESPACE: nfs-demo

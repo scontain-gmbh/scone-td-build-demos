@@ -1,69 +1,198 @@
-# NFS-backed shared volume demo
+# SCONE: NFS-backed shared volume
 
-This demo shows `scone-td-build`'s automatic NFS sharing (issue #267): when one
-volume is used by more than one pod, the tool re-shares it over NFS instead of
-mounting it directly into each pod.
+This example shows `scone-td-build`'s automatic NFS sharing (issue #267): when a
+single volume is used by more than one pod, the tool re-shares it over NFS
+instead of mounting it directly into each pod.
 
-The app (`app.py`) is a single image that runs in two roles:
+The app (`app.py`) is a single image that runs in two roles, selected by `ROLE`:
 
 - **writer** appends a timestamped line to `/data/shared.log` every few seconds.
 - **reader** reads `/data/shared.log` every few seconds and prints what it sees.
 
-`k8s/manifest.yaml` deploys both as separate Deployments, each mounting the same
-`shared-data` PVC at `/data`. Because that PVC is shared by two workloads,
+`manifest.template.yaml` deploys both as separate Deployments, each mounting the
+same `shared-data` PVC at `/data`. Because that PVC is shared by two workloads,
 `scone-td-build` automatically:
 
-1. generates a native NFS server that mounts the PVC and re-exports it over NFSv4,
-2. rewrites each consumer's `data` volume to mount that NFS export instead of the
-   PVC directly.
+1. generates a native NFS server that mounts the PVC and re-exports it over NFSv4, and
+2. rewrites each consumer's `data` volume to mount that NFS export instead of the PVC directly.
 
-The result: the reader sees exactly what the writer wrote, through the shared
-NFS export.
+The result: the reader sees exactly what the writer wrote, through the shared NFS export.
 
-## Prerequisites
+## 1. Prerequisites
 
-- A cluster with the SCONE stack (operator + LAS + CAS). CAS reachable at
-  `cas.default`.
-- Docker with push access to `registry.scontain.com/amand1o`.
-- A `scone-td-build` binary with NFS shared-volume support.
+- A token for accessing `scone.cloud` images on `registry.scontain.com`
+- A Kubernetes cluster with SGX or CVM support and the SCONE stack (operator + LAS + CAS)
+- The Kubernetes command-line tool (`kubectl`) and the `kubectl scone` plugin
+- `tplenv` (`cargo install tplenv`) and `retry-spinner` (`cargo install retry-spinner`)
+- A `scone-td-build` binary with NFS shared-volume support
 
-Adjust `Values.yaml` for your registry, namespace, and CAS if needed.
+Follow the [Setup environment](https://github.com/scontain/scone) guide to install the required tools.
 
-## Run
+### Node prerequisites (specific to this demo)
+
+Unlike the other demos, the NFS re-sharing needs two things on every node that
+runs a consumer or the NFS server: the `mount.nfs` helper (`nfs-common`) and host
+resolution of the NFS service DNS name. These are node-level, not something the
+manifest or `Values.yaml` can set, so they are a one-time cluster prerequisite.
+
+Apply them once per cluster as described in [`node-prep/README.md`](node-prep/README.md).
+On a cluster that already has `nfs-common` and cluster DNS wired to the nodes you
+can skip this.
+
+## 2. Set Up Environment Variables
+
+We assume you start in `scone-td-build-demos`:
 
 ```bash
-cd nfs-shared-volume
+# Enter `nfs-shared-volume` and remember the previous directory.
+pushd nfs-shared-volume
+```
 
-# 1. Build and push the app image.
+Defaults are stored in `Values.yaml`. We use [`tplenv`](https://github.com/scontainug/tplenv) to confirm or override values:
+
+```bash
+# Load environment variables from the tplenv definition file.
+eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
+```
+
+```bash
+# Create the Kubernetes namespace if it does not already exist.
+kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
+```
+
+## 3. Render the Manifests
+
+Render the native manifest and the scone-td-build spec with the selected values:
+
+```bash
+# Render the Kubernetes manifest (two Deployments sharing one PVC).
+tplenv --file manifest.template.yaml --create-values-file --output manifests/manifest.yaml --indent
+# Render the scone-td-build Register + Apply spec.
+tplenv --file scone.template.yaml --create-values-file --output manifests/scone.yaml --indent
+```
+
+## 4. Build the Native Container Image
+
+Build and push the writer/reader image:
+
+```bash
+# Build the container image.
 docker build -t "$IMAGE_NAME" .
+# Push the container image to the registry.
 docker push "$IMAGE_NAME"
-
-# 2. Namespace + registry pull secret.
-kubectl create namespace nfs-demo --dry-run=client -o yaml | kubectl apply -f -
-kubectl create secret docker-registry sconeapps \
-  --docker-server=registry.scontain.com \
-  --docker-username="$REGISTRY_USERNAME" \
-  --docker-password="$REGISTRY_ACCESS_TOKEN" \
-  --docker-email="$REGISTRY_EMAIL" \
-  -n nfs-demo --dry-run=client -o yaml | kubectl apply -f -
-
-# 3. Render the templates from Values.yaml.
-tplenv --file scone.template.yaml        --create-values-file --output scone.yaml --indent
-tplenv --file k8s/manifest.template.yaml --create-values-file --output k8s/manifest.yaml --indent
-
-# 4. Sconify + transform (detects the shared PVC and wires in NFS).
-scone-td-build from -y scone.yaml
-
-# 5. Deploy the transformed manifest.
-kubectl apply -f manifest.sanitized.yaml
 ```
 
-## Observe
+## 5. Create a Pull Secret
+
+If the pull secret does not exist yet, create it using registry credentials.
+
+- `$REGISTRY` - Registry hostname (default: `registry.scontain.com`)
+- `$REGISTRY_USER` - Registry login name
+- `$REGISTRY_TOKEN` - Registry pull token (see <https://sconedocs.github.io/registry/>)
 
 ```bash
-kubectl logs -n nfs-demo deploy/file-writer -f    # writing lines
-kubectl logs -n nfs-demo deploy/file-reader -f    # reading the same lines
+# Create the pull secret only when it does not already exist, so reruns with a
+# precreated secret do not require registry credentials.
+if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
+  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"
+else
+  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
+  # Load registry credentials.
+  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
+  kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \
+    --docker-server="$REGISTRY" \
+    --docker-username="$REGISTRY_USER" \
+    --docker-password="$REGISTRY_TOKEN"
+fi
 ```
 
-The reader's line count climbs and its "last" line matches what the writer just
-wrote, confirming both pods share the same file over the generated NFS export.
+## 6. Register the Image and Transform the Manifest
+
+`scone-td-build apply` runs the Register plus Apply flow from a single spec: it
+registers/sconifies the image, detects the shared PVC, wires in the NFS server,
+and writes the transformed manifest and the CAS policies.
+
+```bash
+# Register the image and transform the manifest in one step.
+scone-td-build apply -f manifests/scone.yaml
+```
+
+This demo uses a **signed** CAS policy (`encrypted-cas-policy: false` in
+`scone.template.yaml`), so this step does not attest or encrypt against the CAS
+and needs no SGX on the machine running it. See "How the security posture is
+set" below.
+
+## 7. Deploy the Confidential Manifest
+
+The transformed manifest (`manifests/manifest.sanitized.yaml`) contains the
+sconified writer/reader Deployments, the generated NFS server Deployment and
+Service, and the signed CAS policies.
+
+```bash
+# Apply the transformed manifest and the CAS policies.
+kubectl apply -f manifests/manifest.sanitized.yaml -n ${NAMESPACE}
+# Wait for the workloads to become available.
+kubectl rollout status deploy/nfs-shared-data -n ${NAMESPACE} --timeout=300s
+kubectl rollout status deploy/file-writer -n ${NAMESPACE} --timeout=300s
+kubectl rollout status deploy/file-reader -n ${NAMESPACE} --timeout=300s
+```
+
+## 8. Observe the Shared Volume
+
+The reader's line count should climb and its "last" line should match what the
+writer just wrote, confirming both pods share the same file over the generated
+NFS export:
+
+```bash
+# Give the writer a few seconds to produce lines.
+sleep 15
+# The writer appends timestamped lines.
+kubectl logs -n ${NAMESPACE} deploy/file-writer --tail=5
+# The reader sees the same lines through the NFS export.
+kubectl logs -n ${NAMESPACE} deploy/file-reader --tail=5
+```
+
+## 9. Uninstall
+
+```bash
+# Delete the workloads, the shared PVC, and the CAS policies.
+kubectl delete -f manifests/manifest.sanitized.yaml -n ${NAMESPACE} --ignore-not-found
+# Return to the previous working directory.
+popd
+```
+
+## Automation
+
+You can run this workflow with:
+
+```
+./scripts/nfs-shared-volume.sh
+```
+
+It asks for user input unless you set:
+
+```
+export CONFIRM_ALL_ENVIRONMENT_VARIABLES="--value-file-only"
+```
+
+This uses values from `nfs-shared-volume/Values.yaml` and skips interactive prompts.
+
+If you update commands in this document, run `./scripts/extract-all-scripts.sh` to regenerate `./scripts/nfs-shared-volume.sh`.
+
+## How the security posture is set
+
+`scone-td-build` talks to the CAS through the `scone` CLI, which runs as a SCONE
+enclave. Two independent knobs decide how much SGX the setup step needs:
+
+- **Policy protection** (`encrypted-cas-policy` in the Apply block). `false`
+  (this demo) produces a *signed* policy: no CAS attestation, no encryption, only
+  a local `scone session sign`, which does not require SGX2 on the setup host.
+  `true` produces an *encrypted* policy: it attests the CAS and encrypts the
+  session to the CAS's attested key inside the enclave, so the setup host needs
+  SGX. Use `true` when the setup runs on an untrusted host and the policy carries
+  secrets that must never appear in clear.
+- **Enclave mode** (`SCONE_PRODUCTION`, `SCONE_MODE`). Controls debug/simulation
+  versus production enclaves. It is orthogonal to the policy choice above.
+
+Either way, only the cluster nodes that run the transformed manifest need SGX;
+the workloads attest to the CAS at runtime there.
