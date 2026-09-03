@@ -110,10 +110,22 @@ if [ "$DEPLOY" = "1" ]; then
   kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
   kubectl apply -f "$out" -n "$NAMESPACE" >/dev/null || fail "could not apply the transformed manifest"
   kubectl rollout status deploy/governance-app -n "$NAMESPACE" --timeout=300s || fail "the workload did not become ready"
-  logs=$(kubectl logs -n "$NAMESPACE" deploy/governance-app --tail=20)
-  echo "$logs" | grep -q 'started under a governance-approved policy' || fail "the workload did not start under the approved policy"
+  # A ready pod is not yet a pod that has printed: the SCONE runtime takes a few seconds
+  # to bring the enclave up, so poll the logs instead of reading them once.
+  log_deadline=$((SECONDS + 120))
+  logs=""
+  while [ $SECONDS -lt $log_deadline ]; do
+    logs=$(kubectl logs -n "$NAMESPACE" deploy/governance-app --tail=20 2>/dev/null)
+    if echo "$logs" | grep -q 'started under a governance-approved policy' &&
+       echo "$logs" | grep -q 'governed secret = delivered-only-under-the-approved-policy'; then
+      break
+    fi
+    sleep 5
+  done
+  echo "$logs" | grep -q 'started under a governance-approved policy' \
+    || { echo "$logs"; fail "the workload did not report starting under the approved policy"; }
   echo "$logs" | grep -q 'governed secret = delivered-only-under-the-approved-policy' \
-    || fail "CAS did not deliver the governed secret to the enclave"
+    || { echo "$logs"; fail "CAS did not deliver the governed secret to the enclave"; }
   echo "PASS: the confidential workload attested and received the governed secret"
 fi
 
