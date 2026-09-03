@@ -1,0 +1,24 @@
+# A single confidential Deployment. Its CAS session policy is not signed locally:
+# it is approved through the governance policy-signing service (see scone.template.yaml
+# and the README).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: governance-app
+  namespace: ${NAMESPACE}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: governance-app
+  template:
+    metadata:
+      labels:
+        app: governance-app
+    spec:
+      imagePullSecrets:
+        - name: ${IMAGE_PULL_SECRET_NAME}
+      containers:
+        - name: app
+          image: ${IMAGE_NAME}
+          imagePullPolicy: Always
