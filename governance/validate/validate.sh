@@ -26,16 +26,30 @@ TAG="ttl.sh/governance-demo-$(head -c4 /dev/urandom | od -An -tx1 | tr -d ' \n')
 # shellcheck disable=SC1090
 [ -f "$HOME/.env" ] && source "$HOME/.env"
 
+for tool in docker python3 envsubst scone; do
+  command -v "$tool" >/dev/null || { echo "FAIL: '$tool' is required but not on PATH"; exit 1; }
+done
+
+# Read the demo's settings from Values.yaml so a caller that rewrites it (CI does) is
+# honoured; an environment variable still wins over the file.
+value_of() {
+  grep -E "^[[:space:]]*$1:" Values.yaml | head -1 |
+    sed -E "s/^[^:]*:[[:space:]]*//; s/^['\"]//; s/['\"]$//"
+}
+
+# Built and pushed by this script: ttl.sh is anonymous, so the run needs no registry
+# credentials of its own for the app image.
 export IMAGE_NAME="$TAG:2h"
 export DESTINATION_IMAGE_NAME="$TAG-scone:2h"
-export REGISTRY=registry.scontain.com
-export IMAGE_PULL_SECRET_NAME=sconeapps
-export SCONE_RUNTIME_VERSION="${SCONE_RUNTIME_VERSION:-7.0.0-alpha.4}"
-export CAS_NAME="${CAS_NAME:-cas}" CAS_NAMESPACE="${CAS_NAMESPACE:-default}"
+export REGISTRY="${REGISTRY:-$(value_of REGISTRY)}"
+export IMAGE_PULL_SECRET_NAME="${IMAGE_PULL_SECRET_NAME:-$(value_of IMAGE_PULL_SECRET_NAME)}"
+export SCONE_RUNTIME_VERSION="${SCONE_RUNTIME_VERSION:-$(value_of SCONE_RUNTIME_VERSION)}"
+export CAS_NAME="${CAS_NAME:-$(value_of CAS_NAME)}"
+export CAS_NAMESPACE="${CAS_NAMESPACE:-$(value_of CAS_NAMESPACE)}"
 export CVM_MODE=false SCONE_ENCLAVE=false
 # A fresh namespace per run keeps the CAS session names fresh: re-running into a
 # namespace that already has sessions makes CAS keep the ones it already stored.
-export NAMESPACE="${NAMESPACE:-governance-demo-$(head -c3 /dev/urandom | od -An -tx1 | tr -d ' \n')}"
+export NAMESPACE="${NAMESPACE:-$(value_of NAMESPACE)-$(head -c3 /dev/urandom | od -An -tx1 | tr -d ' \n')}"
 export GOVERNANCE_URL="http://127.0.0.1:$PORT"
 export GOVERNANCE_API_TOKEN=stand-in-token
 
@@ -72,7 +86,19 @@ submitted=$(grep -c '^name:' manifests/manifest.session.yaml)
 [ "$signed" -eq "$submitted" ] || fail "$submitted session(s) submitted but only $signed came back signed"
 echo "PASS: $submitted session(s) submitted -> $signed SignedPolicy resource(s) assembled from the signatures"
 
-if [ "${DEPLOY:-0}" = "1" ]; then
+# Deploy whenever a cluster is reachable (CI always has one); DEPLOY=0 forces the
+# flow-only run, DEPLOY=1 requires the deploy.
+DEPLOY="${DEPLOY:-auto}"
+if [ "$DEPLOY" = "auto" ]; then
+  if command -v kubectl >/dev/null && kubectl cluster-info >/dev/null 2>&1; then
+    DEPLOY=1
+  else
+    DEPLOY=0
+    echo "SKIP: no reachable cluster, checking the governance flow only"
+  fi
+fi
+
+if [ "$DEPLOY" = "1" ]; then
   kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
   kubectl apply -f "$out" -n "$NAMESPACE" >/dev/null || fail "could not apply the transformed manifest"
   kubectl rollout status deploy/governance-app -n "$NAMESPACE" --timeout=300s || fail "the workload did not become ready"
