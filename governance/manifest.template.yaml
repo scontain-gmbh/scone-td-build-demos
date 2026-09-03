@@ -20,5 +20,5 @@ spec:
         - name: ${IMAGE_PULL_SECRET_NAME}
       containers:
         - name: app
-          image: ${IMAGE_NAME}
+          image: ${DEMO_IMAGE}
           imagePullPolicy: Always

@@ -39,14 +39,22 @@ value_of() {
 
 # Built and pushed by this script: ttl.sh is anonymous, so the run needs no registry
 # credentials of its own for the app image.
-export IMAGE_NAME="$TAG:2h"
+export DEMO_IMAGE="$TAG:2h"
 export DESTINATION_IMAGE_NAME="$TAG-scone:2h"
 export REGISTRY="${REGISTRY:-$(value_of REGISTRY)}"
 export IMAGE_PULL_SECRET_NAME="${IMAGE_PULL_SECRET_NAME:-$(value_of IMAGE_PULL_SECRET_NAME)}"
 export SCONE_RUNTIME_VERSION="${SCONE_RUNTIME_VERSION:-$(value_of SCONE_RUNTIME_VERSION)}"
-export CAS_NAME="${CAS_NAME:-$(value_of CAS_NAME)}"
-export CAS_NAMESPACE="${CAS_NAMESPACE:-$(value_of CAS_NAMESPACE)}"
-export CVM_MODE=false SCONE_ENCLAVE=false
+export TEE_TYPE="${TEE_TYPE:-$(value_of TEE_TYPE)}"
+export SCONE_ENCLAVE="${SCONE_ENCLAVE:-$(value_of SCONE_ENCLAVE)}"
+# CI sets CAS_NAME/CAS_NAMESPACE; the demo templates take a single endpoint.
+if [ -z "${CAS_ENDPOINT:-}" ]; then
+  if [ -n "${CAS_NAME:-}" ]; then
+    CAS_ENDPOINT="${CAS_NAME}.${CAS_NAMESPACE:-default}"
+  else
+    CAS_ENDPOINT="$(value_of CAS_ENDPOINT)"
+  fi
+fi
+export CAS_ENDPOINT
 # A fresh namespace per run keeps the CAS session names fresh: re-running into a
 # namespace that already has sessions makes CAS keep the ones it already stored.
 export NAMESPACE="${NAMESPACE:-$(value_of NAMESPACE)-$(head -c3 /dev/urandom | od -An -tx1 | tr -d ' \n')}"
@@ -65,8 +73,8 @@ trap stop_stand_in EXIT
 fail() { echo "FAIL: $*"; exit 1; }
 
 echo "== build + push the app image, render the templates (namespace: $NAMESPACE) =="
-docker build -t "$IMAGE_NAME" . >/dev/null || fail "could not build the app image"
-docker push "$IMAGE_NAME" >/dev/null || fail "could not push the app image"
+docker build -t "$DEMO_IMAGE" . >/dev/null || fail "could not build the app image"
+docker push "$DEMO_IMAGE" >/dev/null || fail "could not push the app image"
 mkdir -p manifests
 envsubst < manifest.template.yaml > manifests/manifest.yaml
 envsubst < scone.template.yaml   > manifests/scone.yaml

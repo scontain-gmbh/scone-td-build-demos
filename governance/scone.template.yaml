@@ -1,18 +1,18 @@
 # scone-td-build input: register the app image, then transform the manifest and get
-# its CAS session policy APPROVED THROUGH GOVERNANCE (not signed locally).
+# its CAS session policies APPROVED THROUGH GOVERNANCE (not signed locally).
 apiVersion: scone.cloud/v1
 kind: Register
 metadata:
   name: governance-demo
 spec:
-  protected_image: ${IMAGE_NAME}
-  unprotected_image: ${IMAGE_NAME}
-  destination_image: ${DESTINATION_IMAGE_NAME}
-  enforce: ["/usr/local/bin/python3"]
-  push_scone_image: true
-  version: ${SCONE_RUNTIME_VERSION}
-  cvm: ${CVM_MODE}
-  manifest_env:
+  source-image: ${DEMO_IMAGE}
+  reference-image: ${DEMO_IMAGE}
+  output-image: ${DESTINATION_IMAGE_NAME}
+  protected-binaries: ["/usr/local/bin/python3"]
+  push-image: true
+  scone-version: ${SCONE_RUNTIME_VERSION}
+  tee-type: ${TEE_TYPE}
+  container-env:
     - {name: SCONE_VERSION, value: "1"}
     - {name: SCONE_SYSLIBS, value: "1"}
     - {name: SCONE_PRODUCTION, value: "0"}
@@ -27,11 +27,11 @@ metadata:
 spec:
   file:
     - "manifests/manifest.yaml"
-  output_manifest_file: "manifests/manifest.sanitized.yaml"
-  output_session_file: "manifests/manifest.session.yaml"
-  cas_address:
-    address: ${CAS_NAME}.${CAS_NAMESPACE}
-  manifest_env:
+  output-manifest: "manifests/manifest.sanitized.yaml"
+  output-session: "manifests/manifest.session.yaml"
+  cas-endpoint:
+    address: ${CAS_ENDPOINT}
+  container-env:
     - {name: SCONE_VERSION, value: "1"}
     - {name: SCONE_SYSLIBS, value: "1"}
     - {name: SCONE_PRODUCTION, value: "0"}
@@ -40,11 +40,11 @@ spec:
   # Delivered to the enclave by CAS only once the workload attests under the
   # governance-approved policy. The app prints it, so a successful run shows the
   # approval actually gated access to the secret.
-  session_env:
+  cas-policy-env:
     - {name: GOVERNED_SECRET, value: "delivered-only-under-the-approved-policy"}
-  version: ${SCONE_RUNTIME_VERSION}
+  scone-version: ${SCONE_RUNTIME_VERSION}
   permissive: true
-  # Governance builds the SignedPolicy from the signatures the service collects, so it
+  # Governance assembles the SignedPolicy from the signatures the service collects, so it
   # is SignedPolicy-only. `encrypted-cas-policy: true` (EPOL) under governance is rejected.
   encrypted-cas-policy: false
   # Inline governance: `remote` present TOGETHER WITH `access_policy`. The sessions carry
@@ -62,5 +62,5 @@ spec:
       - ANY
     create_sessions:
       - ANY
-  cvm: ${CVM_MODE}
-  scone_enclave: ${SCONE_ENCLAVE}
+  tee-type: ${TEE_TYPE}
+  scone-enclave: ${SCONE_ENCLAVE}
