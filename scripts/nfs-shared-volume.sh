@@ -289,25 +289,76 @@ printf '%s\n' '## 8. Observe the Shared Volume'
 printf '%s\n' ''
 printf '%s\n' 'The reader'\''s line count should climb and its "last" line should match what the'
 printf '%s\n' 'writer just wrote, confirming both pods share the same file over the generated'
-printf '%s\n' 'NFS export:'
+printf '%s\n' 'NFS export.'
+printf '%s\n' ''
+printf '%s\n' 'The first write does not happen immediately. A freshly started NFSv4 server'
+printf '%s\n' 'holds a **grace period** of about 90 seconds, during which it refuses the'
+printf '%s\n' 'state-establishing opens that a write needs, so the writer'\''s first `open()`'
+printf '%s\n' 'blocks until that period ends. Reads are not affected, which is why the reader'
+printf '%s\n' 'reports `shared file not created by the writer yet` in the meantime. Wait for'
+printf '%s\n' 'the reader to actually see the file instead of sleeping for a fixed time:'
 printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Give the writer a few seconds to produce lines.'
-printf '%s\n' 'sleep 15'
+printf '%s\n' '# Wait until the reader sees the shared file. The generous budget covers the'
+printf '%s\n' '# NFSv4 grace period (~90s) on the freshly started server.'
+printf '%s\n' 'deadline=$(( $(date +%s) + 240 ))'
+printf '%s\n' 'until kubectl logs -n ${NAMESPACE} deploy/file-reader --tail=20 2>/dev/null | grep -q '\''line(s) so far'\''; do'
+printf '%s\n' '  if [ "$(date +%s)" -ge "${deadline}" ]; then'
+printf '%s\n' '    echo "The reader never saw the shared file through the NFS export" >&2'
+printf '%s\n' '    kubectl logs -n ${NAMESPACE} deploy/file-writer --tail=20 >&2 || true'
+printf '%s\n' '    kubectl logs -n ${NAMESPACE} deploy/file-reader --tail=20 >&2 || true'
+printf '%s\n' '    exit 1'
+printf '%s\n' '  fi'
+printf '%s\n' '  sleep 5'
+printf '%s\n' 'done'
 printf '%s\n' '# The writer appends timestamped lines.'
 printf '%s\n' 'kubectl logs -n ${NAMESPACE} deploy/file-writer --tail=5'
 printf '%s\n' '# The reader sees the same lines through the NFS export.'
 printf '%s\n' 'kubectl logs -n ${NAMESPACE} deploy/file-reader --tail=5'
+printf '%s\n' '# Prove it is one shared file and not two local ones: the reader'\''s most recent'
+printf '%s\n' '# line must be a line the writer actually wrote.'
+printf '%s\n' 'last_seen=$(kubectl logs -n ${NAMESPACE} deploy/file-reader --tail=1 | sed -n '\''s/.*last: //p'\'')'
+printf '%s\n' 'if [ -z "${last_seen}" ]; then'
+printf '%s\n' '  echo "Could not read the reader'\''s most recent line" >&2'
+printf '%s\n' '  exit 1'
+printf '%s\n' 'fi'
+printf '%s\n' 'if ! kubectl logs -n ${NAMESPACE} deploy/file-writer --tail=50 | grep -qF "${last_seen}"; then'
+printf '%s\n' '  echo "The reader'\''s most recent line does not match anything the writer wrote" >&2'
+printf '%s\n' '  exit 1'
+printf '%s\n' 'fi'
+printf '%s\n' 'echo "The reader sees exactly what the writer wrote, through the NFS export"'
 printf "${RESET}"
 
-# Give the writer a few seconds to produce lines.
-sleep 15
+# Wait until the reader sees the shared file. The generous budget covers the
+# NFSv4 grace period (~90s) on the freshly started server.
+deadline=$(( $(date +%s) + 240 ))
+until kubectl logs -n ${NAMESPACE} deploy/file-reader --tail=20 2>/dev/null | grep -q 'line(s) so far'; do
+  if [ "$(date +%s)" -ge "${deadline}" ]; then
+    echo "The reader never saw the shared file through the NFS export" >&2
+    kubectl logs -n ${NAMESPACE} deploy/file-writer --tail=20 >&2 || true
+    kubectl logs -n ${NAMESPACE} deploy/file-reader --tail=20 >&2 || true
+    exit 1
+  fi
+  sleep 5
+done
 # The writer appends timestamped lines.
 kubectl logs -n ${NAMESPACE} deploy/file-writer --tail=5
 # The reader sees the same lines through the NFS export.
 kubectl logs -n ${NAMESPACE} deploy/file-reader --tail=5
+# Prove it is one shared file and not two local ones: the reader's most recent
+# line must be a line the writer actually wrote.
+last_seen=$(kubectl logs -n ${NAMESPACE} deploy/file-reader --tail=1 | sed -n 's/.*last: //p')
+if [ -z "${last_seen}" ]; then
+  echo "Could not read the reader's most recent line" >&2
+  exit 1
+fi
+if ! kubectl logs -n ${NAMESPACE} deploy/file-writer --tail=50 | grep -qF "${last_seen}"; then
+  echo "The reader's most recent line does not match anything the writer wrote" >&2
+  exit 1
+fi
+echo "The reader sees exactly what the writer wrote, through the NFS export"
 
 printf "${VIOLET}"
 printf '%s\n' ''
