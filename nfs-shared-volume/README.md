@@ -141,15 +141,44 @@ kubectl rollout status deploy/file-reader -n ${NAMESPACE} --timeout=300s
 
 The reader's line count should climb and its "last" line should match what the
 writer just wrote, confirming both pods share the same file over the generated
-NFS export:
+NFS export.
+
+The first write does not happen immediately. A freshly started NFSv4 server
+holds a **grace period** of about 90 seconds, during which it refuses the
+state-establishing opens that a write needs, so the writer's first `open()`
+blocks until that period ends. Reads are not affected, which is why the reader
+reports `shared file not created by the writer yet` in the meantime. Wait for
+the reader to actually see the file instead of sleeping for a fixed time:
 
 ```bash
-# Give the writer a few seconds to produce lines.
-sleep 15
+# Wait until the reader sees the shared file. The generous budget covers the
+# NFSv4 grace period (~90s) on the freshly started server.
+deadline=$(( $(date +%s) + 240 ))
+until kubectl logs -n ${NAMESPACE} deploy/file-reader --tail=20 2>/dev/null | grep -q 'line(s) so far'; do
+  if [ "$(date +%s)" -ge "${deadline}" ]; then
+    echo "The reader never saw the shared file through the NFS export" >&2
+    kubectl logs -n ${NAMESPACE} deploy/file-writer --tail=20 >&2 || true
+    kubectl logs -n ${NAMESPACE} deploy/file-reader --tail=20 >&2 || true
+    exit 1
+  fi
+  sleep 5
+done
 # The writer appends timestamped lines.
 kubectl logs -n ${NAMESPACE} deploy/file-writer --tail=5
 # The reader sees the same lines through the NFS export.
 kubectl logs -n ${NAMESPACE} deploy/file-reader --tail=5
+# Prove it is one shared file and not two local ones: the reader's most recent
+# line must be a line the writer actually wrote.
+last_seen=$(kubectl logs -n ${NAMESPACE} deploy/file-reader --tail=1 | sed -n 's/.*last: //p')
+if [ -z "${last_seen}" ]; then
+  echo "Could not read the reader's most recent line" >&2
+  exit 1
+fi
+if ! kubectl logs -n ${NAMESPACE} deploy/file-writer --tail=50 | grep -qF "${last_seen}"; then
+  echo "The reader's most recent line does not match anything the writer wrote" >&2
+  exit 1
+fi
+echo "The reader sees exactly what the writer wrote, through the NFS export"
 ```
 
 ## 9. Uninstall

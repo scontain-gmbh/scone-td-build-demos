@@ -367,16 +367,63 @@ printf '%s\n' '## 8. Observe the Shared Volume'
 printf '%s\n' ''
 printf '%s\n' 'The reader'\''s line count should climb and its "last" line should match what the'
 printf '%s\n' 'writer just wrote, confirming both pods share the same file over the generated'
-printf '%s\n' 'NFS export:'
+printf '%s\n' 'NFS export.'
+printf '%s\n' ''
+printf '%s\n' 'The first write does not happen immediately. A freshly started NFSv4 server'
+printf '%s\n' 'holds a **grace period** of about 90 seconds, during which it refuses the'
+printf '%s\n' 'state-establishing opens that a write needs, so the writer'\''s first `open()`'
+printf '%s\n' 'blocks until that period ends. Reads are not affected, which is why the reader'
+printf '%s\n' 'reports `shared file not created by the writer yet` in the meantime. Wait for'
+printf '%s\n' 'the reader to actually see the file instead of sleeping for a fixed time:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Give the writer a few seconds to produce lines.
+# Wait until the reader sees the shared file. The generous budget covers the
 EOF
 )"
 pe "$(cat <<'EOF'
-sleep 15
+# NFSv4 grace period (~90s) on the freshly started server.
+EOF
+)"
+pe "$(cat <<'EOF'
+deadline=$(( $(date +%s) + 240 ))
+EOF
+)"
+pe "$(cat <<'EOF'
+until kubectl logs -n ${NAMESPACE} deploy/file-reader --tail=20 2>/dev/null | grep -q 'line(s) so far'; do
+EOF
+)"
+pe "$(cat <<'EOF'
+  if [ "$(date +%s)" -ge "${deadline}" ]; then
+EOF
+)"
+pe "$(cat <<'EOF'
+    echo "The reader never saw the shared file through the NFS export" >&2
+EOF
+)"
+pe "$(cat <<'EOF'
+    kubectl logs -n ${NAMESPACE} deploy/file-writer --tail=20 >&2 || true
+EOF
+)"
+pe "$(cat <<'EOF'
+    kubectl logs -n ${NAMESPACE} deploy/file-reader --tail=20 >&2 || true
+EOF
+)"
+pe "$(cat <<'EOF'
+    exit 1
+EOF
+)"
+pe "$(cat <<'EOF'
+  fi
+EOF
+)"
+pe "$(cat <<'EOF'
+  sleep 5
+EOF
+)"
+pe "$(cat <<'EOF'
+done
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -393,6 +440,54 @@ EOF
 )"
 pe "$(cat <<'EOF'
 kubectl logs -n ${NAMESPACE} deploy/file-reader --tail=5
+EOF
+)"
+pe "$(cat <<'EOF'
+# Prove it is one shared file and not two local ones: the reader's most recent
+EOF
+)"
+pe "$(cat <<'EOF'
+# line must be a line the writer actually wrote.
+EOF
+)"
+pe "$(cat <<'EOF'
+last_seen=$(kubectl logs -n ${NAMESPACE} deploy/file-reader --tail=1 | sed -n 's/.*last: //p')
+EOF
+)"
+pe "$(cat <<'EOF'
+if [ -z "${last_seen}" ]; then
+EOF
+)"
+pe "$(cat <<'EOF'
+  echo "Could not read the reader's most recent line" >&2
+EOF
+)"
+pe "$(cat <<'EOF'
+  exit 1
+EOF
+)"
+pe "$(cat <<'EOF'
+fi
+EOF
+)"
+pe "$(cat <<'EOF'
+if ! kubectl logs -n ${NAMESPACE} deploy/file-writer --tail=50 | grep -qF "${last_seen}"; then
+EOF
+)"
+pe "$(cat <<'EOF'
+  echo "The reader's most recent line does not match anything the writer wrote" >&2
+EOF
+)"
+pe "$(cat <<'EOF'
+  exit 1
+EOF
+)"
+pe "$(cat <<'EOF'
+fi
+EOF
+)"
+pe "$(cat <<'EOF'
+echo "The reader sees exactly what the writer wrote, through the NFS export"
 EOF
 )"
 
