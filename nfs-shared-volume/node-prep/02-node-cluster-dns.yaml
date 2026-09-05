@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-cluster-dns
+  namespace: kube-system
+  annotations:
+    purpose: "Node prep: route *.cluster.local on the host resolver to CoreDNS (10.96.0.10) so kubelet can resolve NFS service DNS for nfs: volume mounts."
+spec:
+  selector:
+    matchLabels: { app: node-cluster-dns }
+  template:
+    metadata:
+      labels: { app: node-cluster-dns }
+    spec:
+      hostPID: true
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: setup
+          image: debian:bookworm-slim
+          securityContext:
+            privileged: true
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -eu
+              nsenter --target=1 --mount --uts --ipc --net --pid -- bash -c 'mkdir -p /etc/systemd/resolved.conf.d; printf "[Resolve]\nDNS=10.96.0.10\nDomains=~cluster.local\n" > /etc/systemd/resolved.conf.d/k8s-cluster.conf; systemctl restart systemd-resolved; sleep 2; echo RESOLVED_ON_$(hostname); resolvectl query nfs-server.nfs-test.svc.cluster.local 2>&1 | head -3 || echo QUERY_FAILED'
+              echo NODE_DNS_DONE
+              sleep infinity

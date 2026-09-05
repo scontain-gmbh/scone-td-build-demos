@@ -1,0 +1,11 @@
+environment:
+  IMAGE_NAME: registry.scontain.com/k8s-scone-images/nfs-shared-io:demo
+  DESTINATION_IMAGE_NAME: registry.scontain.com/k8s-scone-images/nfs-shared-io:demo-scone
+  REGISTRY: registry.scontain.com
+  IMAGE_PULL_SECRET_NAME: sconeapps
+  SCONE_RUNTIME_VERSION: 6.1.0-rc.0
+  CAS_NAMESPACE: default
+  CAS_NAME: cas
+  CVM_MODE: 'false'
+  SCONE_ENCLAVE: 'false'
+  NAMESPACE: nfs-demo

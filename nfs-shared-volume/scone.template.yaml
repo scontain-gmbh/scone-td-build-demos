@@ -1,0 +1,47 @@
+# scone-td-build input: register the app image, then transform the manifest.
+# The two Deployments share one PVC, so the Apply step re-shares it over NFS.
+apiVersion: scone.cloud/v1
+kind: Register
+metadata:
+  name: nfs-shared-volume-demo
+spec:
+  protected_image: ${IMAGE_NAME}
+  unprotected_image: ${IMAGE_NAME}
+  destination_image: ${DESTINATION_IMAGE_NAME}
+  enforce: ["/usr/local/bin/python3"]
+  push_scone_image: true
+  version: ${SCONE_RUNTIME_VERSION}
+  cvm: ${CVM_MODE}
+  manifest_env:
+    - {name: SCONE_VERSION, value: "1"}
+    - {name: SCONE_SYSLIBS, value: "1"}
+    - {name: SCONE_PRODUCTION, value: "0"}
+    - {name: SCONE_HEAP, value: "760M"}
+    - {name: SCONE_ALLOW_DLOPEN, value: "2"}
+---
+apiVersion: scone.cloud/v1
+kind: Apply
+metadata:
+  name: nfs-shared-volume-demo
+  namespace: ${NAMESPACE}
+spec:
+  file:
+    - "manifests/manifest.yaml"
+  output_manifest_file: "manifests/manifest.sanitized.yaml"
+  output_session_file: "manifests/manifest.session.yaml"
+  cas_address:
+    address: ${CAS_NAME}.${CAS_NAMESPACE}
+  manifest_env:
+    - {name: SCONE_VERSION, value: "1"}
+    - {name: SCONE_SYSLIBS, value: "1"}
+    - {name: SCONE_PRODUCTION, value: "0"}
+    - {name: SCONE_HEAP, value: "760M"}
+    - {name: SCONE_ALLOW_DLOPEN, value: "2"}
+  version: ${SCONE_RUNTIME_VERSION}
+  permissive: true
+  # Signed policy (spol) instead of encrypted: skips CAS attestation and policy
+  # encryption, so the setup host needs no SGX2. Only the cluster nodes running
+  # the transformed manifest need SGX. See README "How the security posture is set".
+  encrypted-cas-policy: false
+  cvm: ${CVM_MODE}
+  scone_enclave: ${SCONE_ENCLAVE}
