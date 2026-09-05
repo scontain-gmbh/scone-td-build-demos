@@ -108,9 +108,36 @@ printf '%s\n' 'runs a consumer or the NFS server: the `mount.nfs` helper (`nfs-c
 printf '%s\n' 'resolution of the NFS service DNS name. These are node-level, not something the'
 printf '%s\n' 'manifest or `Values.yaml` can set, so they are a one-time cluster prerequisite.'
 printf '%s\n' ''
-printf '%s\n' 'Apply them once per cluster as described in [`node-prep/README.md`](node-prep/README.md).'
-printf '%s\n' 'On a cluster that already has `nfs-common` and cluster DNS wired to the nodes you'
-printf '%s\n' 'can skip this.'
+printf '%s\n' 'The step below applies them. It is one-shot and idempotent: each DaemonSet'
+printf '%s\n' '`nsenter`s into the host, makes the change if it is missing, and is deleted right'
+printf '%s\n' 'after; the change itself persists on the node. See'
+printf '%s\n' '[`node-prep/README.md`](node-prep/README.md) for what each one does, and set'
+printf '%s\n' '`SKIP_NODE_PREP=1` if your cluster is already prepared or you lack the rights to'
+printf '%s\n' 'touch `kube-system`.'
+printf '%s\n' ''
+printf "${RESET}"
+
+printf "${ORANGE}"
+printf '%s\n' 'if [ "${SKIP_NODE_PREP:-0}" != "1" ]; then'
+printf '%s\n' '  kubectl apply -f nfs-shared-volume/node-prep/01-install-nfs-common.yaml'
+printf '%s\n' '  kubectl apply -f nfs-shared-volume/node-prep/02-node-cluster-dns.yaml'
+printf '%s\n' '  kubectl -n kube-system rollout status ds/install-nfs-common --timeout=180s'
+printf '%s\n' '  kubectl -n kube-system rollout status ds/node-cluster-dns --timeout=180s'
+printf '%s\n' '  # The nodes keep the package and the resolver entry once the pods have run.'
+printf '%s\n' '  kubectl -n kube-system delete ds install-nfs-common node-cluster-dns'
+printf '%s\n' 'fi'
+printf "${RESET}"
+
+if [ "${SKIP_NODE_PREP:-0}" != "1" ]; then
+  kubectl apply -f nfs-shared-volume/node-prep/01-install-nfs-common.yaml
+  kubectl apply -f nfs-shared-volume/node-prep/02-node-cluster-dns.yaml
+  kubectl -n kube-system rollout status ds/install-nfs-common --timeout=180s
+  kubectl -n kube-system rollout status ds/node-cluster-dns --timeout=180s
+  # The nodes keep the package and the resolver entry once the pods have run.
+  kubectl -n kube-system delete ds install-nfs-common node-cluster-dns
+fi
+
+printf "${VIOLET}"
 printf '%s\n' ''
 printf '%s\n' '## 2. Set Up Environment Variables'
 printf '%s\n' ''
