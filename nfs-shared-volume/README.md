@@ -35,9 +35,23 @@ runs a consumer or the NFS server: the `mount.nfs` helper (`nfs-common`) and hos
 resolution of the NFS service DNS name. These are node-level, not something the
 manifest or `Values.yaml` can set, so they are a one-time cluster prerequisite.
 
-Apply them once per cluster as described in [`node-prep/README.md`](node-prep/README.md).
-On a cluster that already has `nfs-common` and cluster DNS wired to the nodes you
-can skip this.
+The step below applies them. It is one-shot and idempotent: each DaemonSet
+`nsenter`s into the host, makes the change if it is missing, and is deleted right
+after; the change itself persists on the node. See
+[`node-prep/README.md`](node-prep/README.md) for what each one does, and set
+`SKIP_NODE_PREP=1` if your cluster is already prepared or you lack the rights to
+touch `kube-system`.
+
+```bash
+if [ "${SKIP_NODE_PREP:-0}" != "1" ]; then
+  kubectl apply -f nfs-shared-volume/node-prep/01-install-nfs-common.yaml
+  kubectl apply -f nfs-shared-volume/node-prep/02-node-cluster-dns.yaml
+  kubectl -n kube-system rollout status ds/install-nfs-common --timeout=180s
+  kubectl -n kube-system rollout status ds/node-cluster-dns --timeout=180s
+  # The nodes keep the package and the resolver entry once the pods have run.
+  kubectl -n kube-system delete ds install-nfs-common node-cluster-dns
+fi
+```
 
 ## 2. Set Up Environment Variables
 

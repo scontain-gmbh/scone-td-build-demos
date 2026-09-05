@@ -149,9 +149,49 @@ printf '%s\n' 'runs a consumer or the NFS server: the `mount.nfs` helper (`nfs-c
 printf '%s\n' 'resolution of the NFS service DNS name. These are node-level, not something the'
 printf '%s\n' 'manifest or `Values.yaml` can set, so they are a one-time cluster prerequisite.'
 printf '%s\n' ''
-printf '%s\n' 'Apply them once per cluster as described in [`node-prep/README.md`](node-prep/README.md).'
-printf '%s\n' 'On a cluster that already has `nfs-common` and cluster DNS wired to the nodes you'
-printf '%s\n' 'can skip this.'
+printf '%s\n' 'The step below applies them. It is one-shot and idempotent: each DaemonSet'
+printf '%s\n' '`nsenter`s into the host, makes the change if it is missing, and is deleted right'
+printf '%s\n' 'after; the change itself persists on the node. See'
+printf '%s\n' '[`node-prep/README.md`](node-prep/README.md) for what each one does, and set'
+printf '%s\n' '`SKIP_NODE_PREP=1` if your cluster is already prepared or you lack the rights to'
+printf '%s\n' 'touch `kube-system`.'
+printf '%s\n' ''
+printf "%b" "$RESET"
+
+pe "$(cat <<'EOF'
+if [ "${SKIP_NODE_PREP:-0}" != "1" ]; then
+EOF
+)"
+pe "$(cat <<'EOF'
+  kubectl apply -f nfs-shared-volume/node-prep/01-install-nfs-common.yaml
+EOF
+)"
+pe "$(cat <<'EOF'
+  kubectl apply -f nfs-shared-volume/node-prep/02-node-cluster-dns.yaml
+EOF
+)"
+pe "$(cat <<'EOF'
+  kubectl -n kube-system rollout status ds/install-nfs-common --timeout=180s
+EOF
+)"
+pe "$(cat <<'EOF'
+  kubectl -n kube-system rollout status ds/node-cluster-dns --timeout=180s
+EOF
+)"
+pe "$(cat <<'EOF'
+  # The nodes keep the package and the resolver entry once the pods have run.
+EOF
+)"
+pe "$(cat <<'EOF'
+  kubectl -n kube-system delete ds install-nfs-common node-cluster-dns
+EOF
+)"
+pe "$(cat <<'EOF'
+fi
+EOF
+)"
+
+printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '## 2. Set Up Environment Variables'
 printf '%s\n' ''
