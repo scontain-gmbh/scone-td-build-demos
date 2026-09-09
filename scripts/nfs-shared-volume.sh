@@ -121,8 +121,12 @@ printf "${ORANGE}"
 printf '%s\n' 'if [ "${SKIP_NODE_PREP:-0}" != "1" ]; then'
 printf '%s\n' '  kubectl apply -f nfs-shared-volume/node-prep/01-install-nfs-common.yaml'
 printf '%s\n' '  kubectl apply -f nfs-shared-volume/node-prep/02-node-cluster-dns.yaml'
-printf '%s\n' '  kubectl -n kube-system rollout status ds/install-nfs-common --timeout=180s'
-printf '%s\n' '  kubectl -n kube-system rollout status ds/node-cluster-dns --timeout=180s'
+printf '%s\n' '  # Best effort: a node that cannot run these (drained, under disk pressure) is'
+printf '%s\n' '  # only a problem if a consumer lands there, and that failure reports itself.'
+printf '%s\n' '  kubectl -n kube-system rollout status ds/install-nfs-common --timeout=180s ||'
+printf '%s\n' '    echo "WARNING: nfs-common did not roll out to every node"'
+printf '%s\n' '  kubectl -n kube-system rollout status ds/node-cluster-dns --timeout=180s ||'
+printf '%s\n' '    echo "WARNING: cluster DNS was not wired on every node"'
 printf '%s\n' '  # The nodes keep the package and the resolver entry once the pods have run.'
 printf '%s\n' '  kubectl -n kube-system delete ds install-nfs-common node-cluster-dns'
 printf '%s\n' 'fi'
@@ -131,8 +135,12 @@ printf "${RESET}"
 if [ "${SKIP_NODE_PREP:-0}" != "1" ]; then
   kubectl apply -f nfs-shared-volume/node-prep/01-install-nfs-common.yaml
   kubectl apply -f nfs-shared-volume/node-prep/02-node-cluster-dns.yaml
-  kubectl -n kube-system rollout status ds/install-nfs-common --timeout=180s
-  kubectl -n kube-system rollout status ds/node-cluster-dns --timeout=180s
+  # Best effort: a node that cannot run these (drained, under disk pressure) is
+  # only a problem if a consumer lands there, and that failure reports itself.
+  kubectl -n kube-system rollout status ds/install-nfs-common --timeout=180s ||
+    echo "WARNING: nfs-common did not roll out to every node"
+  kubectl -n kube-system rollout status ds/node-cluster-dns --timeout=180s ||
+    echo "WARNING: cluster DNS was not wired on every node"
   # The nodes keep the package and the resolver entry once the pods have run.
   kubectl -n kube-system delete ds install-nfs-common node-cluster-dns
 fi
