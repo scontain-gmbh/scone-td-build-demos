@@ -6,6 +6,7 @@ environment:
   SCONE_RUNTIME_VERSION: 6.1.0-rc.0
   CAS_NAMESPACE: default
   CAS_NAME: cas
-  CVM_MODE: 'false'
+  CAS_ENDPOINT: cas.default
+  TEE_TYPE: sgx
   SCONE_ENCLAVE: 'false'
   NAMESPACE: nfs-demo

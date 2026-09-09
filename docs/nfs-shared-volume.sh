@@ -171,11 +171,27 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-  kubectl -n kube-system rollout status ds/install-nfs-common --timeout=180s
+  # Best effort: a node that cannot run these (drained, under disk pressure) is
 EOF
 )"
 pe "$(cat <<'EOF'
-  kubectl -n kube-system rollout status ds/node-cluster-dns --timeout=180s
+  # only a problem if a consumer lands there, and that failure reports itself.
+EOF
+)"
+pe "$(cat <<'EOF'
+  kubectl -n kube-system rollout status ds/install-nfs-common --timeout=180s ||
+EOF
+)"
+pe "$(cat <<'EOF'
+    echo "WARNING: nfs-common did not roll out to every node"
+EOF
+)"
+pe "$(cat <<'EOF'
+  kubectl -n kube-system rollout status ds/node-cluster-dns --timeout=180s ||
+EOF
+)"
+pe "$(cat <<'EOF'
+    echo "WARNING: cluster DNS was not wired on every node"
 EOF
 )"
 pe "$(cat <<'EOF'
