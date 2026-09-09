@@ -57,7 +57,13 @@ fi
 export CAS_ENDPOINT
 # A fresh namespace per run keeps the CAS session names fresh: re-running into a
 # namespace that already has sessions makes CAS keep the ones it already stored.
-export NAMESPACE="${NAMESPACE:-$(value_of NAMESPACE)-$(head -c3 /dev/urandom | od -An -tx1 | tr -d ' \n')}"
+if [ -n "${NAMESPACE:-}" ]; then
+  NAMESPACE_IS_OURS=0
+else
+  NAMESPACE_IS_OURS=1
+  NAMESPACE="$(value_of NAMESPACE)-$(head -c3 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+fi
+export NAMESPACE
 export GOVERNANCE_URL="http://127.0.0.1:$PORT"
 export GOVERNANCE_API_TOKEN=stand-in-token
 
@@ -68,7 +74,18 @@ start_stand_in() {  # $1 = approve | abort
   sleep 1
 }
 stop_stand_in() { [ -n "$MOCK_PID" ] && kill "$MOCK_PID" 2>/dev/null; MOCK_PID=""; }
-trap stop_stand_in EXIT
+
+# The namespace is generated here, so the caller cannot know its name and cannot
+# clean it up. Do it here, and only when we both generated and created it: one
+# passed in from outside belongs to whoever passed it.
+NAMESPACE_CREATED=0
+cleanup() {
+  stop_stand_in
+  if [ "$NAMESPACE_CREATED" = "1" ] && [ "$NAMESPACE_IS_OURS" = "1" ]; then
+    kubectl delete namespace "$NAMESPACE" --ignore-not-found --wait=false >/dev/null 2>&1
+  fi
+}
+trap cleanup EXIT
 
 fail() { echo "FAIL: $*"; exit 1; }
 
@@ -108,6 +125,7 @@ fi
 
 if [ "$DEPLOY" = "1" ]; then
   kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  NAMESPACE_CREATED=1
   kubectl apply -f "$out" -n "$NAMESPACE" >/dev/null || fail "could not apply the transformed manifest"
   kubectl rollout status deploy/governance-app -n "$NAMESPACE" --timeout=300s || fail "the workload did not become ready"
   # A ready pod is not yet a pod that has printed: the SCONE runtime takes a few seconds
