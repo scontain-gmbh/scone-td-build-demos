@@ -234,10 +234,49 @@ printf '%s\n' 'block.'
 printf '%s\n' ''
 printf '%s\n' '## 4. Uninstall'
 printf '%s\n' ''
+printf '%s\n' '`validate.sh` already cleans up after itself, and only after itself: on exit it'
+printf '%s\n' 'deletes the namespace when it both generated the name and created the namespace.'
+printf '%s\n' 'A `NAMESPACE` you pass in is yours, so it is left standing along with whatever'
+printf '%s\n' 'else lives in it.'
+printf '%s\n' ''
+printf '%s\n' 'That is also why there is no `kubectl delete namespace` here. This section used'
+printf '%s\n' 'to run one unconditionally, against the un-suffixed name: with `NAMESPACE` set'
+printf '%s\n' 'it deleted the caller'\''s namespace, and without it, it aimed at'
+printf '%s\n' '`governance-demo`, which the validator never creates because it appends a random'
+printf '%s\n' 'suffix. Both targets were wrong.'
+printf '%s\n' ''
+printf '%s\n' 'If you passed your own `NAMESPACE`, or ran section 3 by hand, remove what the'
+printf '%s\n' 'demo put there instead:'
+printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-kubectl delete namespace ${NAMESPACE:-governance-demo} --ignore-not-found
+# Guarded on purpose: this block is extracted into the demo script and runs in
+EOF
+)"
+pe "$(cat <<'EOF'
+# CI too, where NAMESPACE is unset and the validator has already removed the
+EOF
+)"
+pe "$(cat <<'EOF'
+# namespace it generated. Deleting anything here would be aimed at a namespace
+EOF
+)"
+pe "$(cat <<'EOF'
+# this demo never created.
+EOF
+)"
+pe "$(cat <<'EOF'
+if [ -n "${NAMESPACE:-}" ]; then
+EOF
+)"
+pe "$(cat <<'EOF'
+  kubectl delete -f governance/manifests/manifest.sanitized.yaml \
+    -n "${NAMESPACE}" --ignore-not-found
+EOF
+)"
+pe "$(cat <<'EOF'
+fi
 EOF
 )"
 

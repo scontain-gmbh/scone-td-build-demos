@@ -194,13 +194,41 @@ printf '%s\n' 'block.'
 printf '%s\n' ''
 printf '%s\n' '## 4. Uninstall'
 printf '%s\n' ''
+printf '%s\n' '`validate.sh` already cleans up after itself, and only after itself: on exit it'
+printf '%s\n' 'deletes the namespace when it both generated the name and created the namespace.'
+printf '%s\n' 'A `NAMESPACE` you pass in is yours, so it is left standing along with whatever'
+printf '%s\n' 'else lives in it.'
+printf '%s\n' ''
+printf '%s\n' 'That is also why there is no `kubectl delete namespace` here. This section used'
+printf '%s\n' 'to run one unconditionally, against the un-suffixed name: with `NAMESPACE` set'
+printf '%s\n' 'it deleted the caller'\''s namespace, and without it, it aimed at'
+printf '%s\n' '`governance-demo`, which the validator never creates because it appends a random'
+printf '%s\n' 'suffix. Both targets were wrong.'
+printf '%s\n' ''
+printf '%s\n' 'If you passed your own `NAMESPACE`, or ran section 3 by hand, remove what the'
+printf '%s\n' 'demo put there instead:'
+printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' 'kubectl delete namespace ${NAMESPACE:-governance-demo} --ignore-not-found'
+printf '%s\n' '# Guarded on purpose: this block is extracted into the demo script and runs in'
+printf '%s\n' '# CI too, where NAMESPACE is unset and the validator has already removed the'
+printf '%s\n' '# namespace it generated. Deleting anything here would be aimed at a namespace'
+printf '%s\n' '# this demo never created.'
+printf '%s\n' 'if [ -n "${NAMESPACE:-}" ]; then'
+printf '%s\n' '  kubectl delete -f governance/manifests/manifest.sanitized.yaml \'
+printf '%s\n' '    -n "${NAMESPACE}" --ignore-not-found'
+printf '%s\n' 'fi'
 printf "${RESET}"
 
-kubectl delete namespace ${NAMESPACE:-governance-demo} --ignore-not-found
+# Guarded on purpose: this block is extracted into the demo script and runs in
+# CI too, where NAMESPACE is unset and the validator has already removed the
+# namespace it generated. Deleting anything here would be aimed at a namespace
+# this demo never created.
+if [ -n "${NAMESPACE:-}" ]; then
+  kubectl delete -f governance/manifests/manifest.sanitized.yaml \
+    -n "${NAMESPACE}" --ignore-not-found
+fi
 
 printf "${VIOLET}"
 printf '%s\n' ''

@@ -103,8 +103,29 @@ block.
 
 ## 4. Uninstall
 
+`validate.sh` already cleans up after itself, and only after itself: on exit it
+deletes the namespace when it both generated the name and created the namespace.
+A `NAMESPACE` you pass in is yours, so it is left standing along with whatever
+else lives in it.
+
+That is also why there is no `kubectl delete namespace` here. This section used
+to run one unconditionally, against the un-suffixed name: with `NAMESPACE` set
+it deleted the caller's namespace, and without it, it aimed at
+`governance-demo`, which the validator never creates because it appends a random
+suffix. Both targets were wrong.
+
+If you passed your own `NAMESPACE`, or ran section 3 by hand, remove what the
+demo put there instead:
+
 ```bash
-kubectl delete namespace ${NAMESPACE:-governance-demo} --ignore-not-found
+# Guarded on purpose: this block is extracted into the demo script and runs in
+# CI too, where NAMESPACE is unset and the validator has already removed the
+# namespace it generated. Deleting anything here would be aimed at a namespace
+# this demo never created.
+if [ -n "${NAMESPACE:-}" ]; then
+  kubectl delete -f governance/manifests/manifest.sanitized.yaml \
+    -n "${NAMESPACE}" --ignore-not-found
+fi
 ```
 
 ## What is real and what is simulated
