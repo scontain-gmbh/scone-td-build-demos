@@ -74,7 +74,19 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
+            # Paired with the volume below: both must be gone after the transform.
+            - name: unattested-import
+              mountPath: /imported
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: shared-data
+        # An NFS export the manifest brings itself, not one scone-td-build
+        # generated. Nothing attests it, so the cleaner must drop it along with
+        # its mount; step 7 checks that it did. Kept in the demo because the
+        # failure it guards against is silent: the workload would simply come up
+        # with an unattested network filesystem mounted inside it.
+        - name: unattested-import
+          nfs:
+            server: nfs.example.invalid
+            path: /exports

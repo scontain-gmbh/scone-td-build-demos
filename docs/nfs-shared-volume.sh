@@ -390,6 +390,50 @@ printf '%s\n' 'The transformed manifest (`manifests/manifest.sanitized.yaml`) co
 printf '%s\n' 'sconified writer/reader Deployments, the generated NFS server Deployment and'
 printf '%s\n' 'Service, and the signed CAS policies.'
 printf '%s\n' ''
+printf '%s\n' 'The reader also declares an `nfs` volume of its own, `unattested-import`,'
+printf '%s\n' 'pointing at a server nobody attests. Only exports this transform generated are'
+printf '%s\n' 'backed by a session, so the cleaner drops that one and its mount. Checking it'
+printf '%s\n' 'here, before anything reaches the cluster, keeps the failure fast and legible: a'
+printf '%s\n' 'regression would otherwise surface as a pod stuck in `ContainerCreating` while'
+printf '%s\n' 'kubelet retries a mount that never completes.'
+printf '%s\n' ''
+printf "%b" "$RESET"
+
+pe "$(cat <<'EOF'
+# The generated export survives; the one the manifest brought does not.
+EOF
+)"
+pe "$(cat <<'EOF'
+grep -q 'nfs-shared-data' manifests/manifest.sanitized.yaml ||
+EOF
+)"
+pe "$(cat <<'EOF'
+  { echo "FAIL: the generated NFS export is missing from the transformed manifest"; exit 1; }
+EOF
+)"
+pe "$(cat <<'EOF'
+if grep -qE 'nfs\.example\.invalid|unattested-import' manifests/manifest.sanitized.yaml; then
+EOF
+)"
+pe "$(cat <<'EOF'
+  echo "FAIL: an NFS volume the input supplied survived the transform" >&2
+EOF
+)"
+pe "$(cat <<'EOF'
+  exit 1
+EOF
+)"
+pe "$(cat <<'EOF'
+fi
+EOF
+)"
+pe "$(cat <<'EOF'
+echo "OK: only the generated NFS export is present"
+EOF
+)"
+
+printf "%b" "$LILAC"
+printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'

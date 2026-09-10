@@ -146,6 +146,24 @@ The transformed manifest (`manifests/manifest.sanitized.yaml`) contains the
 sconified writer/reader Deployments, the generated NFS server Deployment and
 Service, and the signed CAS policies.
 
+The reader also declares an `nfs` volume of its own, `unattested-import`,
+pointing at a server nobody attests. Only exports this transform generated are
+backed by a session, so the cleaner drops that one and its mount. Checking it
+here, before anything reaches the cluster, keeps the failure fast and legible: a
+regression would otherwise surface as a pod stuck in `ContainerCreating` while
+kubelet retries a mount that never completes.
+
+```bash
+# The generated export survives; the one the manifest brought does not.
+grep -q 'nfs-shared-data' manifests/manifest.sanitized.yaml ||
+  { echo "FAIL: the generated NFS export is missing from the transformed manifest"; exit 1; }
+if grep -qE 'nfs\.example\.invalid|unattested-import' manifests/manifest.sanitized.yaml; then
+  echo "FAIL: an NFS volume the input supplied survived the transform" >&2
+  exit 1
+fi
+echo "OK: only the generated NFS export is present"
+```
+
 ```bash
 # Apply the transformed manifest and the CAS policies.
 kubectl apply -f manifests/manifest.sanitized.yaml -n ${NAMESPACE}

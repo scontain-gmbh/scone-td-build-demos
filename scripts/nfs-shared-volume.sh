@@ -300,6 +300,37 @@ printf '%s\n' 'The transformed manifest (`manifests/manifest.sanitized.yaml`) co
 printf '%s\n' 'sconified writer/reader Deployments, the generated NFS server Deployment and'
 printf '%s\n' 'Service, and the signed CAS policies.'
 printf '%s\n' ''
+printf '%s\n' 'The reader also declares an `nfs` volume of its own, `unattested-import`,'
+printf '%s\n' 'pointing at a server nobody attests. Only exports this transform generated are'
+printf '%s\n' 'backed by a session, so the cleaner drops that one and its mount. Checking it'
+printf '%s\n' 'here, before anything reaches the cluster, keeps the failure fast and legible: a'
+printf '%s\n' 'regression would otherwise surface as a pod stuck in `ContainerCreating` while'
+printf '%s\n' 'kubelet retries a mount that never completes.'
+printf '%s\n' ''
+printf "${RESET}"
+
+printf "${ORANGE}"
+printf '%s\n' '# The generated export survives; the one the manifest brought does not.'
+printf '%s\n' 'grep -q '\''nfs-shared-data'\'' manifests/manifest.sanitized.yaml ||'
+printf '%s\n' '  { echo "FAIL: the generated NFS export is missing from the transformed manifest"; exit 1; }'
+printf '%s\n' 'if grep -qE '\''nfs\.example\.invalid|unattested-import'\'' manifests/manifest.sanitized.yaml; then'
+printf '%s\n' '  echo "FAIL: an NFS volume the input supplied survived the transform" >&2'
+printf '%s\n' '  exit 1'
+printf '%s\n' 'fi'
+printf '%s\n' 'echo "OK: only the generated NFS export is present"'
+printf "${RESET}"
+
+# The generated export survives; the one the manifest brought does not.
+grep -q 'nfs-shared-data' manifests/manifest.sanitized.yaml ||
+  { echo "FAIL: the generated NFS export is missing from the transformed manifest"; exit 1; }
+if grep -qE 'nfs\.example\.invalid|unattested-import' manifests/manifest.sanitized.yaml; then
+  echo "FAIL: an NFS volume the input supplied survived the transform" >&2
+  exit 1
+fi
+echo "OK: only the generated NFS export is present"
+
+printf "${VIOLET}"
+printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
