@@ -173,6 +173,10 @@ all_values_files=(
   "${repo_root}/java-args-env-file/Values.yaml"
   "${repo_root}/software-updates/Values.yaml"
   "${repo_root}/image-signing/Values.yaml"
+  # governance.sh runs in the same full-suite pass, so its values need the same
+  # mode and CAS wiring. Without this it keeps the committed SGX defaults and
+  # the CVM job silently exercises governance in SGX mode.
+  "${repo_root}/governance/Values.yaml"
 )
 
 # tee-type replaced the old cvm boolean, so the migrated demos consume SCONE_ENCLAVE as a
