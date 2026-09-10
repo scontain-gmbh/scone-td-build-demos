@@ -24,7 +24,13 @@ spec:
             - /bin/bash
             - -c
             - |
-              set -eu
-              nsenter --target=1 --mount --uts --ipc --net --pid -- bash -c 'mkdir -p /etc/systemd/resolved.conf.d; printf "[Resolve]\nDNS=10.96.0.10\nDomains=~cluster.local\n" > /etc/systemd/resolved.conf.d/k8s-cluster.conf; systemctl restart systemd-resolved; sleep 2; echo RESOLVED_ON_$(hostname); resolvectl query nfs-server.nfs-test.svc.cluster.local 2>&1 | head -3 || echo QUERY_FAILED'
+              set -euo pipefail
+              # Probe a Service that always exists. Querying the demo's own NFS
+              # Service would ask for a name that is not created yet, so it could
+              # only ever fail, and the failure would say nothing about host DNS.
+              # pipefail matters here: without it the pipeline reports head's
+              # status, so an unresolvable name still looks like success and the
+              # rollout goes green while the later NFS mount fails obscurely.
+              nsenter --target=1 --mount --uts --ipc --net --pid -- bash -c 'set -euo pipefail; mkdir -p /etc/systemd/resolved.conf.d; printf "[Resolve]\nDNS=10.96.0.10\nDomains=~cluster.local\n" > /etc/systemd/resolved.conf.d/k8s-cluster.conf; systemctl restart systemd-resolved; sleep 2; echo RESOLVED_ON_$(hostname); resolvectl query kubernetes.default.svc.cluster.local | head -3'
               echo NODE_DNS_DONE
               sleep infinity
