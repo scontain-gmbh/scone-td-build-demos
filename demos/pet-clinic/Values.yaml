@@ -1,0 +1,28 @@
+environment:
+  IMAGE_NAME: registry.scontain.com/cicd/daniel/pet-clinic:native
+  DESTINATION_IMAGE_NAME: registry.scontain.com/cicd/daniel/pet-clinic:protected
+  MARIADB_IMAGE: mariadb:11.4
+  MARIADB_SCONE_IMAGE: registry.scontain.com/sconecuratedimages/experimental/mariadb:10.11-alpine-native-encryption-scone6.0.1-rc.1_cloud-multi-cluster
+  MAXME_IMAGE: registry.scontain.com/sconecuratedimages/experimental/maxme:1.0.0-scone-6.0.2
+  NAMESPACE: pet-clinic
+  IMAGE_PULL_SECRET_NAME: sconeapps
+  SCONE_RUNTIME_VERSION: 7.0.0-alpha.4
+  SCONE_CAS_ADDR: https://20.22.79.21:8081/
+  SCONE_RUNTIME_IMAGE: registry.scontain.com/sergey/test:scone-deb-pkgs-scone7.0.0-rc-cvm-mode
+  CVM_SIGNING_KEY_FILE: /tmp/kbs-signer.pem
+  SCONE_PRODUCTION: '0'
+  CVM_MODE: 'true'
+  SCONE_ENCLAVE: 'true'
+  PETCLINIC_REF: 51045d1648dad955df586150c1a1a6e22ef400c2
+  DB_NAME: petclinic
+  DB_USER: petclinic
+  DB_PASSWORD: petclinic
+  DB_ROOT_PASSWORD: rootpass
+  REGISTRY: registry.scontain.com
+  REGISTRY_USER: dandax123
+  REGISTRY_TOKEN: uP0A4QS33VAwF79jsPxLKW86MQp1OjEzNAk.01.0z1lrpm7r
+  DEMO_DIR: /home/daniel/scone-td-build-demos/scripts/demos/../../demos/pet-clinic/
+  SIGNER: |-
+    -----BEGIN PUBLIC KEY-----
+    MCowBQYDK2VwAyEA3xS2cby1sbxtCexeRiI2X3J4gHl+uNhZ7/Snfdm3OeE=
+    -----END PUBLIC KEY-----

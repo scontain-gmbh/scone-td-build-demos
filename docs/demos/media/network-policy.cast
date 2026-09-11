@@ -1,5 +1,5 @@
 {"version": 2, "width": 100, "height": 50, "timestamp": 1773506437, "env": {"SHELL": "/bin/bash", "TERM": "screen"}, "title": "Network Policy Demo"}
-[0.025124, "o", "\u001b[38;5;141m# Network Policy\r\n\r\nThis guide explains how to build, deploy, and test the **Network Policy demo** with `scone-td-build`. You will build client and server images, generate SCONE-protected images, apply Kubernetes manifests, and verify the result.\r\n\r\n[![Network Policy Example](../docs/network-policy.gif)](../docs/network-policy.mp4)\r\n\r\n## 1. Prerequisites\r\n\r\nMake sure you have:\r\n"]
+[0.025124, "o", "\u001b[38;5;141m# Network Policy\r\n\r\nThis guide explains how to build, deploy, and test the **Network Policy demo** with `scone-td-build`. You will build client and server images, generate SCONE-protected images, apply Kubernetes manifests, and verify the result.\r\n\r\n[![Network Policy Example](../docs/demos/media/network-policy.gif)](../docs/demos/media/network-policy.mp4)\r\n\r\n## 1. Prerequisites\r\n\r\nMake sure you have:\r\n"]
 [0.026298, "o", "\r\n- Docker\r\n- A Kubernetes cluster with `kubectl` configured\r\n- `tplenv`\r\n- `scone-td-build` built locally\r\n- Access to a container registry where you can push images\r\n\r\nSwitch to the demo directory:\r\n\r\n\u001b[0m"]
 [0.028341, "o", "\u001b[38;5;208m"]
 [0.031721, "o", "#"]

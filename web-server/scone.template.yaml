@@ -8,6 +8,7 @@ spec:
   output-image: ${DESTINATION_IMAGE_NAME}
   push-image: true
   protected-binaries: ["/app/web-server"]
+  build-state-file: "manifests/storage.json"
   scone-version: ${SCONE_RUNTIME_VERSION}
   tee-type: ${TEE_TYPE}
 ---
@@ -33,3 +34,5 @@ spec:
   tee-type: ${TEE_TYPE}
   scone-enclave: ${SCONE_ENCLAVE}
   scone-version: ${SCONE_RUNTIME_VERSION}
+  scone-runtime-image: ${SCONE_RUNTIME_IMAGE}
+  trusted-cvm-signer-keys: ${CVM_SIGNING_KEY_FILE}
