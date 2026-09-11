@@ -1,0 +1,64 @@
+apiVersion: scone.cloud/v1
+kind: Register
+metadata:
+  name: pet-clinic-demo
+spec:
+  protected_image: ${NATIVE_IMAGE_NAME}
+  destination_image: ${DESTINATION_IMAGE_NAME}
+  # Keep the skip-list minimal (static busybox): java is dynamically linked
+  # against glibc (libpthread/libc/libdl) and dlopens the JRE .so libraries, so
+  # its whole dependency tree must be sconified into the enclave link map. A
+  # skip-list that includes the JRE base would drop those deps and the enclave
+  # would fail with "libpthread ... not found in the enclave link map".
+  unprotected_image: busybox
+  enforce: ["/opt/java/openjdk/bin/java"]
+  push_scone_image: true
+  cvm: ${CVM_MODE}
+  version: ${SCONE_RUNTIME_VERSION}
+  storage: "manifests/storage.json"
+  scone_runtime_image: ${SCONE_RUNTIME_IMAGE}
+  manifest_env:
+    - {name: SCONE_VERSION, value: "1"}
+    - {name: SCONE_SYSLIBS, value: "1"}
+    - {name: SCONE_PRODUCTION, value: "${SCONE_PRODUCTION}"}
+    - {name: SCONE_HEAP, value: "4G"}
+    - {name: SCONE_ALLOW_DLOPEN, value: "2"}
+---
+apiVersion: scone.cloud/v1
+kind: Apply
+metadata:
+  name: pet-clinic-demo
+spec:
+  # MariaDB is deployed natively (see manifests/mariadb.yaml) and is intentionally not
+  # part of the apply input. The Secret is included so apply can resolve
+  # PetClinic's `secretKeyRef` datasource credentials into the confidential
+  # session.
+  file:
+    - "manifests/secret.yaml"
+    - "manifests/petclinic.yaml"
+  output_manifest_file: "manifests/manifest.prod.sanitized.yaml"
+  output_session_file: "manifests/manifest.prod.session.yaml"
+  cas_address: ${SCONE_CAS_ADDR}
+  manifest_env:
+    - {name: SCONE_VERSION, value: "1"}
+    - {name: SCONE_SYSLIBS, value: "1"}
+    - {name: SCONE_PRODUCTION, value: "${SCONE_PRODUCTION}"}
+    - {name: SCONE_ALLOW_DLOPEN, value: "2"}
+    - {name: SCONE_HEAP, value: "4G"}
+  permissive: true
+  spol: true
+  cvm: ${CVM_MODE}
+  scone_enclave: ${SCONE_ENCLAVE}
+  storage: "manifests/storage.json"
+  version: ${SCONE_RUNTIME_VERSION}
+  scone_runtime_image: ${SCONE_RUNTIME_IMAGE}
+  trusted_cvm_signer_keys: ${CVM_SIGNING_KEY_FILE}
+  access_policy:
+    read:
+      - ANY
+    update:
+      - signer: |
+          ${SIGNER}
+    create_sessions:
+      - signer: |
+          ${SIGNER}

@@ -1,0 +1,90 @@
+name: {{dba-policy}}
+version: "0.3.10"
+
+
+access_policy:
+  read:
+    - ANY
+  update:
+    - ANY
+
+
+security:
+  attestation:
+    mode: none
+    # tolerate: [debug-mode, hyperthreading, outdated-tcb, insecure-configuration, software-hardening-needed]
+    # ignore_advisories: "*"
+
+
+# Service: mariadb
+# https://mariadb.com/kb/en/securing-connections-for-client-and-server/
+services:
+  - name: mysql-3306
+    # Disable the app by giving it --help instead of a useful command
+    #command: ["mysql", "--help"]
+    command:
+      - mysql
+      - --host
+      - "127.0.0.1"
+      - --port
+      - 3306
+      - -uroot
+      - -p$$SCONE::MYSQL_ROOT_PASSWORD$$
+    # mrenclaves: ["888ed6fa736674a99e7b2dc92a7ab567303ecd64d465f1c79a43ef6306f55cef"]
+    pwd: /
+    environment:
+      SCONE_LOG: ERROR
+      SCONE_NETWORK_SHIELD: protected
+      SCONE_NETWORK_SHIELD_UNSUPPORTED_PROTOCOLS: refuse
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICATION: protected
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICATION_DESTINATION: "TCP:localhost:3306"
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICATION_DESTINATION_IP: "*"
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICATION_IDENTITY: |
+        $$SCONE::setupClientCert:privatekey:pkcs8:pem$$
+        $$SCONE::setupClientCert:crt:pem$$"
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICATION_SERVER_AUTH: $$SCONE::MARIADB_CA_CERT$$
+
+  - name: mysql-3307
+    # Disable the app by giving it --help instead of a useful command
+    #command: ["mysql", "--help"]
+    command:
+      - mysql
+      - --host
+      - "127.0.0.1"
+      - --port
+      - 3307
+      - -uroot
+      - -p$$SCONE::MYSQL_ROOT_PASSWORD$$
+    # mrenclaves: ["888ed6fa736674a99e7b2dc92a7ab567303ecd64d465f1c79a43ef6306f55cef"]
+    pwd: /
+    environment:
+      SCONE_LOG: ERROR
+      SCONE_NETWORK_SHIELD: protected
+      SCONE_NETWORK_SHIELD_UNSUPPORTED_PROTOCOLS: refuse
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICATION: protected
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICATION_DESTINATION: "TCP:localhost:3307"
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICATION_DESTINATION_IP: "*"
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICATION_IDENTITY: |
+        $$SCONE::setupClientCert:privatekey:pkcs8:pem$$
+        $$SCONE::setupClientCert:crt:pem$$"
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICATION_SERVER_AUTH: $$SCONE::MARIADB_CA_CERT$$
+
+
+
+# Import the appropriate secrets from {{certificates}} policy.
+secrets:
+  - name: MYSQL_ROOT_PASSWORD
+    import:
+      session: {{certificates}}
+      secret: MYSQL_ROOT_PASSWORD
+
+  - name: MARIADB_CA_CERT
+    import:
+      session: {{certificates}}
+      secret: MARIADB_CA_CERT
+
+  - name: setupClientCert
+    kind: x509
+    import:
+      session: {{certificates}}
+      secret: setupClientCert

@@ -57,7 +57,7 @@ jobs:
 
       - name: Check container toolchain
         run: |
-          for cmd in bash docker kubectl scone scone-td-build tplenv retry-spinner openssl jq curl cargo; do
+          for cmd in bash docker kubectl scone scone-td-build tplenv retry-spinner openssl jq curl cargo skopeo cosign; do
             command -v "$cmd" >/dev/null 2>&1 || {
               echo "Missing required command: $cmd" >&2
               exit 1
@@ -82,7 +82,7 @@ jobs:
       - name: Run all examples in SGX mode
         id: sgx
         continue-on-error: true
-        run: ./scripts/run-all-scripts.sh --continue-on-failure
+        run: ./scripts/run-all-demos.sh --continue-on-failure
 
       - name: Prepare CVM values and cluster secrets
         if: always()
@@ -97,7 +97,7 @@ jobs:
         id: cvm
         if: always()
         continue-on-error: true
-        run: ./scripts/run-all-scripts.sh --continue-on-failure
+        run: ./scripts/run-all-demos.sh --continue-on-failure
 
       - name: Fail workflow if any mode failed
         if: always()

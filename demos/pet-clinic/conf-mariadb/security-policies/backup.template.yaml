@@ -1,0 +1,128 @@
+name: {{backup}}
+version: "0.3.10"
+
+access_policy:
+  read:
+    - ANY
+  update:
+    - ANY
+
+security:
+  attestation:
+    mode: none
+    # tolerate: [debug-mode, hyperthreading, outdated-tcb, insecure-configuration, software-hardening-needed]
+    # ignore_advisories: "*"
+
+services:
+  - name: backup
+    image_name: backup-image
+    command:
+      # --opt           
+      #                 Same as --add-drop-table, --add-locks, --create-options,
+      #                 --quick, --extended-insert, --lock-tables, --set-charset,
+      #                 and --disable-keys. Enabled by default, disable with
+      #                 --skip-opt.
+      - mysqldump
+      - --host
+      - maxscale # one may want to change this if the service name is different
+      - --user=root
+      - --password=$$SCONE::MYSQL_ROOT_PASSWORD$$
+      - --all-databases
+      - --flush-logs
+      - --flush-privileges
+      - --result-file
+      - /backup/mariadb-scone-backup.sql
+    # mrenclaves: ["0228a5e970dc04bbf0b676a6db88359a3d0463e71024a6cd9876691542f4787d"]
+    pwd: /
+    environment:
+      SCONE_LOG: ERROR
+      SCONE_SYNC_FSPF_TAG_WITH_CAS: 0
+      SCONE_NETWORK_SHIELD: protected
+      SCONE_NETWORK_SHIELD_UNSUPPORTED_PROTOCOLS: unprotected # allow dns
+      SCONE_NETWORK_SHIELD_CLIENT_MAXSCALE: protected
+      SCONE_NETWORK_SHIELD_CLIENT_MAXSCALE_IDENTITY: |
+        $$SCONE::backup-cert:privatekey:pkcs8:pem$$
+        $$SCONE::backup-cert:crt:pem$$"
+      SCONE_NETWORK_SHIELD_CLIENT_MAXSCALE_DESTINATION: "TCP:maxscale:3306"
+      SCONE_NETWORK_SHIELD_CLIENT_MAXSCALE_DESTINATION_IP: "*"
+      SCONE_NETWORK_SHIELD_CLIENT_MAXSCALE_SERVER_AUTH: $$SCONE::MARIADB_CA_CERT$$
+
+  - name: backup-recovery
+    image_name: backup-image
+    command:
+      - mysql
+      - --host
+      - maxscale # one may want to change this if the service name is different
+      - --user=root
+      - --password=$$SCONE::MYSQL_ROOT_PASSWORD$$
+      - -e
+      - "source /backup/mariadb-scone-backup.sql"
+    # mrenclaves: ["888ed6fa736674a99e7b2dc92a7ab567303ecd64d465f1c79a43ef6306f55cef"]
+    pwd: /
+    environment:
+      SCONE_LOG: ERROR
+      SCONE_SYNC_FSPF_TAG_WITH_CAS: 0
+      SCONE_NETWORK_SHIELD: protected
+      SCONE_NETWORK_SHIELD_UNSUPPORTED_PROTOCOLS: unprotected # allow dns
+      SCONE_NETWORK_SHIELD_CLIENT_MAXSCALE: protected
+      SCONE_NETWORK_SHIELD_CLIENT_MAXSCALE_IDENTITY: |
+        $$SCONE::backup-cert:privatekey:pkcs8:pem$$
+        $$SCONE::backup-cert:crt:pem$$"
+      SCONE_NETWORK_SHIELD_CLIENT_MAXSCALE_DESTINATION: "TCP:maxscale:3306"
+      SCONE_NETWORK_SHIELD_CLIENT_MAXSCALE_DESTINATION_IP: "*"
+      SCONE_NETWORK_SHIELD_CLIENT_MAXSCALE_SERVER_AUTH: $$SCONE::MARIADB_CA_CERT$$
+
+  - name: probe
+    command:
+      - mysqladmin
+      - status
+      - --host
+      - maxscale # one may want to change this if the service name is different
+      - --user=root
+      - --password=$$SCONE::MYSQL_ROOT_PASSWORD$$
+    # mrenclaves: ["609404c38ef19555707e89f31befe7f4ac89c09caf93838bdd2c9bf487e4df17"]
+    pwd: /
+    environment:
+      SCONE_LOG: ERROR
+      SCONE_NETWORK_SHIELD: protected
+      SCONE_NETWORK_SHIELD_UNSUPPORTED_PROTOCOLS: unprotected # allow dns
+      SCONE_NETWORK_SHIELD_CLIENT_MAXSCALE: protected
+      SCONE_NETWORK_SHIELD_CLIENT_MAXSCALE_IDENTITY: |
+        $$SCONE::backup-cert:privatekey:pkcs8:pem$$
+        $$SCONE::backup-cert:crt:pem$$"
+      SCONE_NETWORK_SHIELD_CLIENT_MAXSCALE_DESTINATION: "TCP:maxscale:3306"
+      SCONE_NETWORK_SHIELD_CLIENT_MAXSCALE_DESTINATION_IP: "*"
+      SCONE_NETWORK_SHIELD_CLIENT_MAXSCALE_SERVER_AUTH: $$SCONE::MARIADB_CA_CERT$$
+
+
+images:
+  - name: backup-image
+    volumes:
+      - name: encrypted_backup_dir
+        path: /backup
+        update_policy: no_rollback_protection
+
+
+secrets:
+  - name: MYSQL_ROOT_PASSWORD
+    import:
+      session: {{certificates}}
+      secret: MYSQL_ROOT_PASSWORD
+
+  - name: MARIADB_CA_CERT
+    import:
+      session: {{certificates}}
+      secret: MARIADB_CA_CERT
+
+  - name: backup-key
+    import:
+      session: {{certificates}}
+      secret: backup-key
+
+  - name: backup-cert
+    import:
+      session: {{certificates}}
+      secret: backup-cert
+
+volumes:
+  - name: encrypted_backup_dir
