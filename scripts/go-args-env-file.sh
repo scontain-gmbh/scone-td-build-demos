@@ -195,13 +195,13 @@ printf "${ORANGE}"
 printf '%s\n' '# Build the container image.'
 printf '%s\n' 'docker build -t ${DEMO_IMAGE} .'
 printf '%s\n' '# Push the container image to the registry.'
-printf '%s\n' 'docker push ${DEMO_IMAGE}'
+printf '%s\n' 'docker push ${IMAGE_NAME}'
 printf "${RESET}"
 
 # Build the container image.
 docker build -t ${DEMO_IMAGE} .
 # Push the container image to the registry.
-docker push ${DEMO_IMAGE}
+docker push ${IMAGE_NAME}
 
 printf "${VIOLET}"
 printf '%s\n' ''

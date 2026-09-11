@@ -1,5 +1,5 @@
 environment:
-  DEMO_IMAGE: registry.scontain.com/k8s-scone-images/java-args-env-file:native
+  IMAGE_NAME: registry.scontain.com/k8s-scone-images/java-args-env-file:native
   DESTINATION_IMAGE_NAME: registry.scontain.com/k8s-scone-images/java-args-env-file:protected
   REGISTRY: ''
   REGISTRY_TOKEN: ''
