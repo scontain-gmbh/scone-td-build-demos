@@ -6,7 +6,7 @@ environment:
   MEMORY: '8'
   VCORES: '2'
   RESOURCE_GROUP: ''
-  SCONE_VERSION: 6.1.0-rc.0
+  SCONE_VERSION: 7.0.0-alpha.4
   SGX_PLUGIN_VERSION: 7.0.0-alpha.1
   CERT_MANAGER_VERSION: v1.17.1
   DCAP_KEY: ''
