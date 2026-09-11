@@ -70,7 +70,7 @@ Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml
 Load the full variable set from `environment-variables.md`:
 
 ```bash
-eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 ```
 
 > **Note:** All commands in the following sections assume these environment variables are exported in your current shell session. If you open a new terminal, re-run the `export SIGNER` and `eval $(tplenv ...)` commands above before proceeding.
@@ -82,8 +82,8 @@ eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-fil
 The Dockerfile uses a two-stage build: an `eclipse-temurin:21-jdk-alpine` builder stage compiles `Main.java`, and the resulting `.class` file is copied into a minimal `eclipse-temurin:21-jre-alpine` runtime image.
 
 ```bash
-docker build -t ${DEMO_IMAGE} "$DEMO_DIR/app"
-docker push ${DEMO_IMAGE}
+docker build -t ${IMAGE_NAME} "$DEMO_DIR/app"
+docker push ${IMAGE_NAME}
 ```
 
 ---
@@ -147,12 +147,12 @@ The manifest mounts:
 
 ## 8. Prepare and Apply the SCONE Manifest
 
-First, attest the CAS so the local SCONE CLI has the correct session encryption key. The kubectl path covers an in-cluster CAS; if it fails (typical when `${CAS_ENDPOINT}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.
+First, attest the CAS so the local SCONE CLI has the correct session encryption key. The kubectl path covers an in-cluster CAS; if it fails (typical when `${CAS_ADDRESS}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.
 
 ```bash
 # Attest the CAS instance before sending encrypted policies.
-kubectl scone cas attest --namespace "${CAS_ENDPOINT#*.}" "${CAS_ENDPOINT%%.*}" -C -G -S \
-    || scone cas attest ${CAS_ENDPOINT} -C -G -S \
+kubectl scone cas attest --namespace "${CAS_ADDRESS#*.}" "${CAS_ADDRESS%%.*}" -C -G -S \
+    || scone cas attest ${CAS_ADDRESS} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 ```
 

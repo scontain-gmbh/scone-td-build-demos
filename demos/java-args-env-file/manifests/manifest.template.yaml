@@ -36,7 +36,7 @@ spec:
     spec:
       containers:
         - name: java-cli-env
-          image: ${DEMO_IMAGE}
+          image: ${NATIVE_IMAGE_NAME}
           imagePullPolicy: Always
           command: ["/opt/java/openjdk/bin/java", "Main"]
           args: ["arg1", "arg2"]

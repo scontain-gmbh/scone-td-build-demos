@@ -31,7 +31,7 @@ spec:
     spec:
       containers:
         - name: web-server
-          image: ${IMAGE_NAME}
+          image: ${NATIVE_IMAGE_NAME}
           imagePullPolicy: Always
           command: ["./web-server"]
           env:

@@ -8,6 +8,8 @@ spec:
   output-image: ${DESTINATION_IMAGE_NAME}
   push-image: true
   scone-version: ${SCONE_RUNTIME_VERSION}
+  scone-runtime-image: ${SCONE_RUNTIME_IMAGE}
+  storage: "manifests/storage.json"
   tee-type: ${TEE_TYPE}
   signing_key: "app/config/image-signing-key.private"
   signing_passphrase_file: "app/config/empty-passphrase.txt"
@@ -24,8 +26,7 @@ spec:
     - "manifests/manifest.job.yaml"
   output-manifest: "manifests/manifest.job.sanitized.yaml"
   output-session: "manifests/manifest.job.session.yaml"
-  cas-endpoint:
-    address: ${CAS_ENDPOINT}
+  cas-address: ${CAS_ADDRESS}
   cas-policy-env:
     - {name: SCONE_VERSION, value: "1"}
   container-env:
@@ -38,3 +39,5 @@ spec:
   tee-type: ${TEE_TYPE}
   scone-enclave: ${SCONE_ENCLAVE}
   scone-version: ${SCONE_RUNTIME_VERSION}
+  scone-runtime-image: ${SCONE_RUNTIME_IMAGE}
+  trusted-cvm-signer-keys: ${CVM_SIGNING_KEY_FILE}

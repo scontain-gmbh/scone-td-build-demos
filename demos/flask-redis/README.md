@@ -109,7 +109,7 @@ Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml
 # Seed Values.yaml from the template on first run only.
 [ -f "$DEMO_DIR/Values.yaml" ] || cp "$DEMO_DIR/values.template.yaml" "$DEMO_DIR/Values.yaml"
 # Load environment variables from the tplenv definition file.
-eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
 ```
 
 Then build and push the native Docker image:
@@ -118,7 +118,7 @@ Then build and push the native Docker image:
 # Build the container image.
 docker build -t ${IMAGE_NAME} "$DEMO_DIR/app"
 # Push the container image to the registry.
-docker push ${IMAGE_NAME}
+docker push ${NATIVE_IMAGE_NAME}
 ```
 
 ---

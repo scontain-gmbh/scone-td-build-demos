@@ -11,7 +11,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: image-signing
-          image: ${IMAGE_NAME}
+          image: ${NATIVE_IMAGE_NAME}
           imagePullPolicy: Always
       imagePullSecrets:
         - name: ${IMAGE_PULL_SECRET_NAME}

@@ -19,8 +19,7 @@ spec:
   file:
     - "manifest.yaml"
   output-manifest: "manifests/manifest.sanitized.yaml"
-  cas-endpoint:
-    address: ${CAS_ENDPOINT}
+  cas-address: ${CAS_ADDRESS}
   container-env:
     - {name: SCONE_SYSLIBS, value: "1"}
     - {name: SCONE_PRODUCTION, value: "0"}
@@ -33,3 +32,5 @@ spec:
   tee-type: ${TEE_TYPE}
   scone-enclave: ${SCONE_ENCLAVE}
   scone-version: ${SCONE_RUNTIME_VERSION}
+  scone-runtime-image: ${SCONE_RUNTIME_IMAGE}
+  trusted-cvm-signer-keys: ${CVM_SIGNING_KEY_FILE}

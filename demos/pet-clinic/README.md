@@ -61,7 +61,7 @@ Load the full variable set from `environment-variables.md`:
 
 ```bash
 # Load environment variables from the tplenv definition file.
-eval "$(tplenv --file "$DEMO_DIR/../environment-variables.md" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)"
+eval "$(tplenv --file "$DEMO_DIR/../environment-variables.md" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)"
 ```
 
 Create the demo namespace if it does not already exist:
@@ -201,7 +201,7 @@ By default the demo runs SGX enclaves in debug mode (`SCONE_PRODUCTION=0`). To r
 
 ```yaml
 SCONE_PRODUCTION: '1'
-CAS_ENDPOINT: scone-cas.cf
+CAS_ADDRESS: scone-cas.cf
 ```
 
 Then re-run the steps above from section 5 (`scone-td-build apply -f`) onwards. What changes:

@@ -20,10 +20,10 @@ environment:
   # Defaults to a local in-cluster CAS. For SCONE's public CAS set
   # (i.e. scone-cas.cf).
   SCONE_RUNTIME_VERSION: 7.0.0-alpha.4
-  CAS_NAMESPACE: default
-  CAS_NAME: cas
-  CAS_ENDPOINT: cas.default
+  CAS_ADDRESS: cas.default
   TEE_TYPE: sgx
+  SCONE_RUNTIME_IMAGE: registry.scontain.com/sergey/test:scone-deb-pkgs-scone7.0.0-rc-cvm-mode
+  CVM_SIGNING_KEY_FILE: /tmp/kbs-signer.pem
 
   # 0 = SGX debug enclaves (easy local testing).
   # 1 = production (non-debug) enclaves: run.sh generates an enclave signing key

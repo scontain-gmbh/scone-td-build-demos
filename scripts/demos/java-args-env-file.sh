@@ -161,10 +161,10 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' 'eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)'
+printf '%s\n' 'eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)'
 printf "${RESET}"
 
-eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -179,12 +179,12 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' 'docker build -t ${DEMO_IMAGE} "$DEMO_DIR/app"'
-printf '%s\n' 'docker push ${DEMO_IMAGE}'
+printf '%s\n' 'docker build -t ${IMAGE_NAME} "$DEMO_DIR/app"'
+printf '%s\n' 'docker push ${IMAGE_NAME}'
 printf "${RESET}"
 
-docker build -t ${DEMO_IMAGE} "$DEMO_DIR/app"
-docker push ${DEMO_IMAGE}
+docker build -t ${IMAGE_NAME} "$DEMO_DIR/app"
+docker push ${IMAGE_NAME}
 
 printf "${VIOLET}"
 printf '%s\n' ''

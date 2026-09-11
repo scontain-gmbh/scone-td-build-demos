@@ -53,14 +53,14 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: reader-1
-          image: ${DEMO_IMAGE}
+          image: ${NATIVE_IMAGE_NAME}
           imagePullPolicy: Always
           command: ["/usr/local/bin/folder-reader"]
           volumeMounts:
             - name: config-volume-1
               mountPath: /config
         - name: reader-2
-          image: ${DEMO_IMAGE}
+          image: ${NATIVE_IMAGE_NAME}
           imagePullPolicy: Always
           command: ["/usr/local/bin/folder-reader"]
           volumeMounts:

@@ -46,7 +46,7 @@ Load the full variable set from `environment-variables.md`, which also defines t
 
 ```bash
 # Load environment variables from the tplenv definition file.
-eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
 ```
 
 Create the demo namespace if it does not already exist. The fallback echo keeps re-runs idempotent.
@@ -60,9 +60,9 @@ kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -
 
 ```bash
 # Build the container image.
-docker build -t ${DEMO_IMAGE} "$DEMO_DIR/app"
+docker build -t ${IMAGE_NAME} "$DEMO_DIR/app"
 # Push the container image to the registry.
-docker push ${DEMO_IMAGE}
+docker push ${IMAGE_NAME}
 ```
 
 ## 5. Render the Manifests
@@ -99,9 +99,9 @@ fi
 # Apply the Kubernetes manifest.
 kubectl apply -f "$DEMO_DIR/manifests/manifest.yaml" -n ${NAMESPACE}
 # Retry the wrapped command until it succeeds or reaches the retry limit.
-retry-spinner --retries 5 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1
+retry-spinner --retries 30 --wait 5 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1
 # Retry the wrapped command until it succeeds or reaches the retry limit.
-retry-spinner --retries 5 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2
+retry-spinner --retries 30 --wait 5 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2
 
 # Clean up native app
 # Delete the Kubernetes resource if it exists.
@@ -112,12 +112,12 @@ Your containers should print content from the mounted ConfigMap files.
 
 ## 8. Prepare and Apply the SCONE Manifest
 
-First, attest the CAS so the local SCONE CLI has the correct session encryption key. The kubectl path covers an in-cluster CAS; if it fails (typical when `${CAS_ENDPOINT}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.
+First, attest the CAS so the local SCONE CLI has the correct session encryption key. The kubectl path covers an in-cluster CAS; if it fails (typical when `${CAS_ADDRESS}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.
 
 ```bash
 # Attest the CAS instance before sending encrypted policies.
-kubectl scone cas attest --namespace "${CAS_ENDPOINT#*.}" "${CAS_ENDPOINT%%.*}" -C -G -S \
-  || scone cas attest ${CAS_ENDPOINT} -C -G -S \
+kubectl scone cas attest --namespace "${CAS_ADDRESS#*.}" "${CAS_ADDRESS%%.*}" -C -G -S \
+  || scone cas attest ${CAS_ADDRESS} -C -G -S \
     --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 ```
 
@@ -142,10 +142,14 @@ kubectl apply -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" -n ${NAMESPA
 ## 10. View Logs
 
 ```bash
+# Wait for both containers to finish successfully. A container can start before
+# every service from the SignedPolicy is visible in CAS; restartPolicy:
+# OnFailure handles that transient first start.
+kubectl wait --for=condition=complete job/my-rust-app -n ${NAMESPACE} --timeout=300s
 # Retry the wrapped command until it succeeds or reaches the retry limit.
-retry-spinner -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1 --follow
+retry-spinner --retries 150 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1 --follow
 # Retry the wrapped command until it succeeds or reaches the retry limit.
-retry-spinner -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2 --follow
+retry-spinner --retries 150 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2 --follow
 ```
 
 ## 11. Clean Up

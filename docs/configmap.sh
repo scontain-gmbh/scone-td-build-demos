@@ -193,7 +193,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 EOF
 )"
 
@@ -223,7 +223,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-docker build -t ${DEMO_IMAGE} "$DEMO_DIR/app"
+docker build -t ${IMAGE_NAME} "$DEMO_DIR/app"
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -231,7 +231,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-docker push ${DEMO_IMAGE}
+docker push ${IMAGE_NAME}
 EOF
 )"
 
@@ -328,7 +328,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-retry-spinner --retries 5 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1
+retry-spinner --retries 30 --wait 5 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -336,7 +336,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-retry-spinner --retries 5 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2
+retry-spinner --retries 30 --wait 5 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -418,11 +418,27 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+# Wait for both containers to finish successfully. A container can start before
+EOF
+)"
+pe "$(cat <<'EOF'
+# every service from the SignedPolicy is visible in CAS; restartPolicy:
+EOF
+)"
+pe "$(cat <<'EOF'
+# OnFailure handles that transient first start.
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl wait --for=condition=complete job/my-rust-app -n ${NAMESPACE} --timeout=300s
+EOF
+)"
+pe "$(cat <<'EOF'
 # Retry the wrapped command until it succeeds or reaches the retry limit.
 EOF
 )"
 pe "$(cat <<'EOF'
-retry-spinner -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1 --follow
+retry-spinner --retries 150 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1 --follow
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -430,7 +446,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-retry-spinner -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2 --follow
+retry-spinner --retries 150 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2 --follow
 EOF
 )"
 

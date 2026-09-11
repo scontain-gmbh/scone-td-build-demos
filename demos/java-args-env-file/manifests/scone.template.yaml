@@ -3,13 +3,15 @@ kind: Register
 metadata:
   name: java-args-env-file-example
 spec:
-  source-image: ${DEMO_IMAGE}
-  reference-image: ${DEMO_IMAGE}
+  source-image: ${IMAGE_NAME}
+  reference-image: ${IMAGE_NAME}
   output-image: ${DESTINATION_IMAGE_NAME}
   protected-binaries: ["/opt/java/openjdk/bin/java"]
   push-image: true
   scone-version: ${SCONE_VERSION}
   tee-type: ${TEE_TYPE}
+  scone-runtime-image: ${SCONE_RUNTIME_IMAGE}
+  storage: "manifests/storage.json"
   container-env:
     - {name: SCONE_VERSION, value: "1"}
     - {name: SCONE_SYSLIBS, value: "1"}
@@ -21,13 +23,15 @@ metadata:
   name: java-args-env-file-example
 spec:
   scone-version: ${SCONE_VERSION}
+  scone-runtime-image: ${SCONE_RUNTIME_IMAGE}
+  storage: "manifests/storage.json"
+  trusted-cvm-signer-keys: ${CVM_SIGNING_KEY_FILE}
   # Inline‑selection: pick *only* the Deployment
   file:
     - "manifests/manifest.yaml"
   output-manifest: "manifests/manifest.prod.sanitized.yaml"
   output-session: "manifests/manifest.prod.session.yaml"
-  cas-endpoint:
-    address: ${CAS_ENDPOINT}
+  cas-address: ${CAS_ADDRESS}
   container-env:
     - { name: SCONE_VERSION,  value: "1" }
     - { name: SCONE_LOG,      value: "WARNING" }

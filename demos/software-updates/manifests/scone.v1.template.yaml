@@ -10,6 +10,7 @@ spec:
   push-image: true
   scone-version: ${SCONE_RUNTIME_VERSION}
   tee-type: ${TEE_TYPE}
+  storage: "manifests/storage.json"
   container-env:
     - {name: SCONE_VERSION, value: "1"}
     - {name: SCONE_SYSLIBS, value: "1"}
@@ -28,8 +29,7 @@ spec:
     - "manifests/manifest.v1.yaml"
   output-manifest: "manifests/manifest.prod.sanitized.yaml"
   output-session: "manifests/manifest.prod.session.yaml"
-  cas-endpoint:
-    address: ${CAS_ENDPOINT}
+  cas-address: ${CAS_ADDRESS}
   cas-policy-env:
     - {name: SCONE_VERSION, value: "1"}
   container-env:
@@ -39,6 +39,8 @@ spec:
     - {name: SCONE_HEAP, value: "760M"}
     - {name: SCONE_ALLOW_DLOPEN, value: "2"}
   scone-version: ${SCONE_RUNTIME_VERSION}
+  scone-runtime-image: ${SCONE_RUNTIME_IMAGE}
+  trusted-cvm-signer-keys: ${CVM_SIGNING_KEY_FILE}
   permissive: true
   encrypted-cas-policy: false
   tee-type: ${TEE_TYPE}

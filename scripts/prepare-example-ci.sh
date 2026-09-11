@@ -4,13 +4,15 @@ set -euo pipefail
 
 show_help() {
   cat <<USAGE
-Usage: $0 --mode <sgx|cvm> [--registry REGISTRY] [--image-pull-secret-name NAME] [--namespace NAMESPACE]
+Usage: $0 --mode <sgx|cvm> [--registry REGISTRY] [--image-pull-secret-name NAME] [--namespace NAMESPACE] [--scone-cas-addr ADDR]
 
-Prepares the example Values.yaml files and Kubernetes pull secrets for CI.
+Prepares the example Values.yaml files (seeded from values.template.yaml when
+missing) and Kubernetes pull secrets for CI.
 
 Environment:
   REGISTRY_USER   Registry username used to create the image pull secret.
   REGISTRY_TOKEN  Registry token/password used to create the image pull secret.
+  SCONE_CAS_ADDR  CAS address to write into every Values.yaml (default: keeps each demo's current value).
 
 Options:
   --mode <mode>              One of: sgx, cvm
@@ -25,6 +27,7 @@ mode=""
 registry="${REGISTRY:-registry.scontain.com}"
 image_pull_secret_name="${IMAGE_PULL_SECRET_NAME:-sconeapps}"
 namespace="${NAMESPACE:-}"
+scone_cas_addr="${SCONE_CAS_ADDR:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -42,6 +45,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --namespace)
       namespace="${2:-}"
+      shift 2
+      ;;
+    --scone-cas-addr)
+      scone_cas_addr="${2:-}"
       shift 2
       ;;
     --help)
@@ -108,6 +115,11 @@ upsert_scalar() {
     in_environment && $0 ~ ("^  " key ":") {
       print "  " key ": " value
       found = 1
+      next
+    }
+    in_environment && $0 ~ /^[[:space:]]*(#.*)?$/ {
+      # Blank and comment lines do not end the environment block.
+      print
       next
     }
     in_environment && $0 !~ /^  / {
@@ -198,17 +210,17 @@ for values_file in "${all_values_files[@]}"; do
   if [[ -n "${CAS_NAMESPACE:-}" ]]; then
     upsert_scalar "$values_file" "CAS_NAMESPACE" "$CAS_NAMESPACE"
   fi
-  # CAS_ENDPOINT is the address the manifest targets. Keep it in sync with the in-cluster
+  # CAS_ADDRESS is the address the manifest targets. Keep it in sync with the in-cluster
   # CAS (CAS_NAME.CAS_NAMESPACE) so changing the CAS name or namespace does not leave the
-  # manifest pointed at a stale endpoint. Set CAS_ENDPOINT explicitly to run against an
+  # manifest pointed at a stale endpoint. Set CAS_ADDRESS explicitly to run against an
   # external CAS, e.g. edge.scone-cas.cf.
-  if [[ -n "${CAS_ENDPOINT:-}" ]]; then
-    upsert_scalar "$values_file" "CAS_ENDPOINT" "$CAS_ENDPOINT"
+  if [[ -n "${CAS_ADDRESS:-}" ]]; then
+    upsert_scalar "$values_file" "CAS_ADDRESS" "$CAS_ADDRESS"
   else
     eff_cas_name="$(awk -F': ' '/^  CAS_NAME:/ { gsub(/["'\''[:space:]]/, "", $2); print $2; exit }' "$values_file")"
     eff_cas_namespace="$(awk -F': ' '/^  CAS_NAMESPACE:/ { gsub(/["'\''[:space:]]/, "", $2); print $2; exit }' "$values_file")"
     if [[ -n "$eff_cas_name" && -n "$eff_cas_namespace" ]]; then
-      upsert_scalar "$values_file" "CAS_ENDPOINT" "${eff_cas_name}.${eff_cas_namespace}"
+      upsert_scalar "$values_file" "CAS_ADDRESS" "${eff_cas_name}.${eff_cas_namespace}"
     fi
   fi
 done

@@ -140,11 +140,11 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Load environment variables from the tplenv definition file.'
-printf '%s\n' 'eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)'
+printf '%s\n' 'eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)'
 printf "${RESET}"
 
 # Load environment variables from the tplenv definition file.
-eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -168,15 +168,15 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Build the container image.'
-printf '%s\n' 'docker build -t ${DEMO_IMAGE} "$DEMO_DIR/app"'
+printf '%s\n' 'docker build -t ${IMAGE_NAME} "$DEMO_DIR/app"'
 printf '%s\n' '# Push the container image to the registry.'
-printf '%s\n' 'docker push ${DEMO_IMAGE}'
+printf '%s\n' 'docker push ${IMAGE_NAME}'
 printf "${RESET}"
 
 # Build the container image.
-docker build -t ${DEMO_IMAGE} "$DEMO_DIR/app"
+docker build -t ${IMAGE_NAME} "$DEMO_DIR/app"
 # Push the container image to the registry.
-docker push ${DEMO_IMAGE}
+docker push ${IMAGE_NAME}
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -240,9 +240,9 @@ printf "${ORANGE}"
 printf '%s\n' '# Apply the Kubernetes manifest.'
 printf '%s\n' 'kubectl apply -f "$DEMO_DIR/manifests/manifest.yaml" -n ${NAMESPACE}'
 printf '%s\n' '# Retry the wrapped command until it succeeds or reaches the retry limit.'
-printf '%s\n' 'retry-spinner --retries 5 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1'
+printf '%s\n' 'retry-spinner --retries 30 --wait 5 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1'
 printf '%s\n' '# Retry the wrapped command until it succeeds or reaches the retry limit.'
-printf '%s\n' 'retry-spinner --retries 5 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2'
+printf '%s\n' 'retry-spinner --retries 30 --wait 5 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2'
 printf '%s\n' ''
 printf '%s\n' '# Clean up native app'
 printf '%s\n' '# Delete the Kubernetes resource if it exists.'
@@ -252,9 +252,9 @@ printf "${RESET}"
 # Apply the Kubernetes manifest.
 kubectl apply -f "$DEMO_DIR/manifests/manifest.yaml" -n ${NAMESPACE}
 # Retry the wrapped command until it succeeds or reaches the retry limit.
-retry-spinner --retries 5 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1
+retry-spinner --retries 30 --wait 5 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1
 # Retry the wrapped command until it succeeds or reaches the retry limit.
-retry-spinner --retries 5 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2
+retry-spinner --retries 30 --wait 5 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2
 
 # Clean up native app
 # Delete the Kubernetes resource if it exists.
@@ -321,16 +321,24 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
+printf '%s\n' '# Wait for both containers to finish successfully. A container can start before'
+printf '%s\n' '# every service from the SignedPolicy is visible in CAS; restartPolicy:'
+printf '%s\n' '# OnFailure handles that transient first start.'
+printf '%s\n' 'kubectl wait --for=condition=complete job/my-rust-app -n ${NAMESPACE} --timeout=300s'
 printf '%s\n' '# Retry the wrapped command until it succeeds or reaches the retry limit.'
-printf '%s\n' 'retry-spinner -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1 --follow'
+printf '%s\n' 'retry-spinner --retries 150 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1 --follow'
 printf '%s\n' '# Retry the wrapped command until it succeeds or reaches the retry limit.'
-printf '%s\n' 'retry-spinner -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2 --follow'
+printf '%s\n' 'retry-spinner --retries 150 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2 --follow'
 printf "${RESET}"
 
+# Wait for both containers to finish successfully. A container can start before
+# every service from the SignedPolicy is visible in CAS; restartPolicy:
+# OnFailure handles that transient first start.
+kubectl wait --for=condition=complete job/my-rust-app -n ${NAMESPACE} --timeout=300s
 # Retry the wrapped command until it succeeds or reaches the retry limit.
-retry-spinner -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1 --follow
+retry-spinner --retries 150 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1 --follow
 # Retry the wrapped command until it succeeds or reaches the retry limit.
-retry-spinner -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2 --follow
+retry-spinner --retries 150 --wait 2 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-2 --follow
 
 printf "${VIOLET}"
 printf '%s\n' ''

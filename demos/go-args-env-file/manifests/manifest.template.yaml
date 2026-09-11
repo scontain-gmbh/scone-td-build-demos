@@ -51,7 +51,7 @@ spec:
         - name: ${IMAGE_PULL_SECRET_NAME}
       containers:
         - name: go-args-env-file
-          image: ${DEMO_IMAGE}
+          image: ${NATIVE_IMAGE_NAME}
           imagePullPolicy: Always
           args:
             - "arg1"

@@ -40,7 +40,7 @@ Load the full variable set with `tplenv`, which also defines the registry creden
 
 ```bash
 # Load environment variables from the tplenv definition file.
-eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
 ```
 
 ```bash
@@ -64,7 +64,7 @@ Build and push the image:
 # Build the container image.
 docker build -t $IMAGE_NAME "$DEMO_DIR/app"
 # Push the container image to the registry.
-docker push $IMAGE_NAME
+docker push $NATIVE_IMAGE_NAME
 ```
 
 ## 4. Create a Pull Secret
@@ -137,12 +137,12 @@ kubectl wait --for=delete pod -l app=hello-world -n ${NAMESPACE} --timeout=300s
 
 ## 6. Attest SCONE CAS
 
-Attest CAS before sending encrypted policies. The kubectl path covers in-cluster CAS; if it fails (typical when `${CAS_ENDPOINT}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.
+Attest CAS before sending encrypted policies. The kubectl path covers in-cluster CAS; if it fails (typical when `${CAS_ADDRESS}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.
 
 ```bash
 # Attest the CAS instance before sending encrypted policies.
-kubectl scone cas attest --namespace "${CAS_ENDPOINT#*.}" "${CAS_ENDPOINT%%.*}" -C -G -S \
-    || scone cas attest ${CAS_ENDPOINT} -C -G -S \
+kubectl scone cas attest --namespace "${CAS_ADDRESS#*.}" "${CAS_ADDRESS%%.*}" -C -G -S \
+    || scone cas attest ${CAS_ADDRESS} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 ```
 

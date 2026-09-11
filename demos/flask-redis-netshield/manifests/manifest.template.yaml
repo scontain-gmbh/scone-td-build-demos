@@ -98,7 +98,7 @@ spec:
         - name: ${IMAGE_PULL_SECRET_NAME}
       containers:
         - name: flask-api
-          image: ${IMAGE_NAME}
+          image: ${NATIVE_IMAGE_NAME}
           imagePullPolicy: Always
           ports:
             - containerPort: 4996
