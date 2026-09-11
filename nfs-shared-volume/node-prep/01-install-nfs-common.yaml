@@ -24,16 +24,23 @@ spec:
             - /bin/bash
             - -c
             - |
-              set -eu
-              nsenter --target=1 --mount --uts --ipc --net --pid -- bash -c '
+              set -euo pipefail
+              # -e on the nested shell too: the outer set does not reach it, so an
+              # apt-get failure used to be ignored and the pod still reported
+              # NODE_READY. The runner then deleted the prep DaemonSet and the
+              # workload failed later, at mount time, with nothing pointing here.
+              nsenter --target=1 --mount --uts --ipc --net --pid -- bash -euc '
                 if command -v mount.nfs >/dev/null 2>&1; then
                   echo "ALREADY_PRESENT $(hostname): $(command -v mount.nfs)"
                 else
                   export DEBIAN_FRONTEND=noninteractive
                   apt-get update
                   apt-get install -y nfs-common
-                  echo "INSTALLED $(hostname): $(command -v mount.nfs)"
                 fi
+                # Assert the goal, not just that the commands exited 0: this is
+                # what the consumer pods actually need on the node.
+                command -v mount.nfs >/dev/null 2>&1
+                echo "NFS_CLIENT_READY $(hostname): $(command -v mount.nfs)"
               '
               echo "NODE_READY"
               sleep infinity
