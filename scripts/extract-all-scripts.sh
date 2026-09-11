@@ -88,7 +88,7 @@ for pair in "${files[@]}"; do
   else
     ./scripts/extract-bash.sh "$input_file" "$output_file"
   fi
-  docs_output_file="docs/$(basename "$output_file")"
+  docs_output_file="docs/demos/scripts/$(basename "$output_file")"
   if $assume_yes; then
     ./scripts/extract-bash.sh -y --docs-pe "$input_file" "$docs_output_file"
   else

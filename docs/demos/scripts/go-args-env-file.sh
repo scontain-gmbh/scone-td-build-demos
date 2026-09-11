@@ -249,7 +249,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-docker push ${DEMO_IMAGE}
+docker push ${IMAGE_NAME}
 EOF
 )"
 
