@@ -104,14 +104,14 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Directory of the README this script was generated from. The README
 # code blocks use it for every file reference so the script works from
 # any working directory.
-export DEMO_DIR="$(cd "${script_dir}/../demos/network-policy" && pwd)"
+export DEMO_DIR="$(cd "${script_dir}/../../../demos/network-policy" && pwd)"
 
 printf "%b" "$LILAC"
 printf '%s\n' '# Network Policy'
 printf '%s\n' ''
 printf '%s\n' 'This guide explains how to build, deploy, and test the **Network Policy demo** with `scone-td-build`. You will build client and server images, generate SCONE-protected images, apply Kubernetes manifests, and verify the result.'
 printf '%s\n' ''
-printf '%s\n' '[![Network Policy Example](../../docs/network-policy.gif)](../../docs/network-policy.mp4)'
+printf '%s\n' '[![Network Policy Example](../../docs/demos/media/network-policy.gif)](../../docs/demos/media/network-policy.mp4)'
 printf '%s\n' ''
 printf '%s\n' '## 1. Prerequisites'
 printf '%s\n' ''
@@ -188,7 +188,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 EOF
 )"
 

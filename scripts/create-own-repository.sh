@@ -183,7 +183,7 @@ export SOURCE_DIR="${SOURCE_DIR:-$(pwd)}"
 
 source_dir_basename="$(basename "$SOURCE_DIR")"
 export REPOSITORY_NAME="${REPOSITORY_NAME:-$source_dir_basename}"
-export NATIVE_IMAGE_NAME="${NATIVE_IMAGE_NAME:-${REPOSITORY_NAME,,}}"
+export IMAGE_NAME="${IMAGE_NAME:-${REPOSITORY_NAME,,}}"
 
 eval "$(tplenv \
   --file "$variables_file" \
@@ -225,7 +225,7 @@ if [[ ! -f "${SOURCE_DIR}/Dockerfile" ]]; then
 fi
 
 repo_full_name="${GITHUB_OWNER}/${REPOSITORY_NAME}"
-package_name="${NATIVE_IMAGE_NAME,,}"
+package_name="${IMAGE_NAME,,}"
 image_ref="ghcr.io/${GITHUB_OWNER}/${package_name}:${IMAGE_TAG}"
 repo_url="https://github.com/${repo_full_name}"
 auth_token="$(gh auth token)"

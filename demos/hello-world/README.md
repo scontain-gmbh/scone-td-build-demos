@@ -1,6 +1,6 @@
 # SCONE: Hello World
 
-[![Hello World Example](../../docs/hello-world.gif)](../../docs/hello-world.mp4)
+[![Hello World Example](../../docs/demos/media/hello-world.gif)](../../docs/demos/media/hello-world.mp4)
 
 This example shows how to build a simple cloud-native `hello-world` application in Rust, run it natively in Kubernetes, and then deploy a confidential version with SCONE.
 
@@ -40,7 +40,7 @@ Load the full variable set with `tplenv`, which also defines the registry creden
 
 ```bash
 # Load environment variables from the tplenv definition file.
-eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
 ```
 
 ```bash
@@ -137,12 +137,12 @@ kubectl wait --for=delete pod -l app=hello-world -n ${NAMESPACE} --timeout=300s
 
 ## 6. Attest SCONE CAS
 
-Attest CAS before sending encrypted policies. The kubectl path covers in-cluster CAS; if it fails (typical when `${CAS_ENDPOINT}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.
+Attest CAS before sending encrypted policies. The kubectl path covers in-cluster CAS; if it fails (typical when `${CAS_ADDRESS}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.
 
 ```bash
 # Attest the CAS instance before sending encrypted policies.
-kubectl scone cas attest --namespace "${CAS_ENDPOINT#*.}" "${CAS_ENDPOINT%%.*}" -C -G -S \
-    || scone cas attest ${CAS_ENDPOINT} -C -G -S \
+kubectl scone cas attest --namespace "${CAS_ADDRESS#*.}" "${CAS_ADDRESS%%.*}" -C -G -S \
+    || scone cas attest ${CAS_ADDRESS} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 ```
 
@@ -159,13 +159,13 @@ tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --values-file "$DEMO_DIR
 (cd "$DEMO_DIR" && scone-td-build apply -f manifests/scone.yaml)
 ```
 
-This command registers the confidential image, creates the SCONE session, and produces `$DEMO_DIR/manifests/manifest.prod.sanitized.yaml` from `manifest.job.yaml`.
+This command registers the confidential image, creates the SCONE session, and produces `$DEMO_DIR/manifests/manifest.job.sanitized.yaml` from `manifest.job.yaml`.
 
 ## 8. Deploy the Confidential Manifest
 
 ```bash
 # Apply the Kubernetes manifest.
-kubectl apply -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" -n ${NAMESPACE}
+kubectl apply -f "$DEMO_DIR/manifests/manifest.job.sanitized.yaml" -n ${NAMESPACE}
 # Poll for a terminal state instead of `kubectl wait`: this kubectl version only
 # honors the last --for flag when given more than once, so it can't watch for
 # both Complete and Failed in one call, and `wait -n` (used in an earlier

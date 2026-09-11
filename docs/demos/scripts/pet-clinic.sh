@@ -104,7 +104,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Directory of the README this script was generated from. The README
 # code blocks use it for every file reference so the script works from
 # any working directory.
-export DEMO_DIR="$(cd "${script_dir}/../demos/pet-clinic" && pwd)"
+export DEMO_DIR="$(cd "${script_dir}/../../../demos/pet-clinic" && pwd)"
 
 printf "%b" "$LILAC"
 printf '%s\n' '# SCONE PetClinic Demo: Confidential Spring Boot + MariaDB'
@@ -208,7 +208,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-eval "$(tplenv --file "$DEMO_DIR/../environment-variables.md" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)"
+eval "$(tplenv --file "$DEMO_DIR/../environment-variables.md" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)"
 EOF
 )"
 
@@ -529,7 +529,7 @@ printf '%s\n' ''
 printf '%s\n' 'By default the demo runs SGX enclaves in debug mode (`SCONE_PRODUCTION=0`). To run PetClinic as a real production (non-debug) enclave attesting against SCONE'\''s public CAS, set in `Values.yaml`:'
 printf '%s\n' ''
 printf '%s\n' 'SCONE_PRODUCTION: '\''1'\'''
-printf '%s\n' 'CAS_ENDPOINT: scone-cas.cf'
+printf '%s\n' 'CAS_ADDRESS: scone-cas.cf'
 printf '%s\n' ''
 printf '%s\n' 'Then re-run the steps above from section 5 (`scone-td-build apply -f`) onwards. What changes:'
 printf '%s\n' ''

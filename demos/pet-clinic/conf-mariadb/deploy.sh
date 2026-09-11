@@ -4,7 +4,7 @@
 # replaces the native MariaDB with a confidential (SGX) MariaDB that PetClinic
 # talks to through a confidential MaxScale over TLS.
 #
-# All configuration comes from ../Values.yaml via tplenv (CAS_ENDPOINT,
+# All configuration comes from ../Values.yaml via tplenv (CAS_ADDRESS,
 # NAMESPACE, MARIADB_SCONE_IMAGE, MAXME_IMAGE). Edit Values.yaml, then run this
 # script. GITHUB_TOKEN (for the sconeappsee helm repo) comes from the
 # environment.
@@ -30,7 +30,7 @@ export DEMO_DIR="$SCRIPT_DIR/../../pet-clinic/"
 
 # Load configuration from Values.yaml via tplenv (no flags).
 export CONFIRM_ALL_ENVIRONMENT_VARIABLES="--value-file-only"
-eval "$(tplenv --file "$DEMO_DIR/../environment-variables.md" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)"
+eval "$(tplenv --file "$DEMO_DIR/../environment-variables.md" --values-file "$DEMO_DIR/Values.yaml" --eval-export-values --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)"
 
 : "${GITHUB_TOKEN:?set GITHUB_TOKEN in the environment (needed for the sconeappsee helm repo)}"
 
@@ -44,10 +44,10 @@ kubectl create namespace $NAMESPACE || true
 echo "==> helm install mariadb-spr (from git repo)"
 HELM_GIT_URL="git+https://${GITHUB_TOKEN}@github.com/scontain/mariadb-code.git@helm-chart?ref=main"
 
-CAS_NAME_ONLY="${CAS_ENDPOINT%.*}"
-CAS_NAMESPACE_ONLY="${CAS_ENDPOINT##*.}"
-echo "==> Attest CAS ${CAS_ENDPOINT} (accepted as a debug CAS for testing)"
-ATTEST=(scone cas attest "$CAS_ENDPOINT" --only_for_testing-debug --only_for_testing-trust-any
+CAS_NAME_ONLY="${CAS_ADDRESS%.*}"
+CAS_NAMESPACE_ONLY="${CAS_ADDRESS##*.}"
+echo "==> Attest CAS ${CAS_ADDRESS} (accepted as a debug CAS for testing)"
+ATTEST=(scone cas attest "$CAS_ADDRESS" --only_for_testing-debug --only_for_testing-trust-any
         --only_for_testing-ignore-signer --accept-group-out-of-date
         --accept-sw-hardening-needed --accept-configuration-needed)
 if kubectl get cas "$CAS_NAME_ONLY" -n "$CAS_NAMESPACE_ONLY" >/dev/null 2>&1; then
@@ -61,9 +61,9 @@ else
   "${ATTEST[@]}" >/dev/null   # e.g. scone-cas.cf: attest online
 fi
 
-scone cas set-default "$CAS_ENDPOINT" >/dev/null
+scone cas set-default "$CAS_ADDRESS" >/dev/null
 
-echo "==> Sign + create the 6 sessions (spol) on ${CAS_ENDPOINT}"
+echo "==> Sign + create the 6 sessions (spol) on ${CAS_ADDRESS}"
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 declare -A rn
 for k in certificates maxscale primary replica backup dba-policy; do
@@ -88,7 +88,7 @@ helm install mariadb mariadb-spr/mariadb-spr \
   -n "$NAMESPACE" \
   --set image="$MARIADB_SCONE_IMAGE" \
   --set maxscale.metrics.image="$MAXME_IMAGE" \
-  --set scone.attestation.cas="$CAS_ENDPOINT" \
+  --set scone.attestation.cas="$CAS_ADDRESS" \
   --set scone.attestation.maxscaleConfigID="${rn[maxscale]}/maxscale" \
   --set scone.attestation.maxmeConfigID="${rn[maxscale]}/maxme" \
   --set scone.attestation.primaryBaseConfigID="${rn[primary]}" \

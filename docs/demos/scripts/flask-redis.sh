@@ -104,7 +104,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Directory of the README this script was generated from. The README
 # code blocks use it for every file reference so the script works from
 # any working directory.
-export DEMO_DIR="$(cd "${script_dir}/../demos/flask-redis" && pwd)"
+export DEMO_DIR="$(cd "${script_dir}/../../../demos/flask-redis" && pwd)"
 
 printf "%b" "$LILAC"
 printf '%s\n' '# Flask Redis'
@@ -112,7 +112,7 @@ printf '%s\n' ''
 printf '%s\n' 'A Flask REST API backed by a TLS-secured Redis instance, packaged for Kubernetes.'
 printf '%s\n' 'This guide walks through deploying the **native** version first, running integration tests, and then building and deploying the **confidential** (SCONE) version before testing it again.'
 printf '%s\n' ''
-printf '%s\n' '[![Flask Redis Example](../../docs/flask-redis.gif)](../../docs/flask-redis.mp4)'
+printf '%s\n' '[![Flask Redis Example](../../docs/demos/media/flask-redis.gif)](../../docs/demos/media/flask-redis.mp4)'
 printf '%s\n' ''
 printf '%s\n' '## Project Structure'
 printf '%s\n' ''
@@ -353,7 +353,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 EOF
 )"
 

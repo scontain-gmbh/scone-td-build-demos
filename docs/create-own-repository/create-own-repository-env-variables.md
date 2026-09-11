@@ -8,7 +8,7 @@ This file defines the environment variables used by the automated GitHub Contain
    Allowed values are `private`, `public`, or `internal`.
 4. `${SOURCE_DIR}` is the local Docker build context directory.
    The script defaults this to the current working directory from which the script is invoked.
-5. `${NATIVE_IMAGE_NAME}` is the GitHub Container Registry package name.
+5. `${IMAGE_NAME}` is the GitHub Container Registry package name.
    By default, the script uses the repository name lowercased.
 6. `${IMAGE_TAG}` is the image tag to build and push.
    The default value is `latest`.

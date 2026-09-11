@@ -54,7 +54,7 @@ show_help() {
   cat <<USAGE
 Usage: $0 [--help] [--non-interactive]
 
-Runs a demo-style shell script generated from demos/java-args-env-file/README.md.
+Runs a demo-style shell script generated from demos/go-args-env-file/README.md.
 
 Options:
   --help             Show this help message and exit.
@@ -104,14 +104,16 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Directory of the README this script was generated from. The README
 # code blocks use it for every file reference so the script works from
 # any working directory.
-export DEMO_DIR="$(cd "${script_dir}/../demos/java-args-env-file" && pwd)"
+export DEMO_DIR="$(cd "${script_dir}/../../../demos/go-args-env-file" && pwd)"
 
 printf "%b" "$LILAC"
-printf '%s\n' '# java-args-env-file (Java)'
+printf '%s\n' '# go-args-env-file'
 printf '%s\n' ''
-printf '%s\n' 'A Java utility that prints command-line arguments, environment variables, and reads two config files from `/config/`. It then sleeps for 1 hour (keeping a container alive) before exiting cleanly.'
+printf '%s\n' 'A Go utility that prints command-line arguments, environment variables, and reads two config files from `/config/`. It then sleeps for about 10 seconds before exiting cleanly, mirroring the behavior of a Java reference implementation.'
 printf '%s\n' ''
-printf '%s\n' 'This example shows how to manage and access configuration data in Kubernetes with a `ConfigMap` and a SCONE-enabled Java application. You start with a plain (unencrypted) deployment and then move to a fully protected SCONE deployment.'
+printf '%s\n' 'This example shows how to manage and access configuration data in Kubernetes with a `ConfigMap` and a Go application. You start with a plain (unencrypted) deployment and then move to a fully protected SCONE deployment.'
+printf '%s\n' ''
+printf '%s\n' '[![go-args-env-file Example](../../docs/demos/media/go-args-env-file.gif)](../../docs/demos/media/go-args-env-file.mp4)'
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
@@ -119,14 +121,16 @@ printf '%s\n' '## Project layout'
 printf '%s\n' ''
 printf '%s\n' '.'
 printf '%s\n' '├── app/'
-printf '%s\n' '│   ├── Main.java              # application source'
-printf '%s\n' '│   └── Dockerfile             # two-stage image: JDK builder → JRE runtime'
+printf '%s\n' '│   ├── main.go                # application source'
+printf '%s\n' '│   ├── go.mod'
+printf '%s\n' '│   ├── Makefile               # build helpers'
+printf '%s\n' '│   └── Dockerfile             # container image'
 printf '%s\n' '├── manifests/'
-printf '%s\n' '│   ├── manifest.template.yaml          # Kubernetes Job + ConfigMap + Secret template (tplenv)'
-printf '%s\n' '│   ├── scone.template.yaml             # SCONE manifest template'
-printf '%s\n' '│   ├── manifest.yaml                   # rendered native manifest (generated)'
-printf '%s\n' '│   ├── scone.yaml                      # rendered SCONE manifest (generated)'
-printf '%s\n' '│   └── manifest.prod.sanitized.yaml    # produced by scone-td-build (generated)'
+printf '%s\n' '│   ├── manifest.template.yaml     # Kubernetes Job/ConfigMap/Secret template (tplenv)'
+printf '%s\n' '│   ├── scone.template.yaml        # SCONE manifest template'
+printf '%s\n' '│   ├── manifest.yaml                  # rendered native manifest (generated)'
+printf '%s\n' '│   ├── scone.yaml                     # rendered SCONE manifest (generated)'
+printf '%s\n' '│   └── manifest.prod.sanitized.yaml   # produced by scone-td-build (generated)'
 printf '%s\n' '├── values.template.yaml       # default values, copied to Values.yaml on first run'
 printf '%s\n' '└── README.md'
 printf '%s\n' ''
@@ -156,6 +160,10 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+# Export the required environment variable for the next steps.
+EOF
+)"
+pe "$(cat <<'EOF'
 export SIGNER="$(scone self show-session-signing-key)"
 EOF
 )"
@@ -171,7 +179,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-# this README by hand, run the commands from `demos/java-args-env-file`.
+# this README by hand, run the commands from `demos/go-args-env-file`.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -209,32 +217,78 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+# Load environment variables from the tplenv definition file.
+EOF
+)"
+pe "$(cat <<'EOF'
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 EOF
 )"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' '> **Note:** All commands in the following sections assume these environment variables are exported in your current shell session. If you open a new terminal, re-run the `export SIGNER` and `eval $(tplenv ...)` commands above before proceeding.'
+printf '%s\n' 'Create the demo namespace if it does not already exist:'
+printf '%s\n' ''
+printf "%b" "$RESET"
+
+pe "$(cat <<'EOF'
+# Create the Kubernetes namespace if it does not already exist.
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
+EOF
+)"
+
+printf "%b" "$LILAC"
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## 4. Build and Push the Native Docker Image'
 printf '%s\n' ''
-printf '%s\n' 'The Dockerfile uses a two-stage build: an `eclipse-temurin:21-jdk-alpine` builder stage compiles `Main.java`, and the resulting `.class` file is copied into a minimal `eclipse-temurin:21-jre-alpine` runtime image.'
+printf '%s\n' 'The Dockerfile builds the binary with the SCONE-enhanced Go toolchain (`ghcr.io/scontain/golang:1.25.4-alpine`, whose runtime issues system calls through libc) and runs it from the same image.'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-docker build -t ${DEMO_IMAGE} "$DEMO_DIR/app"
+# Build the container image.
 EOF
 )"
 pe "$(cat <<'EOF'
-docker push ${DEMO_IMAGE}
+docker build -t ${IMAGE_NAME} "$DEMO_DIR/app"
+EOF
+)"
+pe "$(cat <<'EOF'
+# Push the container image to the registry.
+EOF
+)"
+pe "$(cat <<'EOF'
+docker push ${IMAGE_NAME}
 EOF
 )"
 
 printf "%b" "$LILAC"
+printf '%s\n' ''
+printf '%s\n' 'Alternatively, use the Makefile for a local build:'
+printf '%s\n' ''
+printf '%s\n' '# Native build (outputs to bin/go-args-env-file)'
+printf '%s\n' 'make build'
+printf '%s\n' ''
+printf '%s\n' '# Cross-compile for Linux/amd64'
+printf '%s\n' 'make build GOOS=linux GOARCH=amd64'
+printf '%s\n' ''
+printf '%s\n' '### Makefile targets'
+printf '%s\n' ''
+printf '%s\n' '| Target  | Description                                      |'
+printf '%s\n' '|---------|--------------------------------------------------|'
+printf '%s\n' '| `build` | Compile the binary into `bin/`                   |'
+printf '%s\n' '| `run`   | Build then execute (pass args with `ARGS="..."`) |'
+printf '%s\n' '| `tidy`  | Run `go mod tidy`                                |'
+printf '%s\n' '| `fmt`   | Run `go fmt ./...`                               |'
+printf '%s\n' '| `vet`   | Run `go vet ./...`                               |'
+printf '%s\n' '| `test`  | Run `go test ./...`                              |'
+printf '%s\n' '| `clean` | Remove the `bin/` directory                      |'
+printf '%s\n' '| `help`  | Print usage summary                              |'
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
@@ -245,7 +299,15 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
+# Render the template with the selected values.
+EOF
+)"
+pe "$(cat <<'EOF'
 tplenv --file "$DEMO_DIR/manifests/manifest.template.yaml" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --output "$DEMO_DIR/manifests/manifest.yaml" --indent
+EOF
+)"
+pe "$(cat <<'EOF'
+# Render the template with the selected values.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -266,15 +328,15 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching of namespace ${NAMESPACE} failed -- ignoring this"
-EOF
-)"
-pe "$(cat <<'EOF'
-
+# Check whether the pull secret already exists.
 EOF
 )"
 pe "$(cat <<'EOF'
 if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
+EOF
+)"
+pe "$(cat <<'EOF'
+  # Print a status message.
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -286,12 +348,14 @@ else
 EOF
 )"
 pe "$(cat <<'EOF'
-  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
+  # Create the Docker registry pull secret.
 EOF
 )"
 pe "$(cat <<'EOF'
   kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \
-    --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
+    --docker-server=$REGISTRY \
+    --docker-username=$REGISTRY_USER \
+    --docker-password=$REGISTRY_TOKEN
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -305,7 +369,7 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## 7. Deploy the Native App'
 printf '%s\n' ''
-printf '%s\n' 'Apply the manifest and follow the pod logs to confirm the app prints arguments, environment variables, and the contents of the ConfigMap and Secret files:'
+printf '%s\n' 'Apply the manifest, wait for the job to complete, and inspect its logs to confirm the app prints arguments, environment variables, and the contents of the ConfigMap and Secret files:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
@@ -318,17 +382,25 @@ kubectl apply -f "$DEMO_DIR/manifests/manifest.yaml" -n ${NAMESPACE}
 EOF
 )"
 pe "$(cat <<'EOF'
-# Follow logs from the Kubernetes workload.
+# Wait for the Kubernetes resource to reach the expected state.
 EOF
 )"
 pe "$(cat <<'EOF'
-retry-spinner --retries 10 --wait 2 -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow
+kubectl wait --for=condition=complete job/go-args-env-file -n ${NAMESPACE} --timeout=240s
+EOF
+)"
+pe "$(cat <<'EOF'
+# Show logs from the Kubernetes workload.
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl logs job/go-args-env-file -n ${NAMESPACE}
 EOF
 )"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' 'Your container should print the command-line args, all environment variables, the contents of `/config/configs.yaml`, and `/config/secrets`.'
+printf '%s\n' 'Your container should print the command-line arguments, all environment variables, the contents of `/config/configs.yaml`, and `/config/secrets`.'
 printf '%s\n' ''
 printf '%s\n' 'Clean up the native deployment before moving on:'
 printf '%s\n' ''
@@ -353,7 +425,7 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## 8. Prepare and Apply the SCONE Manifest'
 printf '%s\n' ''
-printf '%s\n' 'First, attest the CAS so the local SCONE CLI has the correct session encryption key. The kubectl path covers an in-cluster CAS; if it fails (typical when `${CAS_ENDPOINT}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.'
+printf '%s\n' 'First, attest the CAS so the local SCONE CLI has the correct session encryption key. The kubectl path covers an in-cluster CAS; if it fails (typical when `${CAS_ADDRESS}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
@@ -362,8 +434,8 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-kubectl scone cas attest --namespace "${CAS_ENDPOINT#*.}" "${CAS_ENDPOINT%%.*}" -C -G -S \
-    || scone cas attest ${CAS_ENDPOINT} -C -G -S \
+kubectl scone cas attest --namespace "${CAS_ADDRESS#*.}" "${CAS_ADDRESS%%.*}" -C -G -S \
+    || scone cas attest ${CAS_ADDRESS} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 EOF
 )"
@@ -405,6 +477,14 @@ pe "$(cat <<'EOF'
 kubectl apply -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" -n ${NAMESPACE}
 EOF
 )"
+pe "$(cat <<'EOF'
+# Wait for the Kubernetes resource to reach the expected state.
+EOF
+)"
+pe "$(cat <<'EOF'
+kubectl wait --for=condition=complete job/go-args-env-file -n ${NAMESPACE} --timeout=300s
+EOF
+)"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -415,11 +495,11 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Follow logs from the Kubernetes workload.
+# Show logs from the Kubernetes workload.
 EOF
 )"
 pe "$(cat <<'EOF'
-retry-spinner -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow
+kubectl logs job/go-args-env-file -n ${NAMESPACE}
 EOF
 )"
 
@@ -446,17 +526,17 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## What the app does'
 printf '%s\n' ''
-printf '%s\n' '1. Prints all **command-line arguments** passed to `main(String[] args)`.'
-printf '%s\n' '2. Dumps all **environment variables** via `System.getenv()`.'
-printf '%s\n' '3. Reads and prints two files using `Files.lines()`:'
+printf '%s\n' '1. Prints all **command-line arguments** passed to the binary.'
+printf '%s\n' '2. Dumps all **environment variables** in the process environment.'
+printf '%s\n' '3. Reads and prints two files:'
 printf '%s\n' '   - `/config/configs.yaml` — general configuration (mounted from a `ConfigMap`)'
 printf '%s\n' '   - `/config/secrets` — secret values (mounted from a Kubernetes `Secret`)'
-printf '%s\n' '4. **Sleeps for 1 hour**, then exits. Handles `InterruptedException` gracefully (reports to stderr and exits early).'
+printf '%s\n' '4. **Sleeps for about 10 seconds**, then exits. This is expected, so the Kubernetes workload is modeled as a `Job` rather than a long-running `Deployment`.'
 printf '%s\n' ''
 printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## Signal handling'
 printf '%s\n' ''
-printf '%s\n' 'The JVM catches `InterruptedException` during `Thread.sleep()`. On interruption it prints the exception message to **stderr** and exits, making it suitable for graceful shutdown in containerised environments.'
+printf '%s\n' 'The process listens for `SIGINT` and `SIGTERM`. On receipt it prints the signal name to **stderr** and exits immediately, making it suitable for graceful shutdown in containerized environments.'
 printf "%b" "$RESET"
 

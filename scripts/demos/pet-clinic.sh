@@ -155,11 +155,11 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Load environment variables from the tplenv definition file.'
-printf '%s\n' 'eval "$(tplenv --file "$DEMO_DIR/../environment-variables.md" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)"'
+printf '%s\n' 'eval "$(tplenv --file "$DEMO_DIR/../environment-variables.md" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)"'
 printf "${RESET}"
 
 # Load environment variables from the tplenv definition file.
-eval "$(tplenv --file "$DEMO_DIR/../environment-variables.md" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)"
+eval "$(tplenv --file "$DEMO_DIR/../environment-variables.md" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)"
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -409,7 +409,7 @@ printf '%s\n' ''
 printf '%s\n' 'By default the demo runs SGX enclaves in debug mode (`SCONE_PRODUCTION=0`). To run PetClinic as a real production (non-debug) enclave attesting against SCONE'\''s public CAS, set in `Values.yaml`:'
 printf '%s\n' ''
 printf '%s\n' 'SCONE_PRODUCTION: '\''1'\'''
-printf '%s\n' 'CAS_ENDPOINT: scone-cas.cf'
+printf '%s\n' 'CAS_ADDRESS: scone-cas.cf'
 printf '%s\n' ''
 printf '%s\n' 'Then re-run the steps above from section 5 (`scone-td-build apply -f`) onwards. What changes:'
 printf '%s\n' ''

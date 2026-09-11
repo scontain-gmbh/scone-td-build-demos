@@ -4,7 +4,6 @@ metadata:
   name: pet-clinic-demo
 spec:
   source-image: ${IMAGE_NAME}
-  reference-image: ${IMAGE_NAME}
   output-image: ${DESTINATION_IMAGE_NAME}
   # Keep the skip-list minimal (static busybox): java is dynamically linked
   # against glibc (libpthread/libc/libdl) and dlopens the JRE .so libraries, so
@@ -16,6 +15,8 @@ spec:
   push-image: true
   tee-type: ${TEE_TYPE}
   scone-version: ${SCONE_RUNTIME_VERSION}
+  build-state-file: "manifests/storage.json"
+  scone-runtime-image: ${SCONE_RUNTIME_IMAGE}
   container-env:
     - {name: SCONE_VERSION, value: "1"}
     - {name: SCONE_SYSLIBS, value: "1"}
@@ -37,8 +38,8 @@ spec:
     - "manifests/petclinic.yaml"
   output-manifest: "manifests/manifest.prod.sanitized.yaml"
   output-session: "manifests/manifest.prod.session.yaml"
-  cas-endpoint:
-    address: ${CAS_ENDPOINT}
+  build-state-file: "manifests/storage.json"
+  cas-address: ${CAS_ADDRESS}
   container-env:
     - {name: SCONE_VERSION, value: "1"}
     - {name: SCONE_SYSLIBS, value: "1"}
@@ -50,6 +51,8 @@ spec:
   tee-type: ${TEE_TYPE}
   scone-enclave: ${SCONE_ENCLAVE}
   scone-version: ${SCONE_RUNTIME_VERSION}
+  scone-runtime-image: ${SCONE_RUNTIME_IMAGE}
+  trusted-cvm-signer-keys: ${CVM_SIGNING_KEY_FILE}
   access_policy:
     read:
       - ANY

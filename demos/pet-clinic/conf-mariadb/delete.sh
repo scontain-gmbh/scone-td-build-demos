@@ -8,7 +8,7 @@ export DEMO_DIR="$SCRIPT_DIR/../../pet-clinic/"
 
 
 export CONFIRM_ALL_ENVIRONMENT_VARIABLES="--value-file-only"
-eval "$(tplenv --file "$DEMO_DIR/../environment-variables.md" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)"
+eval "$(tplenv --file "$DEMO_DIR/../environment-variables.md" --values-file "$DEMO_DIR/Values.yaml" --eval-export-values --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)"
 
 echo "==> helm uninstall mariadb"
 helm uninstall mariadb -n "$NAMESPACE" 2>/dev/null || true

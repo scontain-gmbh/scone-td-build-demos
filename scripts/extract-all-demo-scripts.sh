@@ -96,7 +96,7 @@ for pair in "${files[@]}"; do
   else
     "$SCRIPT_DIR/extract-bash.sh" "$input_file" "$output_file"
   fi
-  docs_output_file="docs/$(basename "$output_file")"
+  docs_output_file="docs/demos/scripts/$(basename "$output_file")"
   if $assume_yes; then
     "$SCRIPT_DIR/extract-bash.sh" -y --docs-pe "$input_file" "$docs_output_file"
   else

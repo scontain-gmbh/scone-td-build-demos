@@ -161,10 +161,10 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' 'eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)'
+printf '%s\n' 'eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)'
 printf "${RESET}"
 
-eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -179,12 +179,12 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' 'docker build -t ${DEMO_IMAGE} "$DEMO_DIR/app"'
-printf '%s\n' 'docker push ${DEMO_IMAGE}'
+printf '%s\n' 'docker build -t ${IMAGE_NAME} "$DEMO_DIR/app"'
+printf '%s\n' 'docker push ${IMAGE_NAME}'
 printf "${RESET}"
 
-docker build -t ${DEMO_IMAGE} "$DEMO_DIR/app"
-docker push ${DEMO_IMAGE}
+docker build -t ${IMAGE_NAME} "$DEMO_DIR/app"
+docker push ${IMAGE_NAME}
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -286,20 +286,20 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## 8. Prepare and Apply the SCONE Manifest'
 printf '%s\n' ''
-printf '%s\n' 'First, attest the CAS so the local SCONE CLI has the correct session encryption key. The kubectl path covers an in-cluster CAS; if it fails (typical when `${CAS_ENDPOINT}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.'
+printf '%s\n' 'First, attest the CAS so the local SCONE CLI has the correct session encryption key. The kubectl path covers an in-cluster CAS; if it fails (typical when `${CAS_ADDRESS}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.'
 printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Attest the CAS instance before sending encrypted policies.'
-printf '%s\n' 'kubectl scone cas attest --namespace "${CAS_ENDPOINT#*.}" "${CAS_ENDPOINT%%.*}" -C -G -S \'
-printf '%s\n' '    || scone cas attest ${CAS_ENDPOINT} -C -G -S \'
+printf '%s\n' 'kubectl scone cas attest --namespace "${CAS_ADDRESS#*.}" "${CAS_ADDRESS%%.*}" -C -G -S \'
+printf '%s\n' '    || scone cas attest ${CAS_ADDRESS} -C -G -S \'
 printf '%s\n' '        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any'
 printf "${RESET}"
 
 # Attest the CAS instance before sending encrypted policies.
-kubectl scone cas attest --namespace "${CAS_ENDPOINT#*.}" "${CAS_ENDPOINT%%.*}" -C -G -S \
-    || scone cas attest ${CAS_ENDPOINT} -C -G -S \
+kubectl scone cas attest --namespace "${CAS_ADDRESS#*.}" "${CAS_ADDRESS%%.*}" -C -G -S \
+    || scone cas attest ${CAS_ADDRESS} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 
 printf "${VIOLET}"
@@ -348,11 +348,11 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Follow logs from the Kubernetes workload.'
-printf '%s\n' 'retry-spinner -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow'
+printf '%s\n' 'retry-spinner --retries 30 --wait 5  -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow'
 printf "${RESET}"
 
 # Follow logs from the Kubernetes workload.
-retry-spinner -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow
+retry-spinner --retries 30 --wait 5  -- kubectl logs deployment/java-args-env-file -n "${NAMESPACE}" --follow
 
 printf "${VIOLET}"
 printf '%s\n' ''

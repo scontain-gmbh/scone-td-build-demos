@@ -68,7 +68,7 @@ export DEMO_DIR="$(cd "${script_dir}/../../demos/hello-world" && pwd)"
 printf "${VIOLET}"
 printf '%s\n' '# SCONE: Hello World'
 printf '%s\n' ''
-printf '%s\n' '[![Hello World Example](../../docs/hello-world.gif)](../../docs/hello-world.mp4)'
+printf '%s\n' '[![Hello World Example](../../docs/demos/media/hello-world.gif)](../../docs/demos/media/hello-world.mp4)'
 printf '%s\n' ''
 printf '%s\n' 'This example shows how to build a simple cloud-native `hello-world` application in Rust, run it natively in Kubernetes, and then deploy a confidential version with SCONE.'
 printf '%s\n' ''
@@ -127,11 +127,11 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Load environment variables from the tplenv definition file.'
-printf '%s\n' 'eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)'
+printf '%s\n' 'eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)'
 printf "${RESET}"
 
 # Load environment variables from the tplenv definition file.
-eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 
 printf "${VIOLET}"
 printf '%s\n' ''
@@ -318,20 +318,20 @@ printf "${VIOLET}"
 printf '%s\n' ''
 printf '%s\n' '## 6. Attest SCONE CAS'
 printf '%s\n' ''
-printf '%s\n' 'Attest CAS before sending encrypted policies. The kubectl path covers in-cluster CAS; if it fails (typical when `${CAS_ENDPOINT}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.'
+printf '%s\n' 'Attest CAS before sending encrypted policies. The kubectl path covers in-cluster CAS; if it fails (typical when `${CAS_ADDRESS}` resolves to an external CAS like `scone-cas.cf`), the second branch attests the public CAS directly.'
 printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Attest the CAS instance before sending encrypted policies.'
-printf '%s\n' 'kubectl scone cas attest --namespace "${CAS_ENDPOINT#*.}" "${CAS_ENDPOINT%%.*}" -C -G -S \'
-printf '%s\n' '    || scone cas attest ${CAS_ENDPOINT} -C -G -S \'
+printf '%s\n' 'kubectl scone cas attest --namespace "${CAS_ADDRESS#*.}" "${CAS_ADDRESS%%.*}" -C -G -S \'
+printf '%s\n' '    || scone cas attest ${CAS_ADDRESS} -C -G -S \'
 printf '%s\n' '        --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any'
 printf "${RESET}"
 
 # Attest the CAS instance before sending encrypted policies.
-kubectl scone cas attest --namespace "${CAS_ENDPOINT#*.}" "${CAS_ENDPOINT%%.*}" -C -G -S \
-    || scone cas attest ${CAS_ENDPOINT} -C -G -S \
+kubectl scone cas attest --namespace "${CAS_ADDRESS#*.}" "${CAS_ADDRESS%%.*}" -C -G -S \
+    || scone cas attest ${CAS_ADDRESS} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any
 
 printf "${VIOLET}"
@@ -358,7 +358,7 @@ tplenv --file "$DEMO_DIR/manifests/scone.template.yaml" --values-file "$DEMO_DIR
 
 printf "${VIOLET}"
 printf '%s\n' ''
-printf '%s\n' 'This command registers the confidential image, creates the SCONE session, and produces `$DEMO_DIR/manifests/manifest.prod.sanitized.yaml` from `manifest.job.yaml`.'
+printf '%s\n' 'This command registers the confidential image, creates the SCONE session, and produces `$DEMO_DIR/manifests/manifest.job.sanitized.yaml` from `manifest.job.yaml`.'
 printf '%s\n' ''
 printf '%s\n' '## 8. Deploy the Confidential Manifest'
 printf '%s\n' ''
@@ -366,7 +366,7 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Apply the Kubernetes manifest.'
-printf '%s\n' 'kubectl apply -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" -n ${NAMESPACE}'
+printf '%s\n' 'kubectl apply -f "$DEMO_DIR/manifests/manifest.job.sanitized.yaml" -n ${NAMESPACE}'
 printf '%s\n' '# Poll for a terminal state instead of `kubectl wait`: this kubectl version only'
 printf '%s\n' '# honors the last --for flag when given more than once, so it can'\''t watch for'
 printf '%s\n' '# both Complete and Failed in one call, and `wait -n` (used in an earlier'
@@ -397,7 +397,7 @@ printf '%s\n' 'kubectl logs job/hello-world -n ${NAMESPACE} --follow --pod-runni
 printf "${RESET}"
 
 # Apply the Kubernetes manifest.
-kubectl apply -f "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml" -n ${NAMESPACE}
+kubectl apply -f "$DEMO_DIR/manifests/manifest.job.sanitized.yaml" -n ${NAMESPACE}
 # Poll for a terminal state instead of `kubectl wait`: this kubectl version only
 # honors the last --for flag when given more than once, so it can't watch for
 # both Complete and Failed in one call, and `wait -n` (used in an earlier
