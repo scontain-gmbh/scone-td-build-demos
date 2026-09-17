@@ -163,25 +163,34 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/.." && pwd)"
 
 all_values_files=(
-  "${repo_root}/demos/hello-world/Values.yaml"
-  "${repo_root}/demos/configmap/Values.yaml"
-  "${repo_root}/demos/web-server/Values.yaml"
-  "${repo_root}/demos/network-policy/Values.yaml"
-  "${repo_root}/demos/go-args-env-file/Values.yaml"
-  "${repo_root}/demos/flask-redis/Values.yaml"
-  "${repo_root}/demos/flask-redis-netshield/Values.yaml"
-  "${repo_root}/demos/java-args-env-file/Values.yaml"
-  "${repo_root}/demos/software-updates/Values.yaml"
-  "${repo_root}/demos/image-signing/Values.yaml"
-  "${repo_root}/demos/pet-clinic/Values.yaml"
+  "${repo_root}/hello-world/Values.yaml"
+  "${repo_root}/configmap/Values.yaml"
+  "${repo_root}/web-server/Values.yaml"
+  "${repo_root}/network-policy/Values.yaml"
+  "${repo_root}/go-args-env-file/Values.yaml"
+  "${repo_root}/flask-redis/Values.yaml"
+  "${repo_root}/flask-redis-netshield/Values.yaml"
+  "${repo_root}/java-args-env-file/Values.yaml"
+  "${repo_root}/software-updates/Values.yaml"
+  "${repo_root}/image-signing/Values.yaml"
 )
 
+# tee-type replaced the old cvm boolean, so the migrated demos consume SCONE_ENCLAVE as a
+# boolean value. image-signing (added upstream) still ships the flag-style SCONE_ENCLAVE,
+# so it is overridden after the shared loop below.
+flag_mode_files=(
+  "${repo_root}/image-signing/Values.yaml"
+)
 if [[ "$mode" == "sgx" ]]; then
   tee_type="sgx"
   scone_enclave="'false'"
+  flag_scone_enclave="''"
+  flag_cvm_mode="''"
 else
   tee_type="cvm"
   scone_enclave="'true'"
+  flag_scone_enclave="--scone-enclave"
+  flag_cvm_mode="--cvm"
 fi
 
 for values_file in "${all_values_files[@]}"; do
@@ -211,6 +220,14 @@ for values_file in "${all_values_files[@]}"; do
       upsert_scalar "$values_file" "CAS_ENDPOINT" "${eff_cas_name}.${eff_cas_namespace}"
     fi
   fi
+done
+
+# image-signing still uses the flag-style SCONE_ENCLAVE and CVM_MODE (it passes --cvm into
+# `scone-td-build register`), so override the boolean/tee-type set above; otherwise the CVM
+# sweep would leave it on the SGX path.
+for values_file in "${flag_mode_files[@]}"; do
+  upsert_scalar "$values_file" "SCONE_ENCLAVE" "$flag_scone_enclave"
+  upsert_scalar "$values_file" "CVM_MODE" "$flag_cvm_mode"
 done
 
 declare -A seen_namespaces=()
