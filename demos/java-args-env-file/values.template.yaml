@@ -1,0 +1,12 @@
+environment:
+  NATIVE_IMAGE_NAME: registry.scontain.com/k8s-scone-images/java-args-env-file:native
+  DESTINATION_IMAGE_NAME: registry.scontain.com/k8s-scone-images/java-args-env-file:protected
+  REGISTRY: registry.scontain.com
+  IMAGE_PULL_SECRET_NAME: sconeapps
+  SCONE_RUNTIME_VERSION: 7.0.0-alpha.4
+  SCONE_CAS_ADDR: cas.default
+  CVM_MODE: false
+  SCONE_ENCLAVE: false
+  NAMESPACE: java-demo
+  SCONE_RUNTIME_IMAGE: registry.scontain.com/sergey/test:scone-deb-pkgs-scone7.0.0-rc-cvm-mode
+  CVM_SIGNING_KEY_FILE: /tmp/kbs-signer.pem

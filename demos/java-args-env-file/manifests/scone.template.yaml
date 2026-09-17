@@ -1,0 +1,48 @@
+apiVersion: scone.cloud/v1
+kind: Register
+metadata:
+  name: java-args-env-file-example
+spec:
+  source-image: ${DEMO_IMAGE}
+  reference-image: ${DEMO_IMAGE}
+  output-image: ${DESTINATION_IMAGE_NAME}
+  protected-binaries: ["/opt/java/openjdk/bin/java"]
+  push-image: true
+  scone-version: ${SCONE_VERSION}
+  tee-type: ${TEE_TYPE}
+  scone_runtime_image: ${SCONE_RUNTIME_IMAGE}
+  storage: "manifests/storage.json"
+  container-env:
+    - {name: SCONE_VERSION, value: "1"}
+    - {name: SCONE_SYSLIBS, value: "1"}
+    - {name: SCONE_PRODUCTION, value: "0"}
+---
+apiVersion: scone.cloud/v1
+kind: Apply
+metadata:
+  name: java-args-env-file-example
+spec:
+  scone-version: ${SCONE_VERSION}
+  scone_runtime_image: ${SCONE_RUNTIME_IMAGE}
+  storage: "manifests/storage.json"
+  trusted_cvm_signer_keys: ${CVM_SIGNING_KEY_FILE}
+  # Inline‑selection: pick *only* the Deployment
+  file:
+    - "manifests/manifest.yaml"
+  output-manifest: "manifests/manifest.prod.sanitized.yaml"
+  output-session: "manifests/manifest.prod.session.yaml"
+  cas-endpoint:
+    address: ${CAS_ENDPOINT}
+  container-env:
+    - { name: SCONE_VERSION,  value: "1" }
+    - { name: SCONE_LOG,      value: "WARNING" }
+    - { name: SCONE_HEAP,     value: "6G" }
+    - { name: SCONE_ALLOW_DLOPEN, value: "2" }
+    - { name: SCONE_SYSLIBS, value: "1" }
+  cas-policy-env:
+    - { name: LD_LIBRARY_PATH, value: /opt/java/openjdk/lib/server:/opt/java/openjdk/lib:/opt/java/openjdk/../lib }
+    - { name: SCONE_METRICS, value: "prometheus_port:9999" }
+  permissive: true
+  encrypted-cas-policy: false
+  tee-type: ${TEE_TYPE}
+  scone-enclave: ${SCONE_ENCLAVE}

@@ -1,0 +1,12 @@
+environment:
+  IMAGE_PULL_SECRET_NAME: sconeapps
+  SCONE_CAS_ADDR: cas.default
+  SCONE_RUNTIME_VERSION: 7.0.0-alpha.4
+  CVM_MODE: false
+  SCONE_ENCLAVE: false
+  REGISTRY: registry.scontain.com
+  NAMESPACE: default
+  CLIENT_IMAGE: registry.scontain.com/workshop/network-policy:client
+  SERVER_IMAGE: registry.scontain.com/workshop/network-policy:server
+  SCONE_RUNTIME_IMAGE: registry.scontain.com/sergey/test:scone-deb-pkgs-scone7.0.0-rc-cvm-mode
+  CVM_SIGNING_KEY_FILE: /tmp/kbs-signer.pem
