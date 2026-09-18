@@ -1,0 +1,66 @@
+# scone-td-build input: register the app image, then transform the manifest and get
+# its CAS session policies APPROVED THROUGH GOVERNANCE (not signed locally).
+apiVersion: scone.cloud/v1
+kind: Register
+metadata:
+  name: governance-demo
+spec:
+  source-image: ${DEMO_IMAGE}
+  reference-image: ${DEMO_IMAGE}
+  output-image: ${DESTINATION_IMAGE_NAME}
+  protected-binaries: ["/usr/local/bin/python3"]
+  push-image: true
+  scone-version: ${SCONE_RUNTIME_VERSION}
+  tee-type: ${TEE_TYPE}
+  container-env:
+    - {name: SCONE_VERSION, value: "1"}
+    - {name: SCONE_SYSLIBS, value: "1"}
+    - {name: SCONE_PRODUCTION, value: "0"}
+    - {name: SCONE_HEAP, value: "760M"}
+    - {name: SCONE_ALLOW_DLOPEN, value: "2"}
+---
+apiVersion: scone.cloud/v1
+kind: Apply
+metadata:
+  name: governance-demo
+  namespace: ${NAMESPACE}
+spec:
+  file:
+    - "manifests/manifest.yaml"
+  output-manifest: "manifests/manifest.sanitized.yaml"
+  output-session: "manifests/manifest.session.yaml"
+  cas-endpoint:
+    address: ${CAS_ENDPOINT}
+  container-env:
+    - {name: SCONE_VERSION, value: "1"}
+    - {name: SCONE_SYSLIBS, value: "1"}
+    - {name: SCONE_PRODUCTION, value: "0"}
+    - {name: SCONE_HEAP, value: "760M"}
+    - {name: SCONE_ALLOW_DLOPEN, value: "2"}
+  # Delivered to the enclave by CAS only once the workload attests under the
+  # governance-approved policy. The app prints it, so a successful run shows the
+  # approval actually gated access to the secret.
+  cas-policy-env:
+    - {name: GOVERNED_SECRET, value: "delivered-only-under-the-approved-policy"}
+  scone-version: ${SCONE_RUNTIME_VERSION}
+  permissive: true
+  # Governance assembles the SignedPolicy from the signatures the service collects, so it
+  # is SignedPolicy-only. `encrypted-cas-policy: true` (EPOL) under governance is rejected.
+  encrypted-cas-policy: false
+  # Inline governance: `remote` present TOGETHER WITH `access_policy`. The sessions carry
+  # this policy and the governance service signs the assembled sessions. (Remote
+  # governance -- `remote` without `access_policy` -- makes the sessions import the policy
+  # from the service's managed `cas-governance` session instead; see the README.)
+  remote:
+    url: ${GOVERNANCE_URL}
+    api_token: ${GOVERNANCE_API_TOKEN}
+    # ca_cert: <optional PEM string or path, if the service uses a private CA>
+  access_policy:
+    read:
+      - NONE
+    update:
+      - ANY
+    create_sessions:
+      - ANY
+  tee-type: ${TEE_TYPE}
+  scone-enclave: ${SCONE_ENCLAVE}
