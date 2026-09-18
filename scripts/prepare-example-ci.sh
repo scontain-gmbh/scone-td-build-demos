@@ -173,6 +173,7 @@ all_values_files=(
   "${repo_root}/java-args-env-file/Values.yaml"
   "${repo_root}/software-updates/Values.yaml"
   "${repo_root}/image-signing/Values.yaml"
+  "${repo_root}/nfs-shared-volume/Values.yaml"
 )
 
 # tee-type replaced the old cvm boolean, so the migrated demos consume SCONE_ENCLAVE as a

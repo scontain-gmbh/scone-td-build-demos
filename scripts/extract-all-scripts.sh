@@ -54,6 +54,7 @@ files=(
   "java-args-env-file/README.md scripts/java-args-env-file.sh"
   "software-updates/README.md scripts/software-updates.sh"
   "image-signing/README.md scripts/image-signing.sh"
+  "nfs-shared-volume/README.md scripts/nfs-shared-volume.sh"
 )
 
 generated_scripts=()
