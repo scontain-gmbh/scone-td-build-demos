@@ -136,8 +136,23 @@ scripts=(
   "nfs-shared-volume.sh"
 )
 
+# The NFS demo needs shared-volume support in the binary under test, which
+# only exists on am/nfs-shared-volumes so far. The workflow checks that
+# scone-td-build is present, not what it can do, so on a standard runner this
+# demo would drive an apply flow the binary does not implement and fail for a
+# reason that has nothing to do with the demo. Probe, and skip rather than
+# fail.
+supports_shared_volumes() {
+  scone-td-build apply --help 2>/dev/null | grep -q -- '--unattested-shared-server'
+}
+
 for ((i = 0; i < ${#scripts[@]}; i++)); do
   script_name="${scripts[i]}"
+  if [[ "$script_name" == "nfs-shared-volume.sh" ]] && ! supports_shared_volumes; then
+    printf "==> Skipping %s: this scone-td-build has no shared-volume support\\n" "$script_name"
+    skipped_scripts+=("$script_name")
+    continue
+  fi
   if run_script "$script_name"; then
     continue
   else

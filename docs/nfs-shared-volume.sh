@@ -171,11 +171,23 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-  # Best effort: a node that cannot run these (drained, under disk pressure) is
+  # Fail closed. A node without mount.nfs or without the resolver entry does not
 EOF
 )"
 pe "$(cat <<'EOF'
-  # only a problem if a consumer lands there, and that failure reports itself.
+  # announce itself: the consumer lands there and fails at mount time instead,
+EOF
+)"
+pe "$(cat <<'EOF'
+  # with an error that points at the volume rather than at the preparation. The
+EOF
+)"
+pe "$(cat <<'EOF'
+  # DaemonSets are kept on failure so their pod logs can say which node and why.
+EOF
+)"
+pe "$(cat <<'EOF'
+  prep_ok=1
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -183,7 +195,7 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-    echo "WARNING: nfs-common did not roll out to every node"
+    prep_ok=0
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -191,11 +203,43 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-    echo "WARNING: cluster DNS was not wired on every node"
+    prep_ok=0
 EOF
 )"
 pe "$(cat <<'EOF'
-  # The nodes keep the package and the resolver entry once the pods have run.
+  if [ "$prep_ok" -ne 1 ]; then
+EOF
+)"
+pe "$(cat <<'EOF'
+    echo "ERROR: node preparation did not complete on every node" >&2
+EOF
+)"
+pe "$(cat <<'EOF'
+    echo "Inspect: kubectl -n kube-system logs ds/install-nfs-common" >&2
+EOF
+)"
+pe "$(cat <<'EOF'
+    echo "         kubectl -n kube-system logs ds/node-cluster-dns" >&2
+EOF
+)"
+pe "$(cat <<'EOF'
+    echo "Set SKIP_NODE_PREP=1 to run against nodes you prepared yourself." >&2
+EOF
+)"
+pe "$(cat <<'EOF'
+    exit 1
+EOF
+)"
+pe "$(cat <<'EOF'
+  fi
+EOF
+)"
+pe "$(cat <<'EOF'
+  # Only once both succeeded: the nodes keep the package and the resolver entry
+EOF
+)"
+pe "$(cat <<'EOF'
+  # after the pods have run, so the DaemonSets have done their job.
 EOF
 )"
 pe "$(cat <<'EOF'
