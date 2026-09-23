@@ -251,23 +251,27 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Guarded on purpose: this block is extracted into the demo script and runs in
+# Guarded twice on purpose, because this block is extracted into the demo script
 EOF
 )"
 pe "$(cat <<'EOF'
-# CI too, where NAMESPACE is unset and the validator has already removed the
+# and runs in CI. NAMESPACE is set there, and the validator removes the manifest
 EOF
 )"
 pe "$(cat <<'EOF'
-# namespace it generated. Deleting anything here would be aimed at a namespace
+# it generated, so `kubectl delete -f` would fail on the missing path:
 EOF
 )"
 pe "$(cat <<'EOF'
-# this demo never created.
+# --ignore-not-found covers an absent resource, not an absent file. The refused
 EOF
 )"
 pe "$(cat <<'EOF'
-if [ -n "${NAMESPACE:-}" ]; then
+# case also produces no manifest by design.
+EOF
+)"
+pe "$(cat <<'EOF'
+if [ -n "${NAMESPACE:-}" ] && [ -f governance/manifests/manifest.sanitized.yaml ]; then
 EOF
 )"
 pe "$(cat <<'EOF'

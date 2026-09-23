@@ -211,21 +211,23 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Guarded on purpose: this block is extracted into the demo script and runs in'
-printf '%s\n' '# CI too, where NAMESPACE is unset and the validator has already removed the'
-printf '%s\n' '# namespace it generated. Deleting anything here would be aimed at a namespace'
-printf '%s\n' '# this demo never created.'
-printf '%s\n' 'if [ -n "${NAMESPACE:-}" ]; then'
+printf '%s\n' '# Guarded twice on purpose, because this block is extracted into the demo script'
+printf '%s\n' '# and runs in CI. NAMESPACE is set there, and the validator removes the manifest'
+printf '%s\n' '# it generated, so `kubectl delete -f` would fail on the missing path:'
+printf '%s\n' '# --ignore-not-found covers an absent resource, not an absent file. The refused'
+printf '%s\n' '# case also produces no manifest by design.'
+printf '%s\n' 'if [ -n "${NAMESPACE:-}" ] && [ -f governance/manifests/manifest.sanitized.yaml ]; then'
 printf '%s\n' '  kubectl delete -f governance/manifests/manifest.sanitized.yaml \'
 printf '%s\n' '    -n "${NAMESPACE}" --ignore-not-found'
 printf '%s\n' 'fi'
 printf "${RESET}"
 
-# Guarded on purpose: this block is extracted into the demo script and runs in
-# CI too, where NAMESPACE is unset and the validator has already removed the
-# namespace it generated. Deleting anything here would be aimed at a namespace
-# this demo never created.
-if [ -n "${NAMESPACE:-}" ]; then
+# Guarded twice on purpose, because this block is extracted into the demo script
+# and runs in CI. NAMESPACE is set there, and the validator removes the manifest
+# it generated, so `kubectl delete -f` would fail on the missing path:
+# --ignore-not-found covers an absent resource, not an absent file. The refused
+# case also produces no manifest by design.
+if [ -n "${NAMESPACE:-}" ] && [ -f governance/manifests/manifest.sanitized.yaml ]; then
   kubectl delete -f governance/manifests/manifest.sanitized.yaml \
     -n "${NAMESPACE}" --ignore-not-found
 fi
