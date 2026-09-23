@@ -46,13 +46,24 @@ touch `kube-system`.
 if [ "${SKIP_NODE_PREP:-0}" != "1" ]; then
   kubectl apply -f nfs-shared-volume/node-prep/01-install-nfs-common.yaml
   kubectl apply -f nfs-shared-volume/node-prep/02-node-cluster-dns.yaml
-  # Best effort: a node that cannot run these (drained, under disk pressure) is
-  # only a problem if a consumer lands there, and that failure reports itself.
+  # Fail closed. A node without mount.nfs or without the resolver entry does not
+  # announce itself: the consumer lands there and fails at mount time instead,
+  # with an error that points at the volume rather than at the preparation. The
+  # DaemonSets are kept on failure so their pod logs can say which node and why.
+  prep_ok=1
   kubectl -n kube-system rollout status ds/install-nfs-common --timeout=180s ||
-    echo "WARNING: nfs-common did not roll out to every node"
+    prep_ok=0
   kubectl -n kube-system rollout status ds/node-cluster-dns --timeout=180s ||
-    echo "WARNING: cluster DNS was not wired on every node"
-  # The nodes keep the package and the resolver entry once the pods have run.
+    prep_ok=0
+  if [ "$prep_ok" -ne 1 ]; then
+    echo "ERROR: node preparation did not complete on every node" >&2
+    echo "Inspect: kubectl -n kube-system logs ds/install-nfs-common" >&2
+    echo "         kubectl -n kube-system logs ds/node-cluster-dns" >&2
+    echo "Set SKIP_NODE_PREP=1 to run against nodes you prepared yourself." >&2
+    exit 1
+  fi
+  # Only once both succeeded: the nodes keep the package and the resolver entry
+  # after the pods have run, so the DaemonSets have done their job.
   kubectl -n kube-system delete ds install-nfs-common node-cluster-dns
 fi
 ```
