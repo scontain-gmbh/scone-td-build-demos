@@ -4,13 +4,15 @@ set -euo pipefail
 
 show_help() {
   cat <<USAGE
-Usage: $0 --mode <sgx|cvm> [--registry REGISTRY] [--image-pull-secret-name NAME] [--namespace NAMESPACE]
+Usage: $0 --mode <sgx|cvm> [--registry REGISTRY] [--image-pull-secret-name NAME] [--namespace NAMESPACE] [--scone-cas-addr ADDR]
 
-Prepares the example Values.yaml files and Kubernetes pull secrets for CI.
+Prepares the example Values.yaml files (seeded from values.template.yaml when
+missing) and Kubernetes pull secrets for CI.
 
 Environment:
   REGISTRY_USER   Registry username used to create the image pull secret.
   REGISTRY_TOKEN  Registry token/password used to create the image pull secret.
+  SCONE_CAS_ADDR  CAS address to write into every Values.yaml (default: keeps each demo's current value).
 
 Options:
   --mode <mode>              One of: sgx, cvm
@@ -25,6 +27,7 @@ mode=""
 registry="${REGISTRY:-registry.scontain.com}"
 image_pull_secret_name="${IMAGE_PULL_SECRET_NAME:-sconeapps}"
 namespace="${NAMESPACE:-}"
+scone_cas_addr="${SCONE_CAS_ADDR:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -42,6 +45,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --namespace)
       namespace="${2:-}"
+      shift 2
+      ;;
+    --scone-cas-addr)
+      scone_cas_addr="${2:-}"
       shift 2
       ;;
     --help)
@@ -110,6 +117,11 @@ upsert_scalar() {
       found = 1
       next
     }
+    in_environment && $0 ~ /^[[:space:]]*(#.*)?$/ {
+      # Blank and comment lines do not end the environment block.
+      print
+      next
+    }
     in_environment && $0 !~ /^  / {
       if (!found) {
         print "  " key ": " value
@@ -163,34 +175,25 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/.." && pwd)"
 
 all_values_files=(
-  "${repo_root}/hello-world/Values.yaml"
-  "${repo_root}/configmap/Values.yaml"
-  "${repo_root}/web-server/Values.yaml"
-  "${repo_root}/network-policy/Values.yaml"
-  "${repo_root}/go-args-env-file/Values.yaml"
-  "${repo_root}/flask-redis/Values.yaml"
-  "${repo_root}/flask-redis-netshield/Values.yaml"
-  "${repo_root}/java-args-env-file/Values.yaml"
-  "${repo_root}/software-updates/Values.yaml"
-  "${repo_root}/image-signing/Values.yaml"
+  "${repo_root}/demos/hello-world/Values.yaml"
+  "${repo_root}/demos/configmap/Values.yaml"
+  "${repo_root}/demos/web-server/Values.yaml"
+  "${repo_root}/demos/network-policy/Values.yaml"
+  "${repo_root}/demos/go-args-env-file/Values.yaml"
+  "${repo_root}/demos/flask-redis/Values.yaml"
+  "${repo_root}/demos/flask-redis-netshield/Values.yaml"
+  "${repo_root}/demos/java-args-env-file/Values.yaml"
+  "${repo_root}/demos/software-updates/Values.yaml"
+  "${repo_root}/demos/image-signing/Values.yaml"
+  "${repo_root}/demos/pet-clinic/Values.yaml"
 )
 
-# tee-type replaced the old cvm boolean, so the migrated demos consume SCONE_ENCLAVE as a
-# boolean value. image-signing (added upstream) still ships the flag-style SCONE_ENCLAVE,
-# so it is overridden after the shared loop below.
-flag_mode_files=(
-  "${repo_root}/image-signing/Values.yaml"
-)
 if [[ "$mode" == "sgx" ]]; then
   tee_type="sgx"
   scone_enclave="'false'"
-  flag_scone_enclave="''"
-  flag_cvm_mode="''"
 else
   tee_type="cvm"
   scone_enclave="'true'"
-  flag_scone_enclave="--scone-enclave"
-  flag_cvm_mode="--cvm"
 fi
 
 for values_file in "${all_values_files[@]}"; do
@@ -207,27 +210,19 @@ for values_file in "${all_values_files[@]}"; do
   if [[ -n "${CAS_NAMESPACE:-}" ]]; then
     upsert_scalar "$values_file" "CAS_NAMESPACE" "$CAS_NAMESPACE"
   fi
-  # CAS_ENDPOINT is the address the manifest targets. Keep it in sync with the in-cluster
+  # CAS_ADDRESS is the address the manifest targets. Keep it in sync with the in-cluster
   # CAS (CAS_NAME.CAS_NAMESPACE) so changing the CAS name or namespace does not leave the
-  # manifest pointed at a stale endpoint. Set CAS_ENDPOINT explicitly to run against an
+  # manifest pointed at a stale endpoint. Set CAS_ADDRESS explicitly to run against an
   # external CAS, e.g. edge.scone-cas.cf.
-  if [[ -n "${CAS_ENDPOINT:-}" ]]; then
-    upsert_scalar "$values_file" "CAS_ENDPOINT" "$CAS_ENDPOINT"
+  if [[ -n "${CAS_ADDRESS:-}" ]]; then
+    upsert_scalar "$values_file" "CAS_ADDRESS" "$CAS_ADDRESS"
   else
     eff_cas_name="$(awk -F': ' '/^  CAS_NAME:/ { gsub(/["'\''[:space:]]/, "", $2); print $2; exit }' "$values_file")"
     eff_cas_namespace="$(awk -F': ' '/^  CAS_NAMESPACE:/ { gsub(/["'\''[:space:]]/, "", $2); print $2; exit }' "$values_file")"
     if [[ -n "$eff_cas_name" && -n "$eff_cas_namespace" ]]; then
-      upsert_scalar "$values_file" "CAS_ENDPOINT" "${eff_cas_name}.${eff_cas_namespace}"
+      upsert_scalar "$values_file" "CAS_ADDRESS" "${eff_cas_name}.${eff_cas_namespace}"
     fi
   fi
-done
-
-# image-signing still uses the flag-style SCONE_ENCLAVE and CVM_MODE (it passes --cvm into
-# `scone-td-build register`), so override the boolean/tee-type set above; otherwise the CVM
-# sweep would leave it on the SGX path.
-for values_file in "${flag_mode_files[@]}"; do
-  upsert_scalar "$values_file" "SCONE_ENCLAVE" "$flag_scone_enclave"
-  upsert_scalar "$values_file" "CVM_MODE" "$flag_cvm_mode"
 done
 
 declare -A seen_namespaces=()
