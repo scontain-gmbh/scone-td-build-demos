@@ -237,7 +237,18 @@ done
 declare -A seen_namespaces=()
 target_namespaces=("default")
 
+# governance/validate/validate.sh creates its own namespace, appending a random
+# suffix to the configured name when NAMESPACE is unset, and removes it again
+# afterwards. Preparing the unsuffixed name here leaves a namespace and a pull
+# secret that nothing uses and nothing cleans up.
+declare -A self_managed_namespaces=(
+  ["${repo_root}/governance/Values.yaml"]=1
+)
+
 for values_file in "${all_values_files[@]}"; do
+  if [[ -n "${self_managed_namespaces[$values_file]:-}" ]]; then
+    continue
+  fi
   ns="$(awk -F': ' '/^  NAMESPACE:/ { gsub(/["'\''[:space:]]/, "", $2); print $2; exit }' "$values_file")"
   if [[ -n "$ns" && -z "${seen_namespaces[$ns]:-}" ]]; then
     seen_namespaces["$ns"]=1
