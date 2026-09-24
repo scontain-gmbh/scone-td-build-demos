@@ -118,14 +118,17 @@ If you passed your own `NAMESPACE`, or ran section 3 by hand, remove what the
 demo put there instead:
 
 ```bash
-# Guarded twice on purpose, because this block is extracted into the demo script
-# and runs in CI. NAMESPACE is set there, and the validator removes the manifest
-# it generated, so `kubectl delete -f` would fail on the missing path:
+# Two paths on purpose: read from here you are in governance/, but this block is
+# also extracted into scripts/governance.sh, which runs from the repository root.
+manifest=manifests/manifest.sanitized.yaml
+[ -f "$manifest" ] || manifest=governance/manifests/manifest.sanitized.yaml
+
+# Guarded twice as well. NAMESPACE is set in CI, and the validator removes the
+# manifest it generated, so `kubectl delete -f` would fail on the missing path:
 # --ignore-not-found covers an absent resource, not an absent file. The refused
-# case also produces no manifest by design.
-if [ -n "${NAMESPACE:-}" ] && [ -f governance/manifests/manifest.sanitized.yaml ]; then
-  kubectl delete -f governance/manifests/manifest.sanitized.yaml \
-    -n "${NAMESPACE}" --ignore-not-found
+# case produces no manifest by design either.
+if [ -n "${NAMESPACE:-}" ] && [ -f "$manifest" ]; then
+  kubectl delete -f "$manifest" -n "${NAMESPACE}" --ignore-not-found
 fi
 ```
 

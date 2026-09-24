@@ -20,7 +20,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"   # the governance/ demo
 cd "$HERE"
 
 BIN="${SCONE_TD_BUILD:-scone-td-build}"
-PORT="${MOCK_PORT:-8899}"
+# 0 asks the OS for a free port; the stand-in reports back the one it got.
+# MOCK_PORT still forces a specific one when a caller needs that.
+PORT="${MOCK_PORT:-0}"
 TAG="ttl.sh/governance-demo-$(head -c4 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 
 # shellcheck disable=SC1090
@@ -64,16 +66,46 @@ else
   NAMESPACE="$(value_of NAMESPACE)-$(head -c3 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 fi
 export NAMESPACE
-export GOVERNANCE_URL="http://127.0.0.1:$PORT"
+# GOVERNANCE_URL is set by start_stand_in, once the port is known.
 export GOVERNANCE_API_TOKEN=stand-in-token
 
 MOCK_PID=""
+MOCK_LOG=""
 start_stand_in() {  # $1 = approve | abort
-  MOCK_MODE="$1" python3 validate/mock_governance.py "$PORT" >/dev/null &
+  # The stand-in binds first and then prints the port it actually got, so wait
+  # for that line rather than sleeping. A fixed port collides with a concurrent
+  # run, and a blind sleep turns slow startup into a governance failure that
+  # says nothing about the real cause.
+  MOCK_LOG="$(mktemp)"
+  MOCK_MODE="$1" python3 validate/mock_governance.py "$PORT" >"$MOCK_LOG" 2>&1 &
   MOCK_PID=$!
-  sleep 1
+
+  local deadline=$((SECONDS + 15))
+  local bound=""
+  while [ $SECONDS -lt $deadline ]; do
+    if ! kill -0 "$MOCK_PID" 2>/dev/null; then
+      echo "governance stand-in exited before it bound a port:" >&2
+      cat "$MOCK_LOG" >&2
+      return 1
+    fi
+    bound="$(sed -n 's/.*listening on 127\.0\.0\.1:\([0-9]*\).*/\1/p' "$MOCK_LOG" | head -1)"
+    [ -n "$bound" ] && break
+    sleep 0.2
+  done
+  if [ -z "$bound" ]; then
+    echo "governance stand-in did not report a bound port within 15s:" >&2
+    cat "$MOCK_LOG" >&2
+    return 1
+  fi
+
+  export GOVERNANCE_URL="http://127.0.0.1:$bound"
 }
-stop_stand_in() { [ -n "$MOCK_PID" ] && kill "$MOCK_PID" 2>/dev/null; MOCK_PID=""; }
+stop_stand_in() {
+  [ -n "$MOCK_PID" ] && kill "$MOCK_PID" 2>/dev/null
+  MOCK_PID=""
+  [ -n "$MOCK_LOG" ] && rm -f "$MOCK_LOG"
+  MOCK_LOG=""
+}
 
 # The namespace is generated here, so the caller cannot know its name and cannot
 # clean it up. Do it here, and only when we both generated and created it: one

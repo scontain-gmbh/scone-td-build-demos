@@ -117,6 +117,14 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8899
-    print(f"governance stand-in listening on 127.0.0.1:{port} (mode={MODE})", flush=True)
-    HTTPServer(("127.0.0.1", port), Handler).serve_forever()
+    # Bind before announcing. Printing first said "listening" while the bind
+    # could still fail, so a caller waiting for that line learned nothing.
+    # Port 0 asks the OS for a free one, which the caller reads back here
+    # instead of assuming a fixed port nobody else is using.
+    requested = int(sys.argv[1]) if len(sys.argv) > 1 else 0
+    server = HTTPServer(("127.0.0.1", requested), Handler)
+    print(
+        f"governance stand-in listening on 127.0.0.1:{server.server_port} (mode={MODE})",
+        flush=True,
+    )
+    server.serve_forever()

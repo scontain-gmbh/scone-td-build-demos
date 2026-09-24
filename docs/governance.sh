@@ -251,15 +251,31 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 pe "$(cat <<'EOF'
-# Guarded twice on purpose, because this block is extracted into the demo script
+# Two paths on purpose: read from here you are in governance/, but this block is
 EOF
 )"
 pe "$(cat <<'EOF'
-# and runs in CI. NAMESPACE is set there, and the validator removes the manifest
+# also extracted into scripts/governance.sh, which runs from the repository root.
 EOF
 )"
 pe "$(cat <<'EOF'
-# it generated, so `kubectl delete -f` would fail on the missing path:
+manifest=manifests/manifest.sanitized.yaml
+EOF
+)"
+pe "$(cat <<'EOF'
+[ -f "$manifest" ] || manifest=governance/manifests/manifest.sanitized.yaml
+EOF
+)"
+pe "$(cat <<'EOF'
+
+EOF
+)"
+pe "$(cat <<'EOF'
+# Guarded twice as well. NAMESPACE is set in CI, and the validator removes the
+EOF
+)"
+pe "$(cat <<'EOF'
+# manifest it generated, so `kubectl delete -f` would fail on the missing path:
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -267,16 +283,15 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-# case also produces no manifest by design.
+# case produces no manifest by design either.
 EOF
 )"
 pe "$(cat <<'EOF'
-if [ -n "${NAMESPACE:-}" ] && [ -f governance/manifests/manifest.sanitized.yaml ]; then
+if [ -n "${NAMESPACE:-}" ] && [ -f "$manifest" ]; then
 EOF
 )"
 pe "$(cat <<'EOF'
-  kubectl delete -f governance/manifests/manifest.sanitized.yaml \
-    -n "${NAMESPACE}" --ignore-not-found
+  kubectl delete -f "$manifest" -n "${NAMESPACE}" --ignore-not-found
 EOF
 )"
 pe "$(cat <<'EOF'

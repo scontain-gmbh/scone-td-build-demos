@@ -211,25 +211,31 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# Guarded twice on purpose, because this block is extracted into the demo script'
-printf '%s\n' '# and runs in CI. NAMESPACE is set there, and the validator removes the manifest'
-printf '%s\n' '# it generated, so `kubectl delete -f` would fail on the missing path:'
+printf '%s\n' '# Two paths on purpose: read from here you are in governance/, but this block is'
+printf '%s\n' '# also extracted into scripts/governance.sh, which runs from the repository root.'
+printf '%s\n' 'manifest=manifests/manifest.sanitized.yaml'
+printf '%s\n' '[ -f "$manifest" ] || manifest=governance/manifests/manifest.sanitized.yaml'
+printf '%s\n' ''
+printf '%s\n' '# Guarded twice as well. NAMESPACE is set in CI, and the validator removes the'
+printf '%s\n' '# manifest it generated, so `kubectl delete -f` would fail on the missing path:'
 printf '%s\n' '# --ignore-not-found covers an absent resource, not an absent file. The refused'
-printf '%s\n' '# case also produces no manifest by design.'
-printf '%s\n' 'if [ -n "${NAMESPACE:-}" ] && [ -f governance/manifests/manifest.sanitized.yaml ]; then'
-printf '%s\n' '  kubectl delete -f governance/manifests/manifest.sanitized.yaml \'
-printf '%s\n' '    -n "${NAMESPACE}" --ignore-not-found'
+printf '%s\n' '# case produces no manifest by design either.'
+printf '%s\n' 'if [ -n "${NAMESPACE:-}" ] && [ -f "$manifest" ]; then'
+printf '%s\n' '  kubectl delete -f "$manifest" -n "${NAMESPACE}" --ignore-not-found'
 printf '%s\n' 'fi'
 printf "${RESET}"
 
-# Guarded twice on purpose, because this block is extracted into the demo script
-# and runs in CI. NAMESPACE is set there, and the validator removes the manifest
-# it generated, so `kubectl delete -f` would fail on the missing path:
+# Two paths on purpose: read from here you are in governance/, but this block is
+# also extracted into scripts/governance.sh, which runs from the repository root.
+manifest=manifests/manifest.sanitized.yaml
+[ -f "$manifest" ] || manifest=governance/manifests/manifest.sanitized.yaml
+
+# Guarded twice as well. NAMESPACE is set in CI, and the validator removes the
+# manifest it generated, so `kubectl delete -f` would fail on the missing path:
 # --ignore-not-found covers an absent resource, not an absent file. The refused
-# case also produces no manifest by design.
-if [ -n "${NAMESPACE:-}" ] && [ -f governance/manifests/manifest.sanitized.yaml ]; then
-  kubectl delete -f governance/manifests/manifest.sanitized.yaml \
-    -n "${NAMESPACE}" --ignore-not-found
+# case produces no manifest by design either.
+if [ -n "${NAMESPACE:-}" ] && [ -f "$manifest" ]; then
+  kubectl delete -f "$manifest" -n "${NAMESPACE}" --ignore-not-found
 fi
 
 printf "${VIOLET}"
