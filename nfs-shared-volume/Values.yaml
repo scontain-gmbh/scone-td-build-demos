@@ -3,6 +3,9 @@ environment:
   DESTINATION_IMAGE_NAME: registry.scontain.com/k8s-scone-images/nfs-shared-io:demo-scone
   REGISTRY: registry.scontain.com
   IMAGE_PULL_SECRET_NAME: sconeapps
+  # The NFS server the tool generates. Pinned by digest so an unattested server
+  # is at least immutable.
+  NFS_SERVER_IMAGE: registry.scontain.com/cicd/daniel/nfs-ganesha-11.0-ubuntu@sha256:5fd3f6e236d675baeb02d80340361eff94166fdb6444131a278f71f4abb25fd3
   SCONE_RUNTIME_VERSION: 6.1.0-rc.0
   CAS_NAMESPACE: default
   CAS_NAME: cas
