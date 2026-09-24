@@ -126,13 +126,15 @@ docker build -t "$DEMO_IMAGE" . >/dev/null || fail "could not build the app imag
 docker push "$DEMO_IMAGE" >/dev/null || fail "could not push the app image"
 mkdir -p manifests
 envsubst < manifest.template.yaml > manifests/manifest.yaml
-envsubst < scone.template.yaml   > manifests/scone.yaml
 
 # ---------------------------------------------------------------- case 1: approved
 echo
 echo "== CASE 1/2: the signers approve =="
 rm -f manifests/manifest.sanitized.yaml
 start_stand_in approve
+# Rendered after the stand-in is up, because GOVERNANCE_URL carries the port it
+# actually bound and envsubst would otherwise substitute an empty value.
+envsubst < scone.template.yaml   > manifests/scone.yaml
 RUST_LOG=info "$BIN" apply -f manifests/scone.yaml || fail "apply failed while the request was approved"
 stop_stand_in
 
@@ -184,6 +186,8 @@ echo
 echo "== CASE 2/2: a signer refuses (ABORTED) =="
 rm -f manifests/manifest.sanitized.yaml
 start_stand_in abort
+# A second stand-in binds a different port, so the spec is rendered again.
+envsubst < scone.template.yaml   > manifests/scone.yaml
 if RUST_LOG=info "$BIN" apply -f manifests/scone.yaml 2>&1 | tee /tmp/governance-abort.log; then
   fail "apply succeeded even though the signing request was aborted"
 fi
