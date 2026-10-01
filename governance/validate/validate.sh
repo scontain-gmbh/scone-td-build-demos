@@ -131,7 +131,7 @@ envsubst < manifest.template.yaml > manifests/manifest.yaml
 echo
 echo "== CASE 1/2: the signers approve =="
 rm -f manifests/manifest.sanitized.yaml
-start_stand_in approve
+start_stand_in approve || fail "the governance stand-in did not start for the approved case"
 # Rendered after the stand-in is up, because GOVERNANCE_URL carries the port it
 # actually bound and envsubst would otherwise substitute an empty value.
 envsubst < scone.template.yaml   > manifests/scone.yaml
@@ -185,7 +185,7 @@ fi
 echo
 echo "== CASE 2/2: a signer refuses (ABORTED) =="
 rm -f manifests/manifest.sanitized.yaml
-start_stand_in abort
+start_stand_in abort || fail "the governance stand-in did not start for the aborted case"
 # A second stand-in binds a different port, so the spec is rendered again.
 envsubst < scone.template.yaml   > manifests/scone.yaml
 if RUST_LOG=info "$BIN" apply -f manifests/scone.yaml 2>&1 | tee /tmp/governance-abort.log; then
