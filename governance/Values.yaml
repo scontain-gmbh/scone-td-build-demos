@@ -1,0 +1,15 @@
+environment:
+  DEMO_IMAGE: registry.scontain.com/k8s-scone-images/governance-demo:native
+  DESTINATION_IMAGE_NAME: registry.scontain.com/k8s-scone-images/governance-demo:protected
+  IMAGE_PULL_SECRET_NAME: sconeapps
+  SCONE_RUNTIME_VERSION: 7.0.0-alpha.4
+  CAS_NAMESPACE: default
+  CAS_NAME: cas
+  CAS_ENDPOINT: cas.default
+  TEE_TYPE: sgx
+  SCONE_ENCLAVE: 'false'
+  REGISTRY: registry.scontain.com
+  NAMESPACE: governance-demo
+  # Governance policy-signing service (the "governance website" backend).
+  GOVERNANCE_URL: https://governance.example.com
+  GOVERNANCE_API_TOKEN: replace-with-your-policy-signing-token

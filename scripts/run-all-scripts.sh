@@ -133,6 +133,7 @@ scripts=(
   "java-args-env-file.sh"
   "software-updates.sh"
   "image-signing.sh"
+  "governance.sh"
 )
 
 for ((i = 0; i < ${#scripts[@]}; i++)); do
