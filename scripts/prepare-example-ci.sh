@@ -173,6 +173,7 @@ all_values_files=(
   "${repo_root}/java-args-env-file/Values.yaml"
   "${repo_root}/software-updates/Values.yaml"
   "${repo_root}/image-signing/Values.yaml"
+  "${repo_root}/nfs-shared-volume/Values.yaml"
 )
 
 # tee-type replaced the old cvm boolean, so the migrated demos consume SCONE_ENCLAVE as a
@@ -233,8 +234,25 @@ done
 declare -A seen_namespaces=()
 target_namespaces=("default")
 
+# run-all-scripts.sh probes the binary and skips the NFS demo when it has no
+# shared-volume support, so provisioning nfs-demo unconditionally leaves a
+# namespace and a pull secret that nothing uses and nothing cleans up. Probe the
+# same way here, so preparation and execution agree on what will run.
+supports_shared_volumes() {
+  scone-td-build apply --help 2>/dev/null | grep -q -- '--unattested-shared-server'
+}
+
+declare -A skipped_values_files=()
+if ! supports_shared_volumes; then
+  skipped_values_files["${repo_root}/nfs-shared-volume/Values.yaml"]=1
+  printf 'Skipping nfs-shared-volume: this scone-td-build has no shared-volume support\n'
+fi
+
 for values_file in "${all_values_files[@]}"; do
   ns="$(awk -F': ' '/^  NAMESPACE:/ { gsub(/["'\''[:space:]]/, "", $2); print $2; exit }' "$values_file")"
+  if [[ -n "${skipped_values_files[$values_file]:-}" ]]; then
+    continue
+  fi
   if [[ -n "$ns" && -z "${seen_namespaces[$ns]:-}" ]]; then
     seen_namespaces["$ns"]=1
     target_namespaces+=("$ns")

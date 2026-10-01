@@ -54,6 +54,7 @@ files=(
   "java-args-env-file/README.md scripts/java-args-env-file.sh"
   "software-updates/README.md scripts/software-updates.sh"
   "image-signing/README.md scripts/image-signing.sh"
+  "nfs-shared-volume/README.md scripts/nfs-shared-volume.sh"
 )
 
 generated_scripts=()
@@ -230,8 +231,23 @@ run_all_script="scripts/run-all-scripts.sh"
   done
   echo ')'
   echo
+  echo '# The NFS demo needs shared-volume support in the binary under test, which'
+  echo '# only exists on am/nfs-shared-volumes so far. The workflow checks that'
+  echo '# scone-td-build is present, not what it can do, so on a standard runner this'
+  echo '# demo would drive an apply flow the binary does not implement and fail for a'
+  echo '# reason that has nothing to do with the demo. Probe, and skip rather than'
+  echo '# fail.'
+  echo 'supports_shared_volumes() {'
+  echo "  scone-td-build apply --help 2>/dev/null | grep -q -- '--unattested-shared-server'"
+  echo '}'
+  echo
   echo 'for ((i = 0; i < ${#scripts[@]}; i++)); do'
   echo '  script_name="${scripts[i]}"'
+  echo '  if [[ "$script_name" == "nfs-shared-volume.sh" ]] && ! supports_shared_volumes; then'
+  echo '    printf "==> Skipping %s: this scone-td-build has no shared-volume support\\n" "$script_name"'
+  echo '    skipped_scripts+=("$script_name")'
+  echo '    continue'
+  echo '  fi'
   echo '  if run_script "$script_name"; then'
   echo '    continue'
   echo '  else'
