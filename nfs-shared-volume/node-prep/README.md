@@ -17,8 +17,8 @@ Without `/sbin/mount.nfs` the kubelet fails with
 
 ```bash
 kubectl apply -f 01-install-nfs-common.yaml
-# wait until each pod logs "INSTALLED <node>: /usr/sbin/mount.nfs" (or ALREADY_PRESENT)
-kubectl -n kube-system logs -l app=install-nfs-common | grep -E 'INSTALLED|ALREADY_PRESENT'
+# wait until each pod logs "NFS_CLIENT_READY <node>: /usr/sbin/mount.nfs" (or ALREADY_PRESENT)
+kubectl -n kube-system logs -l app=install-nfs-common | grep -E 'NFS_CLIENT_READY|ALREADY_PRESENT'
 kubectl -n kube-system delete ds install-nfs-common   # package persists
 ```
 
