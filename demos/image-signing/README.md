@@ -10,7 +10,7 @@ Image signing provides supply chain integrity: only images signed with a trusted
 - A Kubernetes cluster with SGX or CVM support
 - The Kubernetes command-line tool (`kubectl`)
 - Rust `cargo` (`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`)
-- `tplenv` (`cargo install tplenv`) and `retry-spinner` (`cargo install retry-spinner`)
+- `tplenv` (`cargo install tplenv --version 0.11.0`) and `retry-spinner` (`cargo install retry-spinner`)
 - `skopeo` for image inspection and signing
 - [`cosign`](https://docs.sigstore.dev/cosign/system_config/installation/) to cryptographically verify the image signature
 - `openssl` for signing key generation

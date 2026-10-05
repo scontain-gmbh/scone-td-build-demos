@@ -10,7 +10,7 @@ This example shows how to manage and access configuration data in Kubernetes wit
 - A Kubernetes cluster
 - The Kubernetes command-line tool (`kubectl`)
 - Rust `cargo` (`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`)
-- `tplenv` (`cargo install tplenv`) and `retry-spinner` (`cargo install retry-spinner`)
+- `tplenv` (`cargo install tplenv --version 0.11.0`) and `retry-spinner` (`cargo install retry-spinner`)
 
 ## 2. Set Up the Environment
 

@@ -119,7 +119,7 @@ printf '%s\n' '- A token for accessing `scone.cloud` images on `registry.scontai
 printf '%s\n' '- A Kubernetes cluster with SGX or CVM support'
 printf '%s\n' '- The Kubernetes command-line tool (`kubectl`)'
 printf '%s\n' '- Rust `cargo` (`curl --proto '\''=https'\'' --tlsv1.2 -sSf https://sh.rustup.rs | sh`)'
-printf '%s\n' '- `tplenv` (`cargo install tplenv`) and `retry-spinner` (`cargo install retry-spinner`)'
+printf '%s\n' '- `tplenv` (`cargo install tplenv --version 0.11.0`) and `retry-spinner` (`cargo install retry-spinner`)'
 printf '%s\n' ''
 printf '%s\n' 'Follow the [Setup environment](https://github.com/scontain/scone) guide to install the required tools:'
 printf '%s\n' ''

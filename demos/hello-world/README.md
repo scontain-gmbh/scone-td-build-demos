@@ -10,7 +10,7 @@ This example shows how to build a simple cloud-native `hello-world` application 
 - A Kubernetes cluster with SGX or CVM support
 - The Kubernetes command-line tool (`kubectl`)
 - Rust `cargo` (`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`)
-- `tplenv` (`cargo install tplenv`) and `retry-spinner` (`cargo install retry-spinner`)
+- `tplenv` (`cargo install tplenv --version 0.11.0`) and `retry-spinner` (`cargo install retry-spinner`)
 
 Follow the [Setup environment](https://github.com/scontain/scone) guide to install the required tools:
 
