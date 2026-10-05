@@ -1,0 +1,75 @@
+# MariaDB runs natively (not confidential). It is the data store the confidential
+# PetClinic connects to. Deployed directly with kubectl, outside the SCONE
+# register/apply flow, so it keeps its normal entrypoint and initialisation.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: petclinic-db
+  namespace: ${NAMESPACE}
+  labels:
+    app: petclinic-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: petclinic-db
+  template:
+    metadata:
+      labels:
+        app: petclinic-db
+    spec:
+      containers:
+        - name: petclinic-db
+          image: ${MARIADB_IMAGE}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MARIADB_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: petclinic-db
+                  key: database
+            - name: MARIADB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: petclinic-db
+                  key: username
+            - name: MARIADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: petclinic-db
+                  key: password
+            - name: MARIADB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: petclinic-db
+                  key: root-password
+          ports:
+            - containerPort: 3306
+          volumeMounts:
+            - name: db-data
+              mountPath: /var/lib/mysql
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "1"
+      volumes:
+        - name: db-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: petclinic-db
+  namespace: ${NAMESPACE}
+  labels:
+    app: petclinic-db
+spec:
+  selector:
+    app: petclinic-db
+  ports:
+    - port: 3306
+      targetPort: 3306
+  type: ClusterIP
