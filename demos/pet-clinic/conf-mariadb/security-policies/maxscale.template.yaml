@@ -1,0 +1,316 @@
+name: {{maxscale}}
+version: "0.3.10"
+
+
+access_policy:
+  read:
+    - ANY
+  update:
+    - ANY
+
+
+security:
+  attestation:
+    mode: none
+    # tolerate: [debug-mode, hyperthreading, outdated-tcb, insecure-configuration, software-hardening-needed]
+    # ignore_advisories: "*"
+
+
+services:
+  - name: maxscale
+    image_name: maxscale-image
+    command:
+      - maxscale
+      - -d # no fork!
+      - -f
+      - /etc/maxscale.cnf
+      - -l
+      - stdout
+    # mrenclaves:
+    #   - "e2522c571aaf5c4700af75099911ec012838186c15306830be78c4093c8c3a10"
+    pwd: /
+    environment:
+      SCONE_LOG: debug
+      SCONE_NETWORK_SHIELD: protected
+      SCONE_NETWORK_SHIELD_UNSUPPORTED_PROTOCOLS: unprotected # allow dns
+      SCONE_NETWORK_SHIELD_SERVER_ADM: protected
+      SCONE_NETWORK_SHIELD_SERVER_ADM_PORT: "TCP:8989"
+      SCONE_NETWORK_SHIELD_SERVER_ADM_IDENTITY: $$SCONE::maxscale-internal-cert$$$$SCONE::maxscale-internal-cert:privatekey$$
+      SCONE_NETWORK_SHIELD_SERVER_ADM_CLIENT_AUTH: $$SCONE::MARIADB_CA_CERT$$
+
+      SCONE_NETWORK_SHIELD_SERVER_TCP: unprotected
+      SCONE_NETWORK_SHIELD_SERVER_TCP_PORT: TCP:3306
+
+      SCONE_NETWORK_SHIELD_CLIENT_PRIMARY: protected
+      SCONE_NETWORK_SHIELD_CLIENT_PRIMARY_DESTINATION: "TCP:mariadb-primary:3306"
+      SCONE_NETWORK_SHIELD_CLIENT_PRIMARY_DESTINATION_IP: "*"
+      SCONE_NETWORK_SHIELD_CLIENT_PRIMARY_IDENTITY: $$SCONE::maxscale-internal-cert$$$$SCONE::maxscale-internal-cert:privatekey$$
+      SCONE_NETWORK_SHIELD_CLIENT_PRIMARY_SERVER_AUTH: $$SCONE::MARIADB_CA_CERT$$
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICA: protected
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICA_DESTINATION: "TCP:mariadb-replica:3307"
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICA_DESTINATION_IP: "*"
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICA_IDENTITY: $$SCONE::maxscale-internal-cert$$$$SCONE::maxscale-internal-cert:privatekey$$
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICA_SERVER_AUTH: $$SCONE::MARIADB_CA_CERT$$
+
+  - name: maxctrl-list-servers
+    # mrenclaves:
+    #   - 812b6e483c62559c84c8314cdae5ce0f9bd53deb861e89236679df68fabdd951
+    command:
+      - node
+      - /maxctrl-code/maxctrl.js
+      - --user
+      - admin
+      - --password
+      - $$SCONE::MAXSCALE_SCONE_INJECTED_ADMIN_PASSWORD:hex$$
+      - --hosts
+      - maxscale-admin:8989
+      - --timeout
+      - 120000
+      - list
+      - servers
+    environment:
+      SCONE_LOG: error
+      HOME: / # needed for uv_os_homedir call in v24.02.1-scone
+      SCONE_NETWORK_SHIELD: protected
+      SCONE_NETWORK_SHIELD_UNSUPPORTED_PROTOCOLS: unprotected # allow syscall getaddrinfo
+      SCONE_NETWORK_SHIELD_CLIENT_ADM: protected
+      SCONE_NETWORK_SHIELD_CLIENT_ADM_DESTINATION: "TCP:maxscale-internal:8989"
+      SCONE_NETWORK_SHIELD_CLIENT_ADM_DESTINATION_IP: "*"
+      SCONE_NETWORK_SHIELD_CLIENT_ADM_IDENTITY: $$SCONE::maxscale-internal-cert$$$$SCONE::maxscale-internal-cert:privatekey$$
+      SCONE_NETWORK_SHIELD_CLIENT_ADM_SERVER_AUTH: $$SCONE::MARIADB_CA_CERT$$
+
+  - name: maxme
+    image_name: maxme-image
+    # mrenclaves:
+    #   - 992b6e483c62559c84c8314cdae5ce0f9bd53deb861e89236679df68fabdd951
+    command:
+      - /bin/maxscale_metrics_exporter
+      - --user
+      - admin
+      - --password
+      - $$SCONE::MAXSCALE_SCONE_INJECTED_ADMIN_PASSWORD:hex$$
+      - --maxscale
+      - maxscale-admin:8989
+      - --config
+      # Injected configuration file - in image "maxme-image"
+      - /conf/config.json
+    environment:
+      RUST_LOG:  DEBUG
+      SCONE_LOG: DEBUG
+      SCONE_NETWORK_SHIELD: protected
+      SCONE_NETWORK_SHIELD_UNSUPPORTED_PROTOCOLS: unprotected # allow syscall getaddrinfo
+      SCONE_NETWORK_SHIELD_CLIENT_ADM: protected
+      SCONE_NETWORK_SHIELD_CLIENT_ADM_DESTINATION: "TCP:maxscale-internal:8989"
+      SCONE_NETWORK_SHIELD_CLIENT_ADM_DESTINATION_IP: "*"
+      SCONE_NETWORK_SHIELD_CLIENT_ADM_IDENTITY: $$SCONE::maxscale-internal-cert$$$$SCONE::maxscale-internal-cert:privatekey$$
+      SCONE_NETWORK_SHIELD_CLIENT_ADM_SERVER_AUTH: $$SCONE::MARIADB_CA_CERT$$
+      SCONE_NETWORK_SHIELD_SERVER_METRICS: unprotected
+      SCONE_NETWORK_SHIELD_SERVER_METRICS_PORT: TCP:8080
+
+images:
+  - name: maxscale-image
+    injection_files:
+      - path: /protected_do_not_change_encrypted_dir/passwd
+        content: |
+          \admin:$$SCONE::MAXSCALE_SCONE_INJECTED_ADMIN_PASSWORD:hex$$
+      - path: /etc/ssl/maxscale/listener-cert.pem
+        content: $$SCONE::maxscale-frontend-cert$$
+      - path: /etc/ssl/maxscale/listener-key.pem
+        content: $$SCONE::maxscale-frontend-cert:privatekey$$
+      - path: /etc/ssl/maxscale/ca.pem
+        content: $$SCONE::MARIADB_CA_CERT$$
+      - path: /etc/maxscale.cnf
+        content: |
+          [maxscale]
+          threads=auto
+          log_debug=true
+          # enforce admin host and auth config.
+          admin_host=0.0.0.0
+          admin_auth=true
+
+          # load only from binary-fs
+          libdir=/usr/lib/x86_64-linux-gnu/maxscale
+
+          # Fixed dir to be configured in the security policy
+          # and encrypted used with FSPF. These directories
+          # hold temp info that may leak confidential data.
+          # Because they are checked by maxscale, we have to
+          # keep out of the binary-fs.
+          logdir=/protected_do_not_change_encrypted_dir
+          datadir=/protected_do_not_change_encrypted_dir
+          cachedir=/protected_do_not_change_encrypted_dir
+          piddir=/protected_do_not_change_encrypted_dir
+          execdir=/protected_do_not_change_encrypted_dir
+          connector_plugindir=/protected_do_not_change_encrypted_dir
+          persistdir=/protected_do_not_change_encrypted_dir
+          module_configdir=/protected_do_not_change_encrypted_dir
+          sharedir=/protected_do_not_change_encrypted_dir
+          language=/protected_do_not_change_encrypted_dir
+
+          [mdb1]
+          type=server
+          address=mariadb-primary
+          port=3306
+          protocol=MariaDBBackend
+
+          [mdb2]
+          type=server
+          address=mariadb-replica
+          port=3307
+          protocol=MariaDBBackend
+
+          [mariadbmon]
+          type=monitor
+          module=mariadbmon
+          servers=mdb1,mdb2
+          user=root
+          password=$$SCONE::MYSQL_ROOT_PASSWORD$$
+          monitor_interval=2s
+          auto_failover=true
+          auto_rejoin=true
+          enforce_simple_topology=true
+          enforce_read_only_slaves=true
+          replication_user=replica
+          replication_password=$$SCONE::REPLICATION_USER_PASSWORD:hex$$
+          master_failure_timeout=4s
+          failcount=3
+
+          [rwsplit]
+          type=service
+          enable_root_user=true
+          router=readwritesplit
+          servers=mdb1,mdb2
+          user=root
+          password=$$SCONE::MYSQL_ROOT_PASSWORD$$
+          transaction_replay=true
+          #transaction_replay_timeout=30s
+          causal_reads=global
+
+          [Splitter-Listener]
+          type=listener
+          service=rwsplit
+          protocol=MariaDBClient
+          port=3306
+          ssl        = true
+          ssl_cert   = /etc/ssl/maxscale/listener-cert.pem
+          ssl_key    = /etc/ssl/maxscale/listener-key.pem
+          ssl_ca     = /etc/ssl/maxscale/ca.pem
+
+          # NOTE that there are other configuration params you can use to strengh the verification.
+          # Parameter
+          # Description
+          # ssl_version
+          # The TLS protocol version to use. It can be set to TLSv10, TLSv11, TLSv12, TLSv13, or MAX. The default value is MAX.
+          # ssl_cipher
+          # SSL cipher to use
+          # ssl_cert_verify_depth
+          # The maximum length of the certificate authority chain that will be accepted. The default value is 9, same as the OpenSSL default. The configured value must be larger than 0.
+          # ssl_verify_peer_certificate
+          # Peer certificate verification. This functionality is disabled by default. In versions prior to 2.3.17 the feature was enabled by default.
+          # ssl_verify_peer_host
+          # Peer host verification. This parameter takes a boolean value and is disabled by default.
+          # ssl_crl
+          # Path to the X.509 certificate revocation list in PEM format
+
+    volumes:
+       - name: protected_do_not_change_encrypted_volume
+         path: /protected_do_not_change_encrypted_dir
+         update_policy: no_rollback_protection
+  - name: maxme-image
+    injection_files:
+      - path: /conf/config.json
+        # The config for maxme indicates what custom metrics we want to enable.
+        # The list of gauge metric can be extended with any int or float type
+        # that can be retrieve by indicating the endpoint and jsonpath.
+        content: |
+          {
+              "gauge_metrics": [
+                  {
+                      "name": "uptime",
+                      "help": "Maxscale uptime",
+                      "endpoint" : "v1/maxscale",
+                      "json_path": "$.data.attributes.uptime"
+                  },
+                  {
+                      "name": "cores_available",
+                      "help": "Number of cores available",
+                      "endpoint" : "v1/maxscale",
+                      "json_path": "$.data.attributes.system.machine.cores_available"
+                  },
+                  {
+                      "name": "cores_virtual",
+                      "help": "Number of virtual cores",
+                      "endpoint" : "v1/maxscale",
+                      "json_path": "$.data.attributes.system.machine.cores_available"
+                  },
+                  {
+                      "name": "memory_available",
+                      "help": "Machine available memory",
+                      "endpoint" : "v1/maxscale",
+                      "json_path": "$.data.attributes.system.machine.memory_available"
+                  },
+                  {
+                      "name": "memory_physical",
+                      "help": "Machine physical memory",
+                      "endpoint" : "v1/maxscale",
+                      "json_path": "$.data.attributes.system.machine.memory_physical"
+                  },
+                  {
+                      "name": "query_classifier_cache_size",
+                      "help": "Maxscale query classifier cache size",
+                      "endpoint" : "v1/maxscale",
+                      "json_path": "$.data.attributes.system.maxscale.query_classifier_cache_size"
+                  },
+                  {
+                      "name": "threads",
+                      "help": "Number of maxscale threads",
+                      "endpoint" : "v1/maxscale",
+                      "json_path": "$.data.attributes.system.maxscale.threads"
+                  }
+              ]
+          }
+
+volumes:
+  - name: protected_do_not_change_encrypted_volume
+
+# Import the appropriate secrets from {{certificates}} policy.
+secrets:
+  - name: MYSQL_ROOT_PASSWORD
+    import:
+      session: {{certificates}}
+      secret: MYSQL_ROOT_PASSWORD
+
+  - name: REPLICATION_USER_PASSWORD
+    import:
+      session: {{certificates}}
+      secret: REPLICATION_USER_PASSWORD
+
+  - name: MAXSCALE_SCONE_INJECTED_ADMIN_PASSWORD
+    import:
+      session: {{certificates}}
+      secret: MAXSCALE_SCONE_INJECTED_ADMIN_PASSWORD
+
+  - name: maxscale-frontend-key
+    import:
+      session: {{certificates}}
+      secret: maxscale-frontend-key
+
+  - name: maxscale-frontend-cert
+    import:
+      session: {{certificates}}
+      secret: maxscale-frontend-cert
+
+  - name: maxscale-internal-key
+    import:
+      session: {{certificates}}
+      secret: maxscale-internal-key
+
+  - name: maxscale-internal-cert
+    import:
+      session: {{certificates}}
+      secret: maxscale-internal-cert
+
+  - name: MARIADB_CA_CERT
+    import:
+     session: {{certificates}}
+     secret: MARIADB_CA_CERT

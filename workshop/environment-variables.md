@@ -11,7 +11,7 @@ This file defines the environment variables used to configure the TDX workshop. 
 7. The Azure resource group is stored in `${RESOURCE_GROUP}`.
    If left empty, one will be auto-generated.
 8. The SCONE runtime version used by demos is stored in `${SCONE_VERSION}`.
-   The current value is `6.1.0-rc.0`.
+   The current value is `7.0.0-alpha.4`.
 9. The SCONE SGX plugin version to install is stored in `${SGX_PLUGIN_VERSION}`.
    The current value is `7.0.0-alpha.1`.
 10. The cert-manager version compatible with the cluster's Kubernetes release is stored in `${CERT_MANAGER_VERSION}`.

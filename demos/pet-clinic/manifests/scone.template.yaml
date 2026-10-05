@@ -15,7 +15,7 @@ spec:
   push-image: true
   tee-type: ${TEE_TYPE}
   scone-version: ${SCONE_RUNTIME_VERSION}
-  build-state-file: "manifests/storage.json"
+  build-state-file: "$DEMO_DIR/manifests/storage.json"
   scone-runtime-image: ${SCONE_RUNTIME_IMAGE}
   container-env:
     - {name: SCONE_VERSION, value: "1"}
@@ -34,11 +34,11 @@ spec:
   # PetClinic's `secretKeyRef` datasource credentials into the confidential
   # session.
   file:
-    - "manifests/secret.yaml"
-    - "manifests/petclinic.yaml"
-  output-manifest: "manifests/manifest.prod.sanitized.yaml"
-  output-session: "manifests/manifest.prod.session.yaml"
-  build-state-file: "manifests/storage.json"
+    - "$DEMO_DIR/manifests/secret.yaml"
+    - "$DEMO_DIR/manifests/petclinic.yaml"
+  output-manifest: "$DEMO_DIR/manifests/manifest.prod.sanitized.yaml"
+  output-session: "$DEMO_DIR/manifests/manifest.prod.session.yaml"
+  build-state-file: "$DEMO_DIR/manifests/storage.json"
   cas-address: ${CAS_ADDRESS}
   container-env:
     - {name: SCONE_VERSION, value: "1"}

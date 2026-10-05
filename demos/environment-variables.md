@@ -27,3 +27,4 @@ This file defines the environment variables used to configure this demo. The var
 10. Docker registry that stores the protected image: `$REGISTRY`.
 11. Your username in this registry: `$REGISTRY_USER`.
 12. Your token for this registry: `$REGISTRY_TOKEN`.
+13. The directory for a particular demo: `$DEMO_DIR`.
