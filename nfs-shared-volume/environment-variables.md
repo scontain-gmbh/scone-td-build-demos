@@ -5,11 +5,11 @@ This file defines the environment variables used to configure the `nfs-shared-vo
 3. The name of the pull secret for both the native and confidential container images is stored in `${IMAGE_PULL_SECRET_NAME}`.
 4. The SCONE version is stored in `${SCONE_RUNTIME_VERSION}`.
    The recommended value is `6.1.0-rc.0`.
-5. The CAS runs in Kubernetes namespace `${CAS_NAMESPACE}`.
-   The templates resolve `${CAS_NAME}.${CAS_NAMESPACE}` to the CAS endpoint, so for SCONE's public CAS at `scone-cas.cf` set `CAS_NAMESPACE=cf`.
-6. The CAS endpoint the sessions are bound to is stored in `${CAS_ENDPOINT}`,
-   normally `${CAS_NAME}.${CAS_NAMESPACE}`. The CAS name is stored in `${CAS_NAME}`.
-   For SCONE's public CAS, set `CAS_NAME=scone-cas`.
+5. The CAS runs in Kubernetes namespace `${CAS_NAMESPACE}`, and its name is stored in `${CAS_NAME}`.
+6. The manifests do not derive the endpoint from those two: they use `${CAS_ENDPOINT}`, which
+   defaults to `cas.default`. Changing `CAS_NAME` or `CAS_NAMESPACE` alone leaves the sessions
+   bound to `cas.default`, so set `CAS_ENDPOINT` as well, for example
+   `CAS_ENDPOINT=scone-cas.cf` for SCONE's public CAS.
 7. The TEE type is stored in `${TEE_TYPE}`: `sgx` or `cvm`.
 8. In CVM mode, you can run on confidential Kubernetes nodes or Kata Pods.
    We recommend using confidential nodes and setting `${SCONE_ENCLAVE}` to `true`.
