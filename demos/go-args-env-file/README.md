@@ -35,7 +35,7 @@ This example shows how to manage and access configuration data in Kubernetes wit
 - A Kubernetes cluster
 - The Kubernetes command-line tool (`kubectl`)
 - Rust `cargo` (`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`)
-- `tplenv` (`cargo install tplenv`) and `retry-spinner` (`cargo install retry-spinner`)
+- `tplenv` (`cargo install tplenv --version 0.11.0`) and `retry-spinner` (`cargo install retry-spinner`)
 - Docker (with push access to your registry)
 
 ---
@@ -76,7 +76,7 @@ Load the full variable set from `environment-variables.md`:
 
 ```bash
 # Load environment variables from the tplenv definition file.
-eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
 ```
 
 Create the demo namespace if it does not already exist:

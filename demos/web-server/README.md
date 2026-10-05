@@ -45,7 +45,7 @@ This Rust application is a minimal web service built with [Axum](https://github.
 - A Kubernetes cluster
 - The Kubernetes command-line tool (`kubectl`)
 - Rust `cargo` (`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`)
-- `tplenv` (`cargo install tplenv`) and `retry-spinner` (`cargo install retry-spinner`)
+- `tplenv` (`cargo install tplenv --version 0.11.0`) and `retry-spinner` (`cargo install retry-spinner`)
 
 ## 2. Set Up the Environment
 
@@ -73,7 +73,7 @@ Default values live in `$DEMO_DIR/values.template.yaml`. Copy it to `Values.yaml
 
 ```bash
 # Load environment variables from the tplenv definition file.
-eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
 ```
 
 Create the demo namespace if it does not already exist:

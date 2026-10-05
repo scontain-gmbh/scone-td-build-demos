@@ -142,7 +142,7 @@ printf '%s\n' '- A token for accessing `scone.cloud` images on `registry.scontai
 printf '%s\n' '- A Kubernetes cluster with SGX or CVM support'
 printf '%s\n' '- The Kubernetes command-line tool (`kubectl`)'
 printf '%s\n' '- Rust `cargo` (`curl --proto '\''=https'\'' --tlsv1.2 -sSf https://sh.rustup.rs | sh`)'
-printf '%s\n' '- `tplenv` (`cargo install tplenv`) and `retry-spinner` (`cargo install retry-spinner`)'
+printf '%s\n' '- `tplenv` (`cargo install tplenv --version 0.11.0`) and `retry-spinner` (`cargo install retry-spinner`)'
 printf '%s\n' '- `docker` with push access to a registry your cluster can pull from'
 printf '%s\n' ''
 printf '%s\n' '---'
@@ -194,7 +194,15 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+EOF
+)"
+pe "$(cat <<'EOF'
+# Load the versioned image names used by this demo's two native builds.
+EOF
+)"
+pe "$(cat <<'EOF'
+eval $(tplenv --file "$DEMO_DIR/versioned-image-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml" --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 EOF
 )"
 

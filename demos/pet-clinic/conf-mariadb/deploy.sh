@@ -30,7 +30,7 @@ export DEMO_DIR="$SCRIPT_DIR/../../pet-clinic/"
 
 # Load configuration from Values.yaml via tplenv (no flags).
 export CONFIRM_ALL_ENVIRONMENT_VARIABLES="--value-file-only"
-eval "$(tplenv --file "$DEMO_DIR/../environment-variables.md" --values-file "$DEMO_DIR/Values.yaml" --eval-export-values --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)"
+eval "$(tplenv --file "$DEMO_DIR/../environment-variables.md" --values-file "$DEMO_DIR/Values.yaml" --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)"
 
 : "${GITHUB_TOKEN:?set GITHUB_TOKEN in the environment (needed for the sconeappsee helm repo)}"
 

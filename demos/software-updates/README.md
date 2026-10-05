@@ -35,7 +35,7 @@ demos/software-updates/
 - A Kubernetes cluster with SGX or CVM support
 - The Kubernetes command-line tool (`kubectl`)
 - Rust `cargo` (`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`)
-- `tplenv` (`cargo install tplenv`) and `retry-spinner` (`cargo install retry-spinner`)
+- `tplenv` (`cargo install tplenv --version 0.11.0`) and `retry-spinner` (`cargo install retry-spinner`)
 - `docker` with push access to a registry your cluster can pull from
 
 ---
@@ -59,7 +59,9 @@ Load the full variable set from `environment-variables.md` first, so `NAMESPACE`
 # Seed Values.yaml from the template on first run only.
 [ -f "$DEMO_DIR/Values.yaml" ] || cp "$DEMO_DIR/values.template.yaml" "$DEMO_DIR/Values.yaml"
 # Load environment variables from the tplenv definition file.
-eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval --eval-export-values ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+eval $(tplenv --file "$DEMO_DIR/../environment-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml"  --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+# Load the versioned image names used by this demo's two native builds.
+eval $(tplenv --file "$DEMO_DIR/versioned-image-variables.md" --create-values-file --values-file "$DEMO_DIR/Values.yaml" --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 ```
 
 Set `SIGNER` for policy signing and the CAS session namespace shared by both v1 and v2 builds:

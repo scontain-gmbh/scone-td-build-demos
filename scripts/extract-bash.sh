@@ -78,6 +78,10 @@ relative_path() {
   local up=""
 
   while [[ "$to" != "$common" && "$to" != "$common/"* ]]; do
+    if [[ "$common" == "/" ]]; then
+      printf '%s' "$to"
+      return
+    fi
     common="$(dirname "$common")"
     up="${up}../"
   done
