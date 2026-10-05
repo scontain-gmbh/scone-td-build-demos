@@ -1,0 +1,17 @@
+name: ${NAMESPACE}-governance
+version: "0.3.12"
+
+access_policy: $$SCONE::access_policy$$
+
+secrets:
+  - name: access_policy
+    kind: config-fragment
+    value: |
+      read:
+        - ANY
+      update:
+        - ANY
+      create_sessions:
+        - ANY
+    export_public: true
+    
