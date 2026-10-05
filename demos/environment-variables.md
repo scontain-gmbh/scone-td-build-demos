@@ -6,7 +6,7 @@ This file defines the environment variables used to configure this demo. The var
 3. The name of the pull secret for both the native and confidential container images is stored in `$IMAGE_PULL_SECRET_NAME`.
    The default value is `sconeapps`.
 4. The SCONE runtime version is stored in `$SCONE_RUNTIME_VERSION`.
-   The current value is `7.0.0-alpha.4`.
+   The current value is `6.0.8`.
    In CVM mode, use `$SCONE_RUNTIME_IMAGE` instead of `$SCONE_RUNTIME_VERSION`.
 5. The SCONE CAS address is stored in `$CAS_ADDRESS`.
    For SCONE's public CAS, use `scone-cas.cf`.
@@ -27,3 +27,4 @@ This file defines the environment variables used to configure this demo. The var
 10. Docker registry that stores the protected image: `$REGISTRY`.
 11. Your username in this registry: `$REGISTRY_USER`.
 12. Your token for this registry: `$REGISTRY_TOKEN`.
+13. The directory for a particular demo: `$DEMO_DIR`.

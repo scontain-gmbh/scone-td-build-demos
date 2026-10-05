@@ -175,6 +175,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/.." && pwd)"
 
 all_values_files=(
+<<<<<<< HEAD
   "${repo_root}/hello-world/Values.yaml"
   "${repo_root}/configmap/Values.yaml"
   "${repo_root}/web-server/Values.yaml"
@@ -187,6 +188,20 @@ all_values_files=(
   "${repo_root}/pet-clinic/Values.yaml"
   "${repo_root}/image-signing/Values.yaml"
   "${repo_root}/nfs-shared-volume/Values.yaml"
+=======
+  "${repo_root}/demos/hello-world/Values.yaml"
+  "${repo_root}/demos/configmap/Values.yaml"
+  "${repo_root}/demos/web-server/Values.yaml"
+  "${repo_root}/demos/network-policy/Values.yaml"
+  "${repo_root}/demos/go-args-env-file/Values.yaml"
+  "${repo_root}/demos/flask-redis/Values.yaml"
+  "${repo_root}/demos/flask-redis-netshield/Values.yaml"
+  "${repo_root}/demos/java-args-env-file/Values.yaml"
+  "${repo_root}/demos/software-updates/Values.yaml"
+  "${repo_root}/demos/image-signing/Values.yaml"
+  "${repo_root}/demos/pet-clinic/Values.yaml"
+  "${repo_root}/demos/governance/Values.yaml"
+>>>>>>> ed0d46e (Add the governance demo)
 )
 
 if [[ "$mode" == "sgx" ]]; then

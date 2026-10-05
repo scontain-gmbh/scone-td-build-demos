@@ -6,7 +6,7 @@ environment:
   MAXME_IMAGE: 'registry.scontain.com/sconecuratedimages/experimental/maxme:1.0.0-scone-6.0.2'
   NAMESPACE: pet-clinic
   IMAGE_PULL_SECRET_NAME: sconeapps
-  SCONE_RUNTIME_VERSION: 7.0.0-alpha.4
+  SCONE_RUNTIME_VERSION: 6.0.8
   CAS_ADDRESS: cas.default
   TEE_TYPE: sgx
   SCONE_RUNTIME_IMAGE: registry.scontain.com/sergey/test:scone-deb-pkgs-scone7.0.0-rc-cvm-mode
