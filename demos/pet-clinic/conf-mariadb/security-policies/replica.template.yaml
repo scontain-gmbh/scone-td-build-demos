@@ -1,0 +1,392 @@
+name: {{replica}}
+version: "0.3.10"
+
+
+access_policy:
+  read:
+    - ANY
+  update:
+    - ANY
+
+security:
+  attestation:
+    mode: none
+    # tolerate: [debug-mode, hyperthreading, outdated-tcb, insecure-configuration, software-hardening-needed]
+    # ignore_advisories: "*"
+
+# Service: mariadb
+# https://mariadb.com/kb/en/securing-connections-for-client-and-server/
+services:
+  - name: wait-for-primary
+    command:
+      - mysqladmin
+      - status
+      - -hmariadb-primary
+      - -uroot
+      - -p$$SCONE::MYSQL_ROOT_PASSWORD$$
+      - --connect-timeout=5
+    # mrenclaves: ["105cd3d54f210bf1ffe4292591b7d07b16ca247d3d608d2299fcc00f63bd8c5a"]
+    pwd: /
+    environment:
+      SCONE_LOG: ERROR
+      SCONE_NETWORK_SHIELD: protected
+      SCONE_NETWORK_SHIELD_UNSUPPORTED_PROTOCOLS: unprotected # allow dns resolution
+      SCONE_NETWORK_SHIELD_CLIENT_1: protected
+      SCONE_NETWORK_SHIELD_CLIENT_1_DESTINATION: "TCP:mariadb-primary:3306"
+      SCONE_NETWORK_SHIELD_CLIENT_1_DESTINATION_IP: "*"
+      SCONE_NETWORK_SHIELD_CLIENT_1_IDENTITY: |
+        $$SCONE::setupClientCert:privatekey:pkcs8:pem$$
+        $$SCONE::setupClientCert:crt:pem$$"
+      SCONE_NETWORK_SHIELD_CLIENT_1_SERVER_AUTH: $$SCONE::MARIADB_CA_CERT$$
+
+  - name: probe
+    image_name: mysql_client_setup_image
+    command: ["mysqladmin", "status", "-uroot", "-p$$SCONE::MYSQL_ROOT_PASSWORD$$"] # --host=127.0.0.1
+    # mrenclaves: ["609404c38ef19555707e89f31befe7f4ac89c09caf93838bdd2c9bf487e4df17"]
+    pwd: /
+    environment:
+      SCONE_LOG: ERROR
+      # Only explicitly configured connections are permitted, all others are refused
+      SCONE_NETWORK_SHIELD: protected
+      SCONE_NETWORK_SHIELD_UNSUPPORTED_PROTOCOLS: refuse
+      SCONE_NETWORK_SHIELD_CLIENT_1: protected
+      SCONE_NETWORK_SHIELD_CLIENT_1_DESTINATION: unix:/run/mysqld/mysqld.sock
+      SCONE_NETWORK_SHIELD_CLIENT_1_IDENTITY: |
+        $$SCONE::setupClientCert:privatekey:pkcs8:pem$$
+        $$SCONE::setupClientCert:crt:pem$$"
+      SCONE_NETWORK_SHIELD_CLIENT_1_SERVER_AUTH: $$SCONE::MARIADB_CA_CERT$$
+      SCONE_NETWORK_SHIELD_CLIENT_1_SERVER_DNS_NAME: mariadb-replica
+      SCONE_NETWORK_SHIELD_CLIENT_1_FLAGS: TolerateInsecureUnixCredentials
+  - name: db
+    image_name: db_image
+    command: mysqld --innodb-use-native-aio=0 --innodb-flush-method=fsync
+    # mrenclaves: ["c2edebcf4c839c5a73fee889cfe728725d9366c281d8b2e053ad4824c75c3110"]
+    pwd: /
+    environment:
+      SCONE_LOG: ERROR
+      SCONE_SYNC_FSPF_TAG_WITH_CAS: 0
+      MYSQL_ROOT_PASSWORD: "$$SCONE::MYSQL_ROOT_PASSWORD$$"
+      SCONE_NETWORK_SHIELD: protected
+      SCONE_NETWORK_SHIELD_UNSUPPORTED_PROTOCOLS: unprotected # allow dns resolution
+      # Normal socket
+      SCONE_NETWORK_SHIELD_SERVER_TCP: protected
+      SCONE_NETWORK_SHIELD_SERVER_TCP_PORT: TCP:3307
+      SCONE_NETWORK_SHIELD_SERVER_TCP_IDENTITY: |
+        $$SCONE::mariadb:privatekey:pkcs8:pem$$
+        $$SCONE::mariadb:crt:pem$$"
+      SCONE_NETWORK_SHIELD_SERVER_TCP_CLIENT_AUTH: $$SCONE::MARIADB_CA_CERT$$
+      # Local socket
+      SCONE_NETWORK_SHIELD_SERVER_SOCK: protected
+      SCONE_NETWORK_SHIELD_SERVER_SOCK_IDENTITY: |
+        $$SCONE::mariadb:privatekey:pkcs8:pem$$
+        $$SCONE::mariadb:crt:pem$$
+      SCONE_NETWORK_SHIELD_SERVER_SOCK_CLIENT_AUTH: $$SCONE::MARIADB_CA_CERT$$
+      SCONE_NETWORK_SHIELD_SERVER_SOCK_PORT: unix:/run/mysqld/mysqld.sock
+      SCONE_NETWORK_SHIELD_SERVER_SOCK_FLAGS: TolerateInsecureUnixCredentials
+      # Replication thread needs to connect
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICATION: protected
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICATION_IDENTITY: |
+        $$SCONE::mariadb:privatekey:pkcs8:pem$$
+        $$SCONE::mariadb:crt:pem$$"
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICATION_DESTINATION: "TCP:mariadb-primary:3306"
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICATION_DESTINATION_IP: "*"
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICATION_SERVER_AUTH: $$SCONE::MARIADB_CA_CERT$$
+
+  - name: bootstrap
+    image_name: db_image
+    command: mysqld --bootstrap --basedir=/usr --datadir=/var/lib/mysql --log-warnings=0  --plugin-dir=/usr/lib/mariadb/plugin  --innodb-use-native-aio=0 --user=mysql --max_allowed_packet=8M --net_buffer_length=16K --default-storage-engine=innodb
+    # mrenclaves: ["c2edebcf4c839c5a73fee889cfe728725d9366c281d8b2e053ad4824c75c3110"]
+    pwd: /
+    environment:
+      SCONE_LOG: ERROR
+      SCONE_SYNC_FSPF_TAG_WITH_CAS: 0
+      MYSQL_ROOT_PASSWORD: "$$SCONE::MYSQL_ROOT_PASSWORD$$"
+      SCONE_NETWORK_SHIELD: protected
+
+  - name: db_before_setup
+    image_name: db_image
+    command: mysqld --innodb-use-native-aio=0 --innodb-flush-method=fsync --skip-networking
+    # mrenclaves: ["c2edebcf4c839c5a73fee889cfe728725d9366c281d8b2e053ad4824c75c3110"]
+    pwd: /
+    environment:
+      SCONE_LOG: ERROR
+      SCONE_SYNC_FSPF_TAG_WITH_CAS: 0
+      # Enable the shield for all explicitly configured connections,
+      # but no need to filter TCP:[::]:3306
+      SCONE_NETWORK_SHIELD: protected
+      SCONE_NETWORK_SHIELD_UNSUPPORTED_PROTOCOLS: refuse
+      SCONE_NETWORK_SHIELD_SERVER_1: protected
+      SCONE_NETWORK_SHIELD_SERVER_1_IDENTITY: |
+        $$SCONE::mariadb:privatekey:pkcs8:pem$$
+        $$SCONE::mariadb:crt:pem$$"
+      SCONE_NETWORK_SHIELD_SERVER_1_CLIENT_AUTH: $$SCONE::MARIADB_CA_CERT$$
+      SCONE_NETWORK_SHIELD_SERVER_1_PORT: unix:/run/mysqld/mysqld.sock
+      SCONE_NETWORK_SHIELD_SERVER_1_FLAGS: TolerateInsecureUnixCredentials
+
+  - name: create_user
+    image_name: mysql_client_setup_image
+    command: ["mysql", "-e", "source /etc/setup.sql;"]
+    # mrenclaves: ["888ed6fa736674a99e7b2dc92a7ab567303ecd64d465f1c79a43ef6306f55cef"]
+    pwd: /
+    environment:
+      SCONE_LOG: ERROR
+      # Only explicitly configured connections are permitted, all others are refused
+      SCONE_NETWORK_SHIELD: protected
+      SCONE_NETWORK_SHIELD_UNSUPPORTED_PROTOCOLS: refuse
+      SCONE_NETWORK_SHIELD_CLIENT_1: protected
+      SCONE_NETWORK_SHIELD_CLIENT_1_DESTINATION: unix:/run/mysqld/mysqld.sock
+      SCONE_NETWORK_SHIELD_CLIENT_1_IDENTITY: |
+        $$SCONE::setupClientCert:privatekey:pkcs8:pem$$
+        $$SCONE::setupClientCert:crt:pem$$"
+      SCONE_NETWORK_SHIELD_CLIENT_1_SERVER_AUTH: $$SCONE::MARIADB_CA_CERT$$
+      SCONE_NETWORK_SHIELD_CLIENT_1_SERVER_DNS_NAME: mysqld
+      SCONE_NETWORK_SHIELD_CLIENT_1_FLAGS: TolerateInsecureUnixCredentials
+
+  - name: setup_replica_conf
+    image_name: replica_setup_image
+    command: ["mysql", "-e", "source /etc/replica-setup.sql;"]
+    # mrenclaves: ["888ed6fa736674a99e7b2dc92a7ab567303ecd64d465f1c79a43ef6306f55cef"]
+    pwd: /
+    environment:
+      SCONE_LOG: ERROR
+      # Only explicitly configured connections are permitted, all others are refused
+      SCONE_NETWORK_SHIELD: protected
+      SCONE_NETWORK_SHIELD_UNSUPPORTED_PROTOCOLS: refuse
+      SCONE_NETWORK_SHIELD_CLIENT_1: protected
+      SCONE_NETWORK_SHIELD_CLIENT_1_DESTINATION: unix:/run/mysqld/mysqld.sock
+      SCONE_NETWORK_SHIELD_CLIENT_1_IDENTITY: |
+        $$SCONE::setupClientCert:privatekey:pkcs8:pem$$
+        $$SCONE::setupClientCert:crt:pem$$
+      SCONE_NETWORK_SHIELD_CLIENT_1_SERVER_AUTH: $$SCONE::MARIADB_CA_CERT$$
+      SCONE_NETWORK_SHIELD_CLIENT_1_SERVER_DNS_NAME: mariadb-replica
+      SCONE_NETWORK_SHIELD_CLIENT_1_FLAGS: TolerateInsecureUnixCredentials
+
+  - name: setup_replica_on_primary_conf
+    image_name: replica_setup_image
+    command:
+      - mysql
+      - -hmariadb-primary
+      - -uroot
+      - -p$$SCONE::MYSQL_ROOT_PASSWORD$$
+      - --connect-timeout=5
+      - -e
+      - "source /etc/replica-setup-on-master.sql;"
+    # mrenclaves: ["888ed6fa736674a99e7b2dc92a7ab567303ecd64d465f1c79a43ef6306f55cef"]
+    pwd: /
+    environment:
+      SCONE_LOG: ERROR
+      # Only explicitly configured connections are permitted, all others are refused
+      SCONE_NETWORK_SHIELD: protected
+      SCONE_NETWORK_SHIELD_UNSUPPORTED_PROTOCOLS: unprotected # allow dns resolution
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICATION: protected
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICATION_DESTINATION: "TCP:mariadb-primary:3306"
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICATION_DESTINATION_IP: "*"
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICATION_IDENTITY: |
+        $$SCONE::setupClientCert:privatekey:pkcs8:pem$$
+        $$SCONE::setupClientCert:crt:pem$$"
+      SCONE_NETWORK_SHIELD_CLIENT_REPLICATION_SERVER_AUTH: $$SCONE::MARIADB_CA_CERT$$
+
+  - name: metrics_exporter
+    image_name: metrics_exporter_image
+    command:
+      - mysqld_exporter
+      - --mysqld.address=localhost:3307
+      - --web.listen-address=:9306
+      - --config.my-cnf=/etc/my-me.cnf
+    # mrenclaves: ["4b8942f163fb666a436496e6e2eee179f182be5a45160f6c4e1e116f04ad262c"]
+    environment:
+      SCONE_LOG: ERROR
+      MYSQLD_EXPORTER_PASSWORD: $$SCONE::METRICS_EXPORTER_PASSWORD:hex$$
+      SCONE_NETWORK_SHIELD: protected
+      SCONE_NETWORK_SHIELD_UNSUPPORTED_PROTOCOLS: refuse
+      SCONE_NETWORK_SHIELD_CLIENT_1: protected
+      SCONE_NETWORK_SHIELD_CLIENT_1_DESTINATION: "TCP:mariadb-replica:3307"
+      SCONE_NETWORK_SHIELD_CLIENT_1_DESTINATION_IP: "*"
+      SCONE_NETWORK_SHIELD_CLIENT_1_IDENTITY: $$SCONE::mariadb:privatekey$$$$SCONE::mariadb$$
+      SCONE_NETWORK_SHIELD_CLIENT_1_SERVER_AUTH: $$SCONE::MARIADB_CA_CERT$$
+      SCONE_NETWORK_SHIELD_SERVER_TCP: unprotected
+      SCONE_NETWORK_SHIELD_SERVER_TCP_PORT: TCP:9306
+
+# We inject the content of MariaDB cofiguration file including
+# the certificate of the MariaDB as well as the CA certificate of the policy
+images:
+  - name: metrics_exporter_image
+    injection_files:
+      - path: /etc/my-me.cnf
+        content: |
+          [client]
+          user     = metrics
+
+  - name: replica_setup_image
+    injection_files:
+      - path: /etc/replica-setup.sql
+        content: |
+          -- Setup mariadb server_id
+          STOP SLAVE;
+          SELECT 'stopped replica (slave) thread' replica_setup_image;
+          CHANGE MASTER TO MASTER_HOST='mariadb-primary',
+            MASTER_USER='replica',
+            MASTER_PASSWORD='$$SCONE::REPLICATION_USER_PASSWORD:hex$$',
+            MASTER_LOG_FILE='mysql-bin.000001',
+            MASTER_USE_GTID=replica_pos;
+          SELECT @@server_id;
+          START SLAVE;
+          SELECT 'started replica (slave) thread on replica' replica_setup_image;
+
+      - path: /etc/replica-setup-on-master.sql
+        content: |
+          -- Setup mariadb server_id
+          STOP SLAVE;
+          SELECT 'stopped replica (slave) thread' replica_setup_image;
+          CHANGE MASTER TO MASTER_HOST='mariadb-replica',
+            MASTER_PORT=3307,
+            MASTER_USER='replica',
+            MASTER_PASSWORD='$$SCONE::REPLICATION_USER_PASSWORD:hex$$',
+            MASTER_LOG_FILE='mysql-bin.000001',
+            MASTER_USE_GTID=replica_pos;
+          SELECT 'configured replication - primary side' replica_setup_image;
+          SELECT @@server_id;
+          START SLAVE;
+          SELECT 'started replica (slave) thread on primary' replica_setup_image;
+          CREATE DATABASE dummy_gtid_database;
+          DROP DATABASE dummy_gtid_database;
+          SELECT 'executed dummy database for gtid index' mysql_client_setup_image;
+
+  - name: mysql_client_setup_image
+    injection_files:
+      - path: /etc/setup.sql
+        content: |
+          -- GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '$$SCONE::MYSQL_ROOT_PASSWORD$$';
+          GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '$$SCONE::MYSQL_ROOT_PASSWORD$$';
+          FLUSH PRIVILEGES;
+          SELECT 'root grants configured' mysql_client_setup_image;
+          -- Create replication user
+          CREATE USER 'replica'@'%' IDENTIFIED BY '$$SCONE::REPLICATION_USER_PASSWORD:hex$$';
+          GRANT REPLICATION SLAVE ON *.* TO 'replica'@'%';
+          FLUSH PRIVILEGES;
+          SELECT 'replica user configured' mysql_client_setup_image;
+          -- Create user for the metrics exporter
+          CREATE USER 'metrics'@'%' IDENTIFIED BY '$$SCONE::METRICS_EXPORTER_PASSWORD:hex$$' WITH MAX_USER_CONNECTIONS 3;
+          GRANT PROCESS, REPLICATION CLIENT, SELECT, SLAVE MONITOR ON *.* TO 'metrics'@'%';
+          FLUSH PRIVILEGES;
+          SELECT 'metrics user configured' mysql_client_setup_image;
+          -- # Fix 1062 error
+          RESET MASTER;
+          SELECT 'master reset executed' mysql_client_setup_image;
+
+  - name: db_image
+    ## To disable NATIVE-ENCRYPTION and use SCONE runtime encrypted volumes,
+    ## uncomment the `encrypted_datadir_volume` and `var_tmp` to stop using SCONE
+    ## encryption and use native encryption.
+    # volumes:
+      # - name: encrypted_datadir_volume
+      #   path: /var/lib/mysql
+      #   update_policy: no_rollback_protection
+      # - name: var_tmp
+      #   path: /var/tmp
+      #   update_policy: no_rollback_protection
+    injection_files:
+      - path: /etc/my.cnf
+        content: |
+          # This group is read both both by the client and the server
+          # use it for options that affect everything
+          [client-server]
+          # This group is read by the server
+          [mysqld]
+          user=mysql
+          datadir=/var/lib/mysql
+          skip-host-cache
+          skip-name-resolve
+          # Disabling symbolic-links is recommended to prevent assorted security risks
+          symbolic-links=0
+          # Network
+          bind-address = 0.0.0.0
+          port = 3307
+
+          # Replication conf
+          server_id = 2
+          max_allowed_packet=256M
+          log_bin = /var/lib/mysql/mysql-bin.log
+          expire_logs_days=30
+          # binlog_expire_logs_seconds and expire_logs_days are forms of aliases, such that changes to one automatically reflect in the other.
+
+          # For MaxScale
+          gtid_strict_mode=1
+          gtid_domain_id=2
+          auto_increment_increment=2
+          auto_increment_offset=2
+          log_slave_updates=1
+          slave-skip-errors=1396,1950
+          expire_logs_days=7
+
+          ## NATIVE-ENCRYPTION: Uncomment the encryption params to get basic native encryption
+          # Encryption parameters
+          plugin_load_add = file_key_management
+          file_key_management_filename = /etc/keys.txt
+          file_key_management_encryption_algorithm = aes_cbc
+          encrypt_binlog = 1
+          innodb_file_per_table=ON
+          innodb_encrypt_tables = ON
+          innodb_encrypt_log = ON
+          innodb_encryption_threads = 4
+          innodb_encryption_rotate_key_age = 0 # Do not rotate key
+          innodb-tablespaces-encryption = ON
+          encrypt_tmp_files = ON
+          innodb_log_group_home_dir = /var/lib/mysql
+          innodb_data_home_dir = /var/lib/mysql
+
+      ## NATIVE-ENCRYPTION: Uncomment the /etc/keys.txt injection file to use native encryption
+      - path: /etc/keys.txt
+        content: "1;$$SCONE::mysql_encryption_key32.hex$$"
+
+# Import the appropriate secrets from {{certificates}} policy.
+secrets:
+  ## When disabling NATIVE-ENCRYPTION and using SCONE runtime encrypted volumes,
+  ## one can remove the following the encryption key secret.
+  - name: mysql_encryption_key32
+    kind: binary
+    size: 32
+
+  - name: MYSQL_ROOT_PASSWORD
+    import:
+      session: {{certificates}}
+      secret: MYSQL_ROOT_PASSWORD
+
+  - name: METRICS_EXPORTER_PASSWORD
+    import:
+      session: {{certificates}}
+      secret: METRICS_EXPORTER_PASSWORD
+
+  - name: REPLICATION_USER_PASSWORD
+    import:
+      session: {{certificates}}
+      secret: REPLICATION_USER_PASSWORD
+
+  - name: MARIADB_CA_KEY
+    import:
+      session: {{certificates}}
+      secret: MARIADB_CA_KEY
+
+  - name: MARIADB_CA_CERT
+    import:
+      session: {{certificates}}
+      secret: MARIADB_CA_CERT
+
+  - name: mariadb
+    import:
+      session: {{certificates}}
+      secret: mariadb
+
+  - name: setupClientCert
+    kind: x509
+    import:
+      session: {{certificates}}
+      secret: setupClientCert
+
+## To disable NATIVE-ENCRYPTION and use SCONE runtime encrypted volumes,
+## uncomment the `encrypted_datadir_volume` and `var_tmp`.
+# volumes:
+#   ## No fspf key and tag: an encrypted volume will be automatically generated
+#   ## on the first run
+#   - name: encrypted_datadir_volume
+#   - name: var_tmp

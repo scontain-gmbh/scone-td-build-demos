@@ -1,0 +1,5 @@
+# The image is built from the upstream PetClinic sources (git clone in the
+# Dockerfile); nothing from this directory is copied in. Keep the build context
+# minimal and never send Values.yaml (registry credentials) to the daemon.
+*
+!Dockerfile
