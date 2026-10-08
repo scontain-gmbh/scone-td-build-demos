@@ -45,7 +45,7 @@ For the signing and confidential deployment:
 
 - `$DESTINATION_IMAGE_NAME` - Name of the SCONE-protected image
 - `$REPO_CREDENTIALS` - Path to Docker credentials file used by the signing push (default: `~/.docker/config.json`)
-- `$SCONE_RUNTIME_VERSION` - SCONE version to use (for example, `6.1.0-rc.0`)
+- `$SCONE_RUNTIME_VERSION` - SCONE version to use (for example, `6.0.8`)
 - `$CAS_NAMESPACE` - CAS Kubernetes namespace (for example, `default`)
 - `$CAS_NAME` - CAS Kubernetes name (for example, `cas`)
 - `$CVM_MODE` - Set to `--cvm` for CVM mode, otherwise leave empty for SGX

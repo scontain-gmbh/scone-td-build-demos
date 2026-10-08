@@ -8,7 +8,7 @@ This file defines the environment variables used to configure this `image-signin
 4. The path to the Docker credentials file used by the signing push flow is stored in `${REPO_CREDENTIALS}`.
    The default value is `~/.docker/config.json`.
 5. The SCONE version is stored in `${SCONE_RUNTIME_VERSION}`.
-   The current value is `6.1.0-rc.0`.
+   The current value is `6.0.8`.
 6. The CAS runs in Kubernetes namespace `${CAS_NAMESPACE}`.
 7. The CAS name is stored in `${CAS_NAME}`.
 8. If you want to use CVM mode, set `${CVM_MODE}` to `--cvm`. For SGX, leave it empty or single space.

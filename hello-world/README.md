@@ -38,7 +38,7 @@ For the native deployment:
 For the confidential deployment:
 
 - `$DESTINATION_IMAGE_NAME` - Name of the confidential image
-- `$SCONE_VERSION` - SCONE version to use (for example, `6.1.0-rc.0`)
+- `$SCONE_VERSION` - SCONE version to use (for example, `6.0.8`)
 - `$CAS_NAMESPACE` - CAS Kubernetes namespace (for example, `default`)
 - `$CAS_NAME` - CAS Kubernetes name (for example, `cas`)
 - `$CAS_ENDPOINT` - Address the manifest targets; keep it in sync with `$CAS_NAME`.`$CAS_NAMESPACE` (default: `cas.default`), or set to an external CAS address to run against one
