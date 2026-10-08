@@ -4,7 +4,7 @@ This file defines the environment variables used to configure the `flask-redis` 
 2. The Kubernetes namespace used for all resources is stored in `${NAMESPACE}`.
 3. The image pull secret name used by Kubernetes deployments is stored in `${IMAGE_PULL_SECRET_NAME}`.
 4. The SCONE version is stored in `${SCONE_RUNTIME_VERSION}`.
-   The current value is `6.1.0-rc.0`.
+   The current value is `6.0.8`.
 5. The CAS runs in Kubernetes namespace `${CAS_NAMESPACE}`.
    `${CAS_NAME}` and `${CAS_NAMESPACE}` address the in-cluster CAS for `kubectl` calls.
 6. The CAS name is stored in `${CAS_NAME}`.

@@ -5,7 +5,7 @@ environment:
   CAS_NAME: cas
   CAS_ENDPOINT: cas.default
   DESTINATION_IMAGE_NAME: registry.scontain.com/k8s-scone-images/web-server:protected
-  SCONE_RUNTIME_VERSION: 6.1.0-rc.0
+  SCONE_RUNTIME_VERSION: 6.0.8
   TEE_TYPE: sgx
   SCONE_ENCLAVE: 'false'
   REGISTRY: registry.scontain.com
