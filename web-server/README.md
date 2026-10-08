@@ -67,7 +67,7 @@ Defaults are stored in `Values.yaml`. `tplenv` asks whether to keep them and set
 - `$IMAGE_NAME` - Name of the native `web-server` image
 - `$DESTINATION_IMAGE_NAME` - Name of the confidential image
 - `$IMAGE_PULL_SECRET_NAME` - Pull secret name (default: `sconeapps`)
-- `$SCONE_RUNTIME_VERSION` - SCONE version to use (for example, `6.1.0-rc.0`)
+- `$SCONE_RUNTIME_VERSION` - SCONE version to use (for example, `6.0.8`)
 - `$CAS_NAMESPACE` - CAS namespace (for example, `default`)
 - `$CAS_NAME` - CAS name (for example, `cas`)
 - `$CAS_ENDPOINT` - Address the manifest targets; keep it in sync with `$CAS_NAME`.`$CAS_NAMESPACE` (default: `cas.default`), or set to an external CAS address to run against one

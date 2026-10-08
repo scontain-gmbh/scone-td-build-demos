@@ -8,7 +8,7 @@ This file defines the environment variables used to configure the `network-polic
    You should use your own image name because you likely do not have push access to the example repository.
 3. The name of the pull secret for both the native and confidential container images is stored in `${IMAGE_PULL_SECRET_NAME}`.
 4. The SCONE version is stored in `${SCONE_RUNTIME_VERSION}`.
-   The recommended value is `6.1.0-rc.0`.
+   The recommended value is `6.0.8`.
 5. The CAS runs in Kubernetes namespace `${CAS_NAMESPACE}`.
    `${CAS_NAME}` and `${CAS_NAMESPACE}` address the in-cluster CAS for `kubectl` calls.
 6. The CAS name is stored in `${CAS_NAME}`.
