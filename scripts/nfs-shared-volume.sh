@@ -83,11 +83,18 @@ printf '%s\n' '- **writer** appends a timestamped line to `/data/shared.log` eve
 printf '%s\n' '- **reader** reads `/data/shared.log` every few seconds and prints what it sees.'
 printf '%s\n' ''
 printf '%s\n' '`manifest.template.yaml` deploys both as separate Deployments, each mounting the'
-printf '%s\n' 'same `shared-data` PVC at `/data`. Because that PVC is shared by two workloads,'
-printf '%s\n' '`scone-td-build` automatically:'
+printf '%s\n' 'same `shared-data` PVC at `/data`. Two enclaves cannot mount one encrypted volume'
+printf '%s\n' 'directly, so because that PVC is shared by two pods, `scone-td-build`'
+printf '%s\n' 'automatically:'
 printf '%s\n' ''
-printf '%s\n' '1. generates a native NFS server that mounts the PVC and re-exports it over NFSv4, and'
-printf '%s\n' '2. rewrites each consumer'\''s `data` volume to mount that NFS export instead of the PVC directly.'
+printf '%s\n' '1. generates a sconified NFS-Ganesha server, the only pod that mounts the PVC,'
+printf '%s\n' '   which re-exports it over NFSv4 from an encrypted volume, and'
+printf '%s\n' '2. gives each consumer'\''s SCONE session a `kind: nfs` volume pointing at that'
+printf '%s\n' '   export. The pod specs are not rewritten: the enclave mounts the export itself.'
+printf '%s\n' ''
+printf '%s\n' 'Client and server authenticate each other with mTLS. A separate CAS session owns'
+printf '%s\n' 'the CA and hands each end only its own certificate, and the server'\''s network'
+printf '%s\n' 'shield admits only clients that CA issued.'
 printf '%s\n' ''
 printf '%s\n' 'The result: the reader sees exactly what the writer wrote, through the shared NFS export.'
 printf '%s\n' ''
@@ -100,74 +107,6 @@ printf '%s\n' '- `tplenv` (`cargo install tplenv`) and `retry-spinner` (`cargo i
 printf '%s\n' '- A `scone-td-build` binary with NFS shared-volume support'
 printf '%s\n' ''
 printf '%s\n' 'Follow the [Setup environment](https://github.com/scontain/scone) guide to install the required tools.'
-printf '%s\n' ''
-printf '%s\n' '### Node prerequisites (specific to this demo)'
-printf '%s\n' ''
-printf '%s\n' 'Unlike the other demos, the NFS re-sharing needs two things on every node that'
-printf '%s\n' 'runs a consumer or the NFS server: the `mount.nfs` helper (`nfs-common`) and host'
-printf '%s\n' 'resolution of the NFS service DNS name. These are node-level, not something the'
-printf '%s\n' 'manifest or `Values.yaml` can set, so they are a one-time cluster prerequisite.'
-printf '%s\n' ''
-printf '%s\n' 'The step below applies them. It is one-shot and idempotent: each DaemonSet'
-printf '%s\n' '`nsenter`s into the host, makes the change if it is missing, and is deleted right'
-printf '%s\n' 'after; the change itself persists on the node. See'
-printf '%s\n' '[`node-prep/README.md`](node-prep/README.md) for what each one does, and set'
-printf '%s\n' '`SKIP_NODE_PREP=1` if your cluster is already prepared or you lack the rights to'
-printf '%s\n' 'touch `kube-system`.'
-printf '%s\n' ''
-printf "${RESET}"
-
-printf "${ORANGE}"
-printf '%s\n' 'if [ "${SKIP_NODE_PREP:-0}" != "1" ]; then'
-printf '%s\n' '  kubectl apply -f nfs-shared-volume/node-prep/01-install-nfs-common.yaml'
-printf '%s\n' '  kubectl apply -f nfs-shared-volume/node-prep/02-node-cluster-dns.yaml'
-printf '%s\n' '  # Fail closed. A node without mount.nfs or without the resolver entry does not'
-printf '%s\n' '  # announce itself: the consumer lands there and fails at mount time instead,'
-printf '%s\n' '  # with an error that points at the volume rather than at the preparation. The'
-printf '%s\n' '  # DaemonSets are kept on failure so their pod logs can say which node and why.'
-printf '%s\n' '  prep_ok=1'
-printf '%s\n' '  kubectl -n kube-system rollout status ds/install-nfs-common --timeout=180s ||'
-printf '%s\n' '    prep_ok=0'
-printf '%s\n' '  kubectl -n kube-system rollout status ds/node-cluster-dns --timeout=180s ||'
-printf '%s\n' '    prep_ok=0'
-printf '%s\n' '  if [ "$prep_ok" -ne 1 ]; then'
-printf '%s\n' '    echo "ERROR: node preparation did not complete on every node" >&2'
-printf '%s\n' '    echo "Inspect: kubectl -n kube-system logs ds/install-nfs-common" >&2'
-printf '%s\n' '    echo "         kubectl -n kube-system logs ds/node-cluster-dns" >&2'
-printf '%s\n' '    echo "Set SKIP_NODE_PREP=1 to run against nodes you prepared yourself." >&2'
-printf '%s\n' '    exit 1'
-printf '%s\n' '  fi'
-printf '%s\n' '  # Only once both succeeded: the nodes keep the package and the resolver entry'
-printf '%s\n' '  # after the pods have run, so the DaemonSets have done their job.'
-printf '%s\n' '  kubectl -n kube-system delete ds install-nfs-common node-cluster-dns'
-printf '%s\n' 'fi'
-printf "${RESET}"
-
-if [ "${SKIP_NODE_PREP:-0}" != "1" ]; then
-  kubectl apply -f nfs-shared-volume/node-prep/01-install-nfs-common.yaml
-  kubectl apply -f nfs-shared-volume/node-prep/02-node-cluster-dns.yaml
-  # Fail closed. A node without mount.nfs or without the resolver entry does not
-  # announce itself: the consumer lands there and fails at mount time instead,
-  # with an error that points at the volume rather than at the preparation. The
-  # DaemonSets are kept on failure so their pod logs can say which node and why.
-  prep_ok=1
-  kubectl -n kube-system rollout status ds/install-nfs-common --timeout=180s ||
-    prep_ok=0
-  kubectl -n kube-system rollout status ds/node-cluster-dns --timeout=180s ||
-    prep_ok=0
-  if [ "$prep_ok" -ne 1 ]; then
-    echo "ERROR: node preparation did not complete on every node" >&2
-    echo "Inspect: kubectl -n kube-system logs ds/install-nfs-common" >&2
-    echo "         kubectl -n kube-system logs ds/node-cluster-dns" >&2
-    echo "Set SKIP_NODE_PREP=1 to run against nodes you prepared yourself." >&2
-    exit 1
-  fi
-  # Only once both succeeded: the nodes keep the package and the resolver entry
-  # after the pods have run, so the DaemonSets have done their job.
-  kubectl -n kube-system delete ds install-nfs-common node-cluster-dns
-fi
-
-printf "${VIOLET}"
 printf '%s\n' ''
 printf '%s\n' '## 2. Set Up Environment Variables'
 printf '%s\n' ''
@@ -323,33 +262,33 @@ printf '%s\n' 'sconified writer/reader Deployments, the generated NFS server Dep
 printf '%s\n' 'Service, and the signed CAS policies.'
 printf '%s\n' ''
 printf '%s\n' 'The reader also declares an `nfs` volume of its own, `unattested-import`,'
-printf '%s\n' 'pointing at a server nobody attests. Only exports this transform generated are'
-printf '%s\n' 'backed by a session, so the cleaner drops that one and its mount. Checking it'
-printf '%s\n' 'here, before anything reaches the cluster, keeps the failure fast and legible: a'
-printf '%s\n' 'regression would otherwise surface as a pod stuck in `ContainerCreating` while'
-printf '%s\n' 'kubelet retries a mount that never completes.'
+printf '%s\n' 'pointing at a server nobody attests. Shared claims reach the enclaves through'
+printf '%s\n' 'their sessions, never through the pod, so the cleaner drops that volume and its'
+printf '%s\n' 'mount. Checking it here, before anything reaches the cluster, keeps the failure'
+printf '%s\n' 'fast and legible: a regression would otherwise surface as a pod stuck in'
+printf '%s\n' '`ContainerCreating` while kubelet retries a mount that never completes.'
 printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' '# The generated export survives; the one the manifest brought does not.'
+printf '%s\n' '# The generated server is there; the export the manifest brought is not.'
 printf '%s\n' 'grep -q '\''nfs-shared-data'\'' manifests/manifest.sanitized.yaml ||'
-printf '%s\n' '  { echo "FAIL: the generated NFS export is missing from the transformed manifest"; exit 1; }'
+printf '%s\n' '  { echo "FAIL: the generated NFS server is missing from the transformed manifest"; exit 1; }'
 printf '%s\n' 'if grep -qE '\''nfs\.example\.invalid|unattested-import'\'' manifests/manifest.sanitized.yaml; then'
 printf '%s\n' '  echo "FAIL: an NFS volume the input supplied survived the transform" >&2'
 printf '%s\n' '  exit 1'
 printf '%s\n' 'fi'
-printf '%s\n' 'echo "OK: only the generated NFS export is present"'
+printf '%s\n' 'echo "OK: only the generated NFS server is present"'
 printf "${RESET}"
 
-# The generated export survives; the one the manifest brought does not.
+# The generated server is there; the export the manifest brought is not.
 grep -q 'nfs-shared-data' manifests/manifest.sanitized.yaml ||
-  { echo "FAIL: the generated NFS export is missing from the transformed manifest"; exit 1; }
+  { echo "FAIL: the generated NFS server is missing from the transformed manifest"; exit 1; }
 if grep -qE 'nfs\.example\.invalid|unattested-import' manifests/manifest.sanitized.yaml; then
   echo "FAIL: an NFS volume the input supplied survived the transform" >&2
   exit 1
 fi
-echo "OK: only the generated NFS export is present"
+echo "OK: only the generated NFS server is present"
 
 printf "${VIOLET}"
 printf '%s\n' ''
