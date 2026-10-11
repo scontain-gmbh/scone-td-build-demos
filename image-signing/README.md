@@ -116,10 +116,13 @@ Configure the registry to store signatures as sigstore OCI attachments:
 # Configure sigstore attachments for the registry (user-level, no sudo required).
 # Uses a demo-specific file rather than `default.yaml`, since `registries.d` merges
 # every file in the directory; this avoids overwriting any existing registry config.
+# The signatures go to the registry that receives the signed image, which is not
+# necessarily ${REGISTRY} (for example after ./scripts/use-registry.sh localhost:30500).
+SIGNING_REGISTRY="${DESTINATION_IMAGE_NAME%%/*}"
 mkdir -p ~/.config/containers/registries.d
 cat <<EOF > ~/.config/containers/registries.d/image-signing-demo.yaml
 docker:
-    ${REGISTRY}:
+    ${SIGNING_REGISTRY}:
         use-sigstore-attachments: true
 EOF
 ```
@@ -254,7 +257,12 @@ cryptographic check against the matching public key:
 skopeo inspect docker://${DESTINATION_IMAGE_NAME}
 # Cryptographically verify the image was signed with our private key. --insecure-ignore-tlog is
 # required because this key pair signs offline and never uploads to the public transparency log.
-cosign verify --key ./config/image-signing-key.pub --insecure-ignore-tlog ${DESTINATION_IMAGE_NAME}
+# A localhost registry (see ./scripts/use-registry.sh) speaks plain HTTP, so cosign must be told to use it.
+COSIGN_REGISTRY_FLAGS=""
+case "${DESTINATION_IMAGE_NAME%%/*}" in
+  localhost:*|127.0.0.1:*) COSIGN_REGISTRY_FLAGS="--allow-http-registry --allow-insecure-registry" ;;
+esac
+cosign verify ${COSIGN_REGISTRY_FLAGS} --key ./config/image-signing-key.pub --insecure-ignore-tlog ${DESTINATION_IMAGE_NAME}
 ```
 
 ## 11. Transform and Deploy the Signed Confidential Application

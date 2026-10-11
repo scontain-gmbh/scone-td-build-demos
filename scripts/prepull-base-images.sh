@@ -12,7 +12,11 @@ cd "${script_dir}/.."
 
 # FROM lines in Dockerfiles and in Dockerfiles embedded in the READMEs, plus the
 # unprotected images passed to scone-td-build register. Skip templated names.
-mapfile -t images < <(
+# A read loop instead of mapfile keeps this working with the Bash 3.2 of macOS.
+images=()
+while IFS= read -r image; do
+  [[ -n "${image}" ]] && images+=("${image}")
+done < <(
   {
     grep -rhoE '^[[:space:]]*FROM[[:space:]]+[^[:space:]]+' --include='Dockerfile*' --include='*.md' . \
       | awk '{print $2}'

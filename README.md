@@ -40,6 +40,8 @@ kubectl get svc -A | grep -q ':30500/' || kubectl apply -f workshop/local-regist
 
 The nodes pull `localhost:30500/...` through the NodePort; containerd treats `localhost` as an insecure registry, so no node configuration is needed. The names must use `localhost`, not the node IP, because the nodes refuse plain HTTP for any other host.
 
+This workflow needs the Docker engine **inside the cluster**, for example the `dind` pod of the SCONE toolbox: a Docker engine on your laptop resolves `localhost:30500` to the laptop, not to a cluster node. With laptop Docker and a remote cluster, either push to a registry both can reach (`./scripts/use-registry.sh ghcr.io/<you>`), or forward the port first with `kubectl port-forward -n registry svc/registry 30500:5000` and keep it running while the demos push.
+
 The Docker engine that builds and pushes the images must reach the same name. If it runs in a pod (for example the `dind` pod of the SCONE toolbox), `localhost` is that pod, not the node. Add a sidecar that forwards the pod's `localhost:30500` to NodePort 30500 on its node, in every pod that pushes or inspects images:
 
 ```bash
@@ -59,10 +61,16 @@ Before a workshop, cache the base images in the Docker engine so participants do
 ./scripts/prepull-base-images.sh
 ```
 
-Between demos, free disk space in the Docker engine, and add `--registry` to also empty the in-cluster registry:
+Between demos, free disk space in the Docker engine:
 
 ```bash
 ./scripts/prune-demo-images.sh
+```
+
+To also empty the in-cluster registry from `workshop/local-registry.yaml` (all pushed demo images are lost):
+
+```bash
+./scripts/prune-demo-images.sh --registry
 ```
 
 Delete each demo's namespace when you are done with it, so the next demo has the SGX node's memory.

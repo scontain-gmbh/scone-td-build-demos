@@ -340,6 +340,18 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
+# The signatures go to the registry that receives the signed image, which is not
+EOF
+)"
+pe "$(cat <<'EOF'
+# necessarily ${REGISTRY} (for example after ./scripts/use-registry.sh localhost:30500).
+EOF
+)"
+pe "$(cat <<'EOF'
+SIGNING_REGISTRY="${DESTINATION_IMAGE_NAME%%/*}"
+EOF
+)"
+pe "$(cat <<'EOF'
 mkdir -p ~/.config/containers/registries.d
 EOF
 )"
@@ -352,7 +364,7 @@ docker:
 EOF
 )"
 pe "$(cat <<'EOF'
-    ${REGISTRY}:
+    ${SIGNING_REGISTRY}:
 EOF
 )"
 pe "$(cat <<'EOF'
@@ -643,7 +655,27 @@ pe "$(cat <<'EOF'
 EOF
 )"
 pe "$(cat <<'EOF'
-cosign verify --key ./config/image-signing-key.pub --insecure-ignore-tlog ${DESTINATION_IMAGE_NAME}
+# A localhost registry (see ./scripts/use-registry.sh) speaks plain HTTP, so cosign must be told to use it.
+EOF
+)"
+pe "$(cat <<'EOF'
+COSIGN_REGISTRY_FLAGS=""
+EOF
+)"
+pe "$(cat <<'EOF'
+case "${DESTINATION_IMAGE_NAME%%/*}" in
+EOF
+)"
+pe "$(cat <<'EOF'
+  localhost:*|127.0.0.1:*) COSIGN_REGISTRY_FLAGS="--allow-http-registry --allow-insecure-registry" ;;
+EOF
+)"
+pe "$(cat <<'EOF'
+esac
+EOF
+)"
+pe "$(cat <<'EOF'
+cosign verify ${COSIGN_REGISTRY_FLAGS} --key ./config/image-signing-key.pub --insecure-ignore-tlog ${DESTINATION_IMAGE_NAME}
 EOF
 )"
 
