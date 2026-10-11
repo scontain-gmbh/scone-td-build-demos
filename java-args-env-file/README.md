@@ -54,6 +54,7 @@ Default values are stored in `Values.yaml`. `tplenv` asks whether to keep the de
 - `$TEE_TYPE` — Set to `cvm` for CVM mode or `sgx` for SGX
 - `$SCONE_ENCLAVE` - In CVM mode, set to `true` for confidential nodes, or `false` for Kata Pods
 - `$NAMESPACE` — namespace name (for example, `java-demo`)
+- `$ENCLAVE_HEAP` — Enclave heap of each SCONE-protected container (default: `2G`)
 
 Assume you start in `scone-td-build-demos` and switch into this demo directory:
 

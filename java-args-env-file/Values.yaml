@@ -12,4 +12,4 @@ environment:
   TEE_TYPE: sgx
   SCONE_ENCLAVE: 'false'
   NAMESPACE: java-demo
-  SCONE_HEAP: 2G
+  ENCLAVE_HEAP: 2G

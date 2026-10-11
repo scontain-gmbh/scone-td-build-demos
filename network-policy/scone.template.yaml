@@ -13,7 +13,7 @@ spec:
     - {name: SCONE_VERSION, value: "1"}
     - {name: SCONE_SYSLIBS, value: "1"}
     - {name: SCONE_PRODUCTION, value: "0"}
-    - {name: SCONE_HEAP, value: "${SCONE_HEAP}"}
+    - {name: SCONE_HEAP, value: "${ENCLAVE_HEAP}"}
 ---
 apiVersion: scone.cloud/v1
 kind: Register
@@ -30,7 +30,7 @@ spec:
     - {name: SCONE_VERSION, value: "1"}
     - {name: SCONE_SYSLIBS, value: "1"}
     - {name: SCONE_PRODUCTION, value: "0"}
-    - {name: SCONE_HEAP, value: "${SCONE_HEAP}"}
+    - {name: SCONE_HEAP, value: "${ENCLAVE_HEAP}"}
 ---
 apiVersion: scone.cloud/v1
 kind: Apply
@@ -49,7 +49,7 @@ spec:
     - {name: SCONE_VERSION, value: "1"}
     - {name: SCONE_SYSLIBS, value: "1"}
     - {name: SCONE_PRODUCTION, value: "0"}
-    - {name: SCONE_HEAP, value: "${SCONE_HEAP}"}
+    - {name: SCONE_HEAP, value: "${ENCLAVE_HEAP}"}
   permissive: true
   encrypted-cas-policy: false
   tee-type: ${TEE_TYPE}
