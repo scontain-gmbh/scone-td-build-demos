@@ -171,22 +171,22 @@ printf '%s\n' 'Assume you start in `scone-td-build-demos`, then switch to this d
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Enter `web-server` and remember the previous directory.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 pushd web-server
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Remove `storage.json` if it exists.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 rm storage.json || true
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -205,14 +205,14 @@ printf '%s\n' '- `$NAMESPACE` - Kubernetes namespace where the demo runs (defaul
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Load environment variables from the tplenv definition file.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 eval $(tplenv --file environment-variables.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -220,14 +220,14 @@ printf '%s\n' 'Create the demo namespace if it does not already exist:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Create the Kubernetes namespace if it does not already exist.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -235,17 +235,17 @@ printf '%s\n' 'Attest CAS before sending encrypted policies. The kubectl path co
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Attest the CAS instance before sending encrypted policies.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S \
     || scone cas attest ${CAS_ENDPOINT} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any \
     || echo "CAS attestation skipped: ${CAS_ENDPOINT} runs in simulation mode, so it cannot produce a DCAP quote"
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -255,22 +255,22 @@ printf '%s\n' 'Render the manifest template:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Render the template with the selected values.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 tplenv --file manifest.template.yaml --create-values-file --output manifest.yaml
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Render the SCONE manifest that drives register plus apply.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 tplenv --file scone.template.yaml --create-values-file --output scone.yaml --indent
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -284,34 +284,34 @@ printf '%s\n' '- `$REGISTRY_TOKEN` - Registry pull token (see <https://sconedocs
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 else
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 fi
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -321,22 +321,22 @@ printf '%s\n' 'Build and push the native image:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Build the container image.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 docker build -t ${IMAGE_NAME} .
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Push the container image to the registry.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 docker push ${IMAGE_NAME}
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -344,46 +344,46 @@ printf '%s\n' 'Generate a signing key for confidential binaries if needed:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Check whether the signing key needs to be generated.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 if [ ! -f identity.pem ]; then
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   # Print a status message.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   echo "Generating identity.pem ..."
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   # Generate the signing key for confidential binaries.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   openssl genrsa -3 -out identity.pem 3072
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 else
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   # Print a status message.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   echo "identity.pem already exists."
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 fi
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -396,30 +396,30 @@ printf '%s\n' 'Clean up previous runs first:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Delete the Kubernetes resource if it exists.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl delete deployment web-server -n ${NAMESPACE} || echo "ok - no web-server deployment yet"
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Wait for the Kubernetes resource to reach the expected state.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl wait --for=delete pod -l app=web-server -n ${NAMESPACE} --timeout=240s || echo "ok - no web-server deployment yet"
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Stop the previous background process (and its current port-forward child) if still running.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kill -- -"$(cat /tmp/pf-8000.pid)" 2>/dev/null || true
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -427,106 +427,106 @@ printf '%s\n' 'Deploy and test:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Apply the Kubernetes manifest.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl apply -f manifest.yaml -n ${NAMESPACE}
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Wait for the Kubernetes resource to reach the expected state.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl wait --for=condition=Ready pod -l app="web-server" -n ${NAMESPACE} --timeout=240s
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Start a self-restarting port-forward; the loop recreates it if the pod bounces.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # `set -m` puts it in its own process group so cleanup can kill the wrapper and
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # its currently running `kubectl port-forward` child together: killing only the
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # wrapper's PID leaves that child running and the port still bound.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 set -m
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 while true; do kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-8000.pid
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 set +m
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Retry the wrapped command until it succeeds or reaches the retry limit.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 retry-spinner --retries 40 --wait 10 -- curl http://localhost:8000/env/MY_POD_IP
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Run the demo test script.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 ./test.sh
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Delete the Kubernetes resource if it exists.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl delete -f manifest.yaml -n ${NAMESPACE}
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Wait for the Kubernetes resource to reach the expected state.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl wait --for=delete pod -l app=web-server -n ${NAMESPACE} --timeout=240s
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Stop the previous background process (and its current port-forward child) if still running.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kill -- -"$(cat /tmp/pf-8000.pid)" 2>/dev/null || true
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Remove `/tmp/pf-8000.pid` if it exists.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 rm /tmp/pf-8000.pid
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -536,14 +536,14 @@ printf '%s\n' 'If you want to inspect registration details, see [register-image]
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Register the image and transform the manifest in one step.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 scone-td-build apply -f scone.yaml
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -551,14 +551,14 @@ printf '%s\n' '## 8. Deploy the Confidential Manifest'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Apply the Kubernetes manifest.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl apply -f manifest.sanitized.yaml -n ${NAMESPACE}
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -568,54 +568,54 @@ printf '%s\n' '## 9. Run the Demo'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Wait for the Kubernetes resource to reach the expected state.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl wait --for=condition=Ready pod -l app="web-server" -n ${NAMESPACE} --timeout=240s
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # A ready pod does not always mean the port is immediately available.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Wait briefly for the service to become reachable.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 sleep 20
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Start a self-restarting port-forward; the loop recreates it if the pod bounces during attestation.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # `set -m` puts it in its own process group so cleanup can kill the wrapper and
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # its currently running `kubectl port-forward` child together: killing only the
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # wrapper's PID leaves that child running and the port still bound.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 set -m
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 while true; do kubectl port-forward deployment/web-server 8000:8000 -n ${NAMESPACE} 2>/dev/null; sleep 2; done & echo $! > /tmp/pf-8000.pid
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 set +m
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -623,30 +623,30 @@ printf '%s\n' 'Send test requests:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Retry the wrapped command until it succeeds or reaches the retry limit.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 retry-spinner --retries 40 --wait 10 -- curl http://localhost:8000/path
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Retry the wrapped command until it succeeds or reaches the retry limit.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 retry-spinner --retries 40 --wait 10 -- curl http://localhost:8000/gen
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Run the demo test script.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 ./test.sh
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -654,38 +654,38 @@ printf '%s\n' '## 10. Uninstall the Demo'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Delete the Kubernetes resource if it exists.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl delete -f manifest.sanitized.yaml -n ${NAMESPACE}
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Stop the previous background process (and its current port-forward child) if still running.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kill -- -"$(cat /tmp/pf-8000.pid)" 2>/dev/null || true
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Remove `/tmp/pf-8000.pid` if it exists.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 rm /tmp/pf-8000.pid
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Return to the previous working directory.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 popd
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''

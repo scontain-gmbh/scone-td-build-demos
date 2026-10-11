@@ -159,22 +159,22 @@ printf '%s\n' 'Assume you start in `scone-td-build-demos` and switch into this d
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Enter `software-updates` and remember the previous directory.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 pushd software-updates
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Remove generated state files from any previous run.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 rm -f software-updates-demo.json scone.v1.yaml scone.v2.yaml k8s/manifest.v1.yaml k8s/manifest.v2.yaml manifest.prod.sanitized.yaml manifest.prod.session.yaml || true
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -183,14 +183,14 @@ printf '%s\n' '`TEE_TYPE` are available to derive the CAS session namespace belo
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Load environment variables from the tplenv definition file.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -198,78 +198,78 @@ printf '%s\n' 'Set `SIGNER` for policy signing and the CAS session namespace sha
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Export the required environment variable for the next steps.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 export SIGNER="$(scone self show-session-signing-key)"
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Fixed per Kubernetes NAMESPACE and TEE_TYPE on purpose: CAS sessions are append-only
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # (there's no delete operation in the CLI), so a fresh random namespace on every run
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # would leave a new, never-cleaned-up session behind each time. Reusing the same name
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # for repeat runs of the *same* NAMESPACE and mode means a rerun updates the existing
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # session in place (the same mechanism Part 2's v1 -> v2 update already relies on)
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # instead of accumulating one per run. Including NAMESPACE and the mode keeps that
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # property while still isolating different Kubernetes namespaces (different users,
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # different environments) and the SGX vs CVM CI sweeps from sharing one CAS session
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # and one generated API_PASSWORD.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 mode_suffix="sgx"
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 if [ "${TEE_TYPE}" = "cvm" ]; then
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   mode_suffix="cvm"
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 fi
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 export SESSION_NAMESPACE="software-update-demo-${NAMESPACE}-${mode_suffix}"
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Print a status message.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 echo "SESSION_NAMESPACE=${SESSION_NAMESPACE}"
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -281,38 +281,38 @@ printf '%s\n' 'The Dockerfile accepts a `VERSION` build argument to choose which
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Build the Version 1 container image.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 docker build --build-arg VERSION=1 -t ${IMAGE_NAME_V1} .
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Push the Version 1 container image to the registry.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 docker push ${IMAGE_NAME_V1}
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Build the Version 2 container image.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 docker build --build-arg VERSION=2 -t ${IMAGE_NAME_V2} .
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Push the Version 2 container image to the registry.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 docker push ${IMAGE_NAME_V2}
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -324,14 +324,14 @@ printf '%s\n' 'We try to ensure the namespace exists. This may fail when running
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Create the Kubernetes namespace if it does not already exist.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -347,54 +347,54 @@ printf '%s\n' '- `$REGISTRY_TOKEN` â€” your registry pull token (see [how to cre
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Check whether the pull secret already exists.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   # Print a status message.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 else
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   # Print a status message.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   # Load registry credentials from the tplenv definition file.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   # Create the Docker registry pull secret.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 fi
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -406,38 +406,38 @@ printf '%s\n' 'Render the Kubernetes deployment manifests and SCONE configuratio
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Render the Version 1 SCONE configuration.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 tplenv --file scone.v1.template.yaml --create-values-file --output scone.v1.yaml --indent
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Render the Version 2 SCONE configuration.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 tplenv --file scone.v2.template.yaml --create-values-file --output scone.v2.yaml --indent
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Render the Version 1 Kubernetes manifest.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 tplenv --file k8s/manifest.v1.template.yaml --create-values-file --output k8s/manifest.v1.yaml --indent
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Render the Version 2 Kubernetes manifest.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 tplenv --file k8s/manifest.v2.template.yaml --create-values-file --output k8s/manifest.v2.yaml --indent
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -453,46 +453,46 @@ printf '%s\n' 'When protecting binaries for confidential execution, `scone-td-bu
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Check whether the signing key needs to be generated.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 if [ ! -f identity.pem ]; then
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   # Print a status message.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   echo "Generating identity.pem ..."
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   # Generate the signing key for confidential binaries.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   openssl genrsa -3 -out identity.pem 3072
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 else
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   # Print a status message.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   echo "identity.pem already exists."
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 fi
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -500,22 +500,22 @@ printf '%s\n' '### Step 7. Build the confidential image and session for Version 
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Remove any existing state file.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 rm -f software-updates-demo.json || true
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 scone-td-build apply -f scone.v1.yaml
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -529,22 +529,22 @@ printf '%s\n' '### Step 8. Deploy Version 1 (SCONE)'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Apply the Kubernetes manifest.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl apply -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Wait for the deployment rollout to complete.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl rollout status deployment/python-hello-user -n ${NAMESPACE} --timeout=300s
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -552,70 +552,70 @@ printf '%s\n' '### Step 9. Verify the Version 1 deployment'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Show the most recent logs and capture the Version 1 API_PASSWORD checksum, so Step 12
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # can check it against Version 2's automatically instead of relying on a human comparing
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # two printed checksums by eye.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # The SCONE runtime prints its enclave banner several seconds before the Python app's
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # first line, and `kubectl logs` exits 0 as soon as that banner exists -- so retrying on
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # its exit code captures the logs before the app has printed anything. Poll for the app's
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # own checksum line instead.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 v1_log=""
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 for _ in $(seq 1 30); do v1_log=$(kubectl logs -n ${NAMESPACE} deployment/python-hello-user 2>/dev/null || true); echo "$v1_log" | grep -q "checksum of the original API_PASSWORD" && break; sleep 5; done
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 echo "$v1_log" | tail -10
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 v1_checksum=$(echo "$v1_log" | grep -m1 "checksum of the original API_PASSWORD" | grep -oE "'[^']+'" | tr -d "'")
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 if [ -z "$v1_checksum" ]; then
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   echo "Could not find the Version 1 API_PASSWORD checksum in the logs" >&2
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   exit 1
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 fi
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 echo "Version 1 API_PASSWORD checksum: ${v1_checksum}"
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -637,14 +637,14 @@ printf '%s\n' '### Step 10. Build the confidential image and update the session 
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 scone-td-build apply -f scone.v2.yaml
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -660,22 +660,22 @@ printf '%s\n' 'Applying the new manifest triggers a Kubernetes rolling update â€
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Apply the updated Kubernetes manifest.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl apply -f manifest.prod.sanitized.yaml --namespace ${NAMESPACE}
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Wait for the rolling update to complete.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl rollout status deployment/python-hello-user -n ${NAMESPACE} --timeout=300s
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -683,130 +683,130 @@ printf '%s\n' '### Step 12. Verify the Version 2 deployment'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Show the most recent logs from Version 2 and check its API_PASSWORD checksum against
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Version 1's captured in Step 9. This is the actual cross-version check: each program
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # only ever compares against its own startup value, so without this the demo would pass
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # even if CAS had regenerated API_PASSWORD during the update.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Same enclave-banner race as Step 9: poll until the Version 2 app loop is actually
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # printing, otherwise the "Running Version 2." check below races the enclave start.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 v2_log=""
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 for _ in $(seq 1 30); do v2_log=$(kubectl logs -n ${NAMESPACE} deployment/python-hello-user 2>/dev/null || true); echo "$v2_log" | grep -q "Running Version 2\." && break; sleep 5; done
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 echo "$v2_log" | tail -10
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Prove Version 2 is actually the program running, not just that the checksum matched.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Both programs print an identical checksum line, so a stale Version 1 deployment (or a
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # no-op rollout) would satisfy that check alone as long as the password never changed.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 if ! echo "$v2_log" | grep -q "Running Version 2\."; then
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   echo "Did not find the Version 2 marker in the logs; Version 1 may still be running" >&2
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   exit 1
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 fi
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 if echo "$v2_log" | grep -q "Running Version 1\."; then
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   echo "Found a Version 1 marker in the logs; the rollout may not have replaced all pods" >&2
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   exit 1
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 fi
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 v2_checksum=$(echo "$v2_log" | grep -m1 "checksum of the original API_PASSWORD" | grep -oE "'[^']+'" | tr -d "'")
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 if [ -z "$v2_checksum" ]; then
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   echo "Could not find the Version 2 API_PASSWORD checksum in the logs" >&2
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   exit 1
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 fi
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 if [ "$v2_checksum" != "$v1_checksum" ]; then
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   echo "API_PASSWORD checksum changed across the update: Version 1 was '${v1_checksum}', Version 2 is '${v2_checksum}'" >&2
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   exit 1
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 fi
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 echo "API_PASSWORD checksum verified unchanged across the update: ${v2_checksum}"
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 echo "Confirmed Version 2 is the program actually running."
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -828,22 +828,22 @@ printf '%s\n' 'Remove the deployed Kubernetes resources when you are finished:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Delete the Kubernetes deployment.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl delete deployment python-hello-user --namespace ${NAMESPACE} --ignore-not-found
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Return to the previous working directory.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 popd
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''

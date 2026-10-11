@@ -137,22 +137,22 @@ printf '%s\n' 'We assume you start in `scone-td-build-demos`:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Enter `hello-world` and remember the previous directory.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 pushd hello-world
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Remove `storage.json` if it exists.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 rm -f storage.json || true
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -178,27 +178,27 @@ printf '%s\n' 'Defaults are stored in `Values.yaml`. We use [`tplenv`](https://g
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Load environment variables from the tplenv definition file.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Create the Kubernetes namespace if it does not already exist.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -n ${NAMESPACE} -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -206,22 +206,22 @@ printf '%s\n' 'Generate the job manifest with the selected image and pull-secret
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Render the template with the selected values.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 tplenv --file manifest.job.template.yaml --create-values-file --output manifest.job.yaml
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Render the SCONE manifest that drives register plus apply.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 tplenv --file scone.template.yaml --create-values-file --output scone.yaml --indent
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -231,14 +231,14 @@ printf '%s\n' 'Create the Rust project (or reuse an existing one):'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Create the Rust project in `hello-world` if it does not already exist.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 cargo new hello-world || echo "Hello World already exists - using existing one"
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -246,22 +246,22 @@ printf '%s\n' 'Build and push the image:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Build the container image.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 docker build -t $IMAGE_NAME .
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Push the container image to the registry.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 docker push $IMAGE_NAME
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -275,49 +275,49 @@ printf '%s\n' '- `$REGISTRY_TOKEN` - Registry pull token (see <https://sconedocs
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Create the pull secret only when it does not already exist, so reruns with a
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # precreated secret do not require registry credentials.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 else
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   # Load registry credentials.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \
     --docker-server="$REGISTRY" \
     --docker-username="$REGISTRY_USER" \
     --docker-password="$REGISTRY_TOKEN"
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 fi
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -325,22 +325,22 @@ printf '%s\n' '## 5. Run the Native Hello-World Application'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Delete the Kubernetes resource if it exists.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl delete job hello-world -n ${NAMESPACE} || echo "ok - no previous job that we need to delete"
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Apply the Kubernetes manifest.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl apply -f manifest.job.yaml -n ${NAMESPACE}
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -348,114 +348,114 @@ printf '%s\n' 'Wait for completion and stream logs:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Poll for a terminal state instead of `kubectl wait`: this kubectl version only
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # honors the last --for flag when given more than once, so it can't watch for
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # both Complete and Failed in one call, and `wait -n` (used in an earlier
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # version of this check) isn't portable to bash 3.2 or zsh. The Job is
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # configured with backoffLimit: 4 and restartPolicy: OnFailure, so we wait for
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # the Failed *condition* (set only once retries are exhausted), not
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # .status.failed (a per-attempt retry counter that can tick up while the Job
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # is still retrying and will go on to succeed).
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 deadline=$((SECONDS + 300))
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 terminal=""
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 while [[ $SECONDS -lt $deadline ]]; do
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   complete=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null)
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null)
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   if [[ "$complete" == "True" ]] || [[ "$failed" == "True" ]]; then
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
     terminal=1
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
     break
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   fi
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   sleep 2
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 done
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 if [[ -z "$terminal" ]]; then
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   echo "Timed out waiting for job/hello-world to complete or fail" >&2
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   exit 1
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 fi
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Exit non-zero early if the job failed rather than completed.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' | grep -q '^True$' && { echo "Job hello-world failed"; exit 1; } || true
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Show logs from the Kubernetes workload.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl logs job/hello-world -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -463,22 +463,22 @@ printf '%s\n' 'Clean up:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Delete the Kubernetes resource if it exists.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl delete job hello-world -n ${NAMESPACE}
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Wait for the Kubernetes resource to reach the expected state.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl wait --for=delete pod -l app=hello-world -n ${NAMESPACE} --timeout=300s
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -488,17 +488,17 @@ printf '%s\n' 'Attest CAS before sending encrypted policies. The kubectl path co
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Attest the CAS instance before sending encrypted policies.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S \
     || scone cas attest ${CAS_ENDPOINT} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any \
     || echo "CAS attestation skipped: ${CAS_ENDPOINT} runs in simulation mode, so it cannot produce a DCAP quote"
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -512,14 +512,14 @@ printf '%s\n' 'single command runs both:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Register the image and transform the manifest in one step.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 scone-td-build apply -f scone.yaml
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -535,122 +535,122 @@ printf '%s\n' '## 9. Deploy the Confidential Manifest'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Apply the Kubernetes manifest.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl apply -f manifest.job.sanitized.yaml -n ${NAMESPACE}
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Poll for a terminal state instead of `kubectl wait`: this kubectl version only
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # honors the last --for flag when given more than once, so it can't watch for
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # both Complete and Failed in one call, and `wait -n` (used in an earlier
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # version of this check) isn't portable to bash 3.2 or zsh. The Job is
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # configured with backoffLimit: 4 and restartPolicy: OnFailure, so we wait for
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # the Failed *condition* (set only once retries are exhausted), not
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # .status.failed (a per-attempt retry counter that can tick up while the Job
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # is still retrying and will go on to succeed).
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 deadline=$((SECONDS + 300))
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 terminal=""
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 while [[ $SECONDS -lt $deadline ]]; do
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   complete=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null)
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   failed=$(kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null)
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   if [[ "$complete" == "True" ]] || [[ "$failed" == "True" ]]; then
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
     terminal=1
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
     break
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   fi
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   sleep 2
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 done
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 if [[ -z "$terminal" ]]; then
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   echo "Timed out waiting for job/hello-world to complete or fail" >&2
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   exit 1
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 fi
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Exit non-zero early if the job failed rather than completed.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl get job/hello-world -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' | grep -q '^True$' && { echo "Job hello-world failed"; exit 1; } || true
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Show logs from the Kubernetes workload.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl logs job/hello-world -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -658,30 +658,30 @@ printf '%s\n' '## 10. Uninstall `hello-world`'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Delete the Kubernetes resource if it exists.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl delete job hello-world -n ${NAMESPACE}
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Wait for the Kubernetes resource to reach the expected state.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl wait --for=delete pod -l app=hello-world -n ${NAMESPACE} --timeout=300s
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Return to the previous working directory.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 popd
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''

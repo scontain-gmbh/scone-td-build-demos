@@ -33,12 +33,24 @@ Check your tools with:
 If you have no registry to push to, run a plain registry inside the cluster and point all demos at it:
 
 ```bash
-# Skip the apply if the cluster already serves a registry on NodePort 30500:
-kubectl get svc -A | grep -q ':30500/' || kubectl apply -f workshop/local-registry.yaml
+# Reuses a registry already on NodePort 30500, creates workshop/local-registry.yaml if
+# the port is free, and stops if an unrelated service holds the port.
+./scripts/ensure-local-registry.sh
 ./scripts/use-registry.sh localhost:30500
 ```
 
-The nodes pull `localhost:30500/...` through the NodePort; containerd treats `localhost` as an insecure registry, so no node configuration is needed. The names must use `localhost`, not the node IP, because the nodes refuse plain HTTP for any other host.
+The nodes pull `localhost:30500/...` through the NodePort. The names must use `localhost`, not the node IP, because the nodes refuse plain HTTP for any other host.
+
+containerd falls back to plain HTTP for `localhost` only with its default registry configuration. If your nodes set `config_path` for registry hosts (for example `/etc/containerd/certs.d`), pulls fail with `server gave HTTP response to HTTPS client` until each node has this file, `/etc/containerd/certs.d/localhost:30500/hosts.toml`:
+
+```toml
+server = "http://localhost:30500"
+
+[host."http://localhost:30500"]
+  capabilities = ["pull", "resolve"]
+```
+
+Check a node with `crictl pull localhost:30500/<image>` after the first push.
 
 This workflow needs the Docker engine **inside the cluster**, for example the `dind` pod of the SCONE toolbox: a Docker engine on your laptop resolves `localhost:30500` to the laptop, not to a cluster node. With laptop Docker and a remote cluster, either push to a registry both can reach (`./scripts/use-registry.sh ghcr.io/<you>`), or forward the port first with `kubectl port-forward -n registry svc/registry 30500:5000` and keep it running while the demos push.
 

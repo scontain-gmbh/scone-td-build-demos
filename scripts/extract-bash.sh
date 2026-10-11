@@ -294,12 +294,14 @@ emit_docs_pe_command() {
   shift
   local cmd_lines=("$@")
 
-  echo 'pe "$(cat <<'"'"'EOF'"'"'' >>"$output_file"
+  # A heredoc read into a variable instead of "$(cat <<'EOF' ... EOF)": Bash 3.2
+  # (macOS) fails to parse an apostrophe in a heredoc inside $( ).
+  echo 'IFS= read -r -d '"''"' PE_CMD <<'"'"'EOF'"'"' || true' >>"$output_file"
   for line in "${cmd_lines[@]}"; do
     echo "$line" >>"$output_file"
   done
   echo 'EOF' >>"$output_file"
-  echo ')"' >>"$output_file"
+  echo 'pe "${PE_CMD%$'"'"'\n'"'"'}"' >>"$output_file"
 }
 
 if [[ "$mode" == "docs-pe" ]]; then

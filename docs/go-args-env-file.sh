@@ -155,14 +155,14 @@ printf '%s\n' 'Follow the [Setup environment](https://github.com/scontain/scone)
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Change into `go-args-env-file`.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 cd go-args-env-file
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -187,14 +187,14 @@ printf '%s\n' 'Set `SIGNER` for policy signing:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Export the required environment variable for the next steps.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 export SIGNER="$(scone self show-session-signing-key)"
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -202,14 +202,14 @@ printf '%s\n' 'Load the full variable set from `environment-variables.md`:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Load environment variables from the tplenv definition file.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -217,14 +217,14 @@ printf '%s\n' 'Create the demo namespace if it does not already exist:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Create the Kubernetes namespace if it does not already exist.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching namespace ${NAMESPACE} failed -- ignoring this"
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -236,22 +236,22 @@ printf '%s\n' 'The Dockerfile uses a two-stage build: a `golang:1.22-alpine` bui
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Build the container image.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 docker build -t ${DEMO_IMAGE} .
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Push the container image to the registry.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 docker push ${DEMO_IMAGE}
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -284,22 +284,22 @@ printf '%s\n' '`tplenv` substitutes environment variables into the template file
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Render the template with the selected values.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 tplenv --file manifests/manifest.template.yaml --create-values-file --output manifests/manifest.yaml --indent
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Render the template with the selected values.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 tplenv --file manifests/scone.template.yaml    --create-values-file --output manifests/scone.yaml    --indent
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -317,41 +317,41 @@ printf '%s\n' '- `$REGISTRY_TOKEN` — Registry pull token (see <https://sconedo
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Check whether the pull secret already exists.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   # Print a status message.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 else
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   # Create the Docker registry pull secret.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
   kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \
     --docker-server=$REGISTRY \
     --docker-username=$REGISTRY_USER \
     --docker-password=$REGISTRY_TOKEN
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 fi
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -363,30 +363,30 @@ printf '%s\n' 'Apply the manifest, wait for the job to complete, and inspect its
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Apply the Kubernetes manifest.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl apply -f manifests/manifest.yaml -n ${NAMESPACE}
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Wait for the Kubernetes resource to reach the expected state.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl wait --for=condition=complete job/go-args-env-file -n ${NAMESPACE} --timeout=240s
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Show logs from the Kubernetes workload.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl logs job/go-args-env-file -n ${NAMESPACE}
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -396,14 +396,14 @@ printf '%s\n' 'Clean up the native deployment before moving on:'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Delete the Kubernetes resource if it exists.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl delete -f manifests/manifest.yaml -n ${NAMESPACE}
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -419,17 +419,17 @@ printf '%s\n' 'First, attest the CAS so the local SCONE CLI has the correct sess
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Attest the CAS instance before sending encrypted policies.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl scone cas attest --namespace ${CAS_NAMESPACE} ${CAS_NAME} -C -G -S \
     || scone cas attest ${CAS_ENDPOINT} -C -G -S \
         --only_for_testing-debug --only_for_testing-ignore-signer --only_for_testing-trust-any \
     || echo "CAS attestation skipped: ${CAS_ENDPOINT} runs in simulation mode, so it cannot produce a DCAP quote"
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -437,14 +437,14 @@ printf '%s\n' 'Then build the confidential image and generate the SCONE session 
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Generate the confidential image and sanitized manifest from the SCONE configuration.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 scone-td-build apply -f manifests/scone.yaml
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -460,22 +460,22 @@ printf '%s\n' '## 9. Deploy the SCONE-Protected App'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Apply the Kubernetes manifest.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl apply -f manifests/manifest.prod.sanitized.yaml -n ${NAMESPACE}
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Wait for the Kubernetes resource to reach the expected state.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl wait --for=condition=complete job/go-args-env-file -n ${NAMESPACE} --timeout=300s
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -485,14 +485,14 @@ printf '%s\n' '## 10. View Logs'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Show logs from the Kubernetes workload.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl logs job/go-args-env-file -n ${NAMESPACE}
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
@@ -502,14 +502,14 @@ printf '%s\n' '## 11. Clean Up'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
-pe "$(cat <<'EOF'
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Delete the Kubernetes resource if it exists.
 EOF
-)"
-pe "$(cat <<'EOF'
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 kubectl delete -f manifests/manifest.prod.sanitized.yaml -n ${NAMESPACE}
 EOF
-)"
+pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''

@@ -84,7 +84,7 @@ GREEN := \033[0;32m
 YELLOW:= \033[1;33m
 RESET := \033[0m
 
-.PHONY: all record gif mp4 configmap-record configmap-gif configmap-mp4 web-server-record web-server-gif web-server-mp4 flask-redis-record flask-redis-gif flask-redis-mp4 flask-redis-netshield-record flask-redis-netshield-gif flask-redis-netshield-mp4 network-policy-record network-policy-gif network-policy-mp4 go-args-env-file-record go-args-env-file-gif go-args-env-file-mp4 check-deps clean help
+.PHONY: all record gif mp4 configmap-record configmap-gif configmap-mp4 web-server-record web-server-gif web-server-mp4 flask-redis-record flask-redis-gif flask-redis-mp4 flask-redis-netshield-record flask-redis-netshield-gif flask-redis-netshield-mp4 network-policy-record network-policy-gif network-policy-mp4 go-args-env-file-record go-args-env-file-gif go-args-env-file-mp4 check-deps clean help test
 all: $(ALL_MP4S)
 
 # -----------------------------
@@ -269,6 +269,10 @@ clean:
 	@rm -f $(ALL_CASTS) $(ALL_GIFS) $(ALL_MP4S)
 	@echo "$(GREEN)Cleaned$(RESET)"
 
+# Script tests that need no cluster (mocked kubectl, cosign).
+test:
+	@set -e; for t in tests/*.test.sh; do echo "== $$t"; bash "$$t"; done
+
 help:
-	@echo "Targets: record | gif | mp4 | configmap-record | configmap-gif | configmap-mp4 | web-server-record | web-server-gif | web-server-mp4 | flask-redis-record | flask-redis-gif | flask-redis-mp4 | flask-redis-netshield-record | flask-redis-netshield-gif | flask-redis-netshield-mp4 | network-policy-record | network-policy-gif | network-policy-mp4 | go-args-env-file-record | go-args-env-file-gif | go-args-env-file-mp4 | check-deps | clean | all"
+	@echo "Targets: record | gif | mp4 | configmap-record | configmap-gif | configmap-mp4 | web-server-record | web-server-gif | web-server-mp4 | flask-redis-record | flask-redis-gif | flask-redis-mp4 | flask-redis-netshield-record | flask-redis-netshield-gif | flask-redis-netshield-mp4 | network-policy-record | network-policy-gif | network-policy-mp4 | go-args-env-file-record | go-args-env-file-gif | go-args-env-file-mp4 | check-deps | clean | test | all"
 	@echo "Vars: TYPE_SPEED PAUSE_AFTER_CMD HELLOWORLD_* CONFIGMAP_* WEBSERVER_* FLASKREDIS_* FLASKREDISNETSHIELD_* NETWORKPOLICY_* GOARGSENVFILE_* COLS ROWS"
