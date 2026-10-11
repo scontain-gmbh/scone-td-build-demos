@@ -40,18 +40,32 @@ kubectl get svc -A | grep -q ':30500/' || kubectl apply -f workshop/local-regist
 
 The nodes pull `localhost:30500/...` through the NodePort; containerd treats `localhost` as an insecure registry, so no node configuration is needed. The names must use `localhost`, not the node IP, because the nodes refuse plain HTTP for any other host.
 
-The Docker engine that builds and pushes the images must reach the same name:
+The Docker engine that builds and pushes the images must reach the same name. If it runs in a pod (for example the `dind` pod of the SCONE toolbox), `localhost` is that pod, not the node. Add a sidecar that forwards the pod's `localhost:30500` to NodePort 30500 on its node, in every pod that pushes or inspects images:
 
-- If it runs in a pod (for example the `dind` pod of the SCONE toolbox), `localhost` is that pod, not the node. Add a sidecar that forwards `127.0.0.1:30500` to the registry service, for example `alpine/socat` with the arguments `TCP-LISTEN:30500,fork,reuseaddr,bind=127.0.0.1` and `TCP:<registry-service>.<namespace>.svc.cluster.local:<port>` (`registry.registry...:5000` for `workshop/local-registry.yaml`), and add the same sidecar to the pod that runs `skopeo`.
-- `skopeo` (image-signing demo) needs `localhost:30500` marked insecure, for example in `/etc/containers/registries.conf.d/50-local.conf`:
+```bash
+kubectl -n scone-tools patch deployment dind --patch-file workshop/registry-forwarder.patch.yaml
+kubectl -n scone-tools patch deployment scone-toolbox --patch-file workshop/registry-forwarder.patch.yaml
+```
 
-  ```toml
-  [[registry]]
-  location = "localhost:30500"
-  insecure = true
-  ```
+`use-registry.sh` also marks `localhost:30500` insecure for `skopeo` (image-signing demo) in `~/.config/containers/registries.conf`.
 
-The registry uses plain HTTP and no authentication, and it stores images in an `emptyDir`, so they are lost when the pod restarts and they count against the node's ephemeral storage. Use it only on a workshop cluster. To use another registry, pass its prefix instead, for example `./scripts/use-registry.sh ghcr.io/<you>`.
+The registry uses plain HTTP and no authentication, and it stores images in an `emptyDir`, so they are lost when the pod restarts and they count against the node's ephemeral storage. The `emptyDir` is capped at 10 GiB. Use it only on a workshop cluster. To use another registry, pass its prefix instead, for example `./scripts/use-registry.sh ghcr.io/<you>`.
+
+### Running the demos on a small cluster
+
+Before a workshop, cache the base images in the Docker engine so participants don't hit Docker Hub rate limits or pull timeouts:
+
+```bash
+./scripts/prepull-base-images.sh
+```
+
+Between demos, free disk space in the Docker engine, and add `--registry` to also empty the in-cluster registry:
+
+```bash
+./scripts/prune-demo-images.sh
+```
+
+Delete each demo's namespace when you are done with it, so the next demo has the SGX node's memory.
 
 ## Examples
 

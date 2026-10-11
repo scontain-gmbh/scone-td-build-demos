@@ -1,0 +1,26 @@
+# Strategic merge patch: adds a sidecar that forwards 127.0.0.1:30500 in the pod
+# to NodePort 30500 on the pod's node, so a Docker engine or skopeo running in
+# the pod can push to localhost:30500 like the nodes pull from it.
+# Apply to every pod that pushes or inspects images, for example:
+#   kubectl -n scone-tools patch deployment dind --patch-file workshop/registry-forwarder.patch.yaml
+#   kubectl -n scone-tools patch deployment scone-toolbox --patch-file workshop/registry-forwarder.patch.yaml
+spec:
+  template:
+    spec:
+      containers:
+        - name: registry-forwarder
+          image: alpine/socat:1.8.0.1
+          env:
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          args:
+            - TCP-LISTEN:30500,fork,reuseaddr,bind=127.0.0.1
+            - TCP:$(HOST_IP):30500
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 64Mi

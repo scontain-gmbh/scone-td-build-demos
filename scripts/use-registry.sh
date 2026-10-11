@@ -20,5 +20,19 @@ for values in */Values.yaml; do
   fi
 done
 
+# skopeo (image-signing demo) refuses plain HTTP unless the registry is marked insecure.
+case "${target}" in
+  localhost:*|127.0.0.1:*)
+    registry_host="${target%%/*}"
+    conf_dir="${XDG_CONFIG_HOME:-$HOME/.config}/containers"
+    conf="${conf_dir}/registries.conf"
+    if ! grep -qs "location = \"${registry_host}\"" "${conf}"; then
+      mkdir -p "${conf_dir}"
+      printf '\n[[registry]]\nlocation = "%s"\ninsecure = true\n' "${registry_host}" >> "${conf}"
+      echo "Marked ${registry_host} insecure for skopeo in ${conf}"
+    fi
+    ;;
+esac
+
 echo "Demo images now push to ${target}/k8s-scone-images/."
 echo "Base images are still pulled from registry.scontain.com, so keep your pull secret."
