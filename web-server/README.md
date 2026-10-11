@@ -74,6 +74,7 @@ Defaults are stored in `Values.yaml`. `tplenv` asks whether to keep them and set
 - `$TEE_TYPE` - Set to `cvm` for CVM mode or `sgx` for SGX
 - `$SCONE_ENCLAVE` - In CVM mode, set to `true` for confidential nodes, or `false` for Kata Pods
 - `$NAMESPACE` - Kubernetes namespace where the demo runs (default: `default`)
+- `$ENCLAVE_HEAP` - Enclave heap of each SCONE-protected container (default: `512M`)
 
 ```bash
 # Load environment variables from the tplenv definition file.

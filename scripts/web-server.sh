@@ -156,6 +156,7 @@ printf '%s\n' '- `$CAS_ENDPOINT` - Address the manifest targets; keep it in sync
 printf '%s\n' '- `$TEE_TYPE` - Set to `cvm` for CVM mode or `sgx` for SGX'
 printf '%s\n' '- `$SCONE_ENCLAVE` - In CVM mode, set to `true` for confidential nodes, or `false` for Kata Pods'
 printf '%s\n' '- `$NAMESPACE` - Kubernetes namespace where the demo runs (default: `default`)'
+printf '%s\n' '- `$ENCLAVE_HEAP` - Enclave heap of each SCONE-protected container (default: `512M`)'
 printf '%s\n' ''
 printf "${RESET}"
 

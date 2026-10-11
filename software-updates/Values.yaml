@@ -13,4 +13,4 @@ environment:
   SCONE_ENCLAVE: 'false'
   NAMESPACE: default
   API_USER: myself
-  SCONE_HEAP: 760M
+  ENCLAVE_HEAP: 760M
