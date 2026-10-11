@@ -14,11 +14,36 @@ Beyond **integrity**, we also protect **confidentiality** so that no user with a
 
 This approach works independently of whether we run on machines with Intel TDX, AMD SEV-SNP, or Intel SGX. We guarantee this property even if an adversary has gained access to the CVM itself.
 
+## Prerequisites
+
+- A Kubernetes cluster with SGX (or CVM) nodes, the SCONE operator, LAS, SGX plugin and a CAS. By default the demos use the CAS `cas` in namespace `default`. See [scontain/scone](https://github.com/scontain/scone) for the installation.
+- `scone-td-build` **0.4.0 or newer**. Older versions fail with `required arguments were not provided: --cas-address`.
+- `kubectl`, `docker`, `tplenv` and `retry-spinner`; `skopeo` and `cosign` for the image-signing demo.
+- A pull secret for `registry.scontain.com` (SCONE base images).
+- A registry you can **push** to. The defaults push to `registry.scontain.com/k8s-scone-images`, which most tokens cannot write.
+
+Check your tools with:
+
+```bash
+./scripts/check-prerequisites.sh
+```
+
+### Using an in-cluster registry (workshops)
+
+If you have no registry to push to, run a plain registry inside the cluster and point all demos at it:
+
+```bash
+kubectl apply -f workshop/local-registry.yaml
+./scripts/use-registry.sh localhost:30500
+```
+
+The demos push to `localhost:30500` from the Docker engine in the cluster, and the nodes pull the same name through the NodePort. The registry uses plain HTTP and no authentication, and its images are lost when the pod restarts, so use it only on a workshop cluster. To use another registry, pass its prefix instead, for example `./scripts/use-registry.sh ghcr.io/<you>`.
+
 ## Examples
 
 Use the following examples to learn how `scone-td-build` transforms applications:
 
-- [hello-world](./hello-world/README.md): Build a native `hello-world` program, then transform it into a confidential cloud-native program using `scone-td-build`. You can run all commands with `./scripts/hello-world.sh`. The focus of this exaple is on how to protect the integrity of the program code.
+- [hello-world](./hello-world/README.md): Build a native `hello-world` program, then transform it into a confidential cloud-native program using `scone-td-build`. You can run all commands with `./scripts/hello-world.sh`. The focus of this example is on how to protect the integrity of the program code.
 - [configmap](./configmap/README.md): Protect `ConfigMaps` by transforming them into encrypted CAS policies. This shows how to protect `ConfigMaps`.
 - [web-server](./web-server/README.md): Protect `ConfigMaps` and `Secrets` by transforming them into encrypted CAS policies and mapping them as files into a web server. This example uses a `Deployment` instead of a `ConfigMap`.
 - [network-policy](./network-policy/README.md): Set up SCONE-protected client/server communication over mTLS in Kubernetes. Build native images first to validate behavior, then move to a fully protected SCONE deployment using a Kubernetes `NetworkPolicy`.
@@ -26,13 +51,14 @@ Use the following examples to learn how `scone-td-build` transforms applications
 - [flask-redis-netshield](./flask-redis-netshield/README.md): Extends `flask-redis` by adding a network policy to encrypt network traffic between `flask` and `redis` services.
 - [go-args-env-file](./go-args-env-file/README.md): Deploy a SCONE-protected Go utility that prints command-line arguments, environment variables, and reads two config files from `/config/`. We use a slightly enhanced Go runtime which uses a libc to issue system calls.
 - [java-args-env-file](./java-args-env-file/README.md): Deploy a Java utility that prints command-line arguments, environment variables, and reads two config files from `/config/`.
+- [image-signing](./image-signing/README.md): Sign and encrypt a confidential container image with a Sigstore key and verify the signature before deploying it to Kubernetes.
 - [software-updates](./software-updates/README.md): Perform a **software update** of a confidential Python application. `API_PASSWORD` is encrypted into the CAS session (never visible in any Kubernetes object) and preserved across the rolling update from Version 1 to Version 2.
 
 ## Background
 
 - [Kubernetes Basics](Kubernetes_basic_concepts.md): Some basic Kubernetes concepts that we use in our examples.
 - [Container Registry Basics](ContainerRegistryBasics.md): Some basic background related to repositories, pull secrets, etc.
-- [Create Own Repository](CreateOwnRepository.md): In the examples, we create new container images and push them to repositories. This document explains how to set up a repository on GitHub.
+- [Create Own Repository](CreatingOwnRepository.md): In the examples, we create new container images and push them to repositories. This document explains how to set up a repository on GitHub.
 
 ## Automation and Testing
 
