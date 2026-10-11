@@ -250,10 +250,13 @@ printf "${ORANGE}"
 printf '%s\n' '# Configure sigstore attachments for the registry (user-level, no sudo required).'
 printf '%s\n' '# Uses a demo-specific file rather than `default.yaml`, since `registries.d` merges'
 printf '%s\n' '# every file in the directory; this avoids overwriting any existing registry config.'
+printf '%s\n' '# The signatures go to the registry that receives the signed image, which is not'
+printf '%s\n' '# necessarily ${REGISTRY} (for example after ./scripts/use-registry.sh localhost:30500).'
+printf '%s\n' 'SIGNING_REGISTRY="${DESTINATION_IMAGE_NAME%%/*}"'
 printf '%s\n' 'mkdir -p ~/.config/containers/registries.d'
 printf '%s\n' 'cat <<EOF > ~/.config/containers/registries.d/image-signing-demo.yaml'
 printf '%s\n' 'docker:'
-printf '%s\n' '    ${REGISTRY}:'
+printf '%s\n' '    ${SIGNING_REGISTRY}:'
 printf '%s\n' '        use-sigstore-attachments: true'
 printf '%s\n' 'EOF'
 printf "${RESET}"
@@ -261,10 +264,13 @@ printf "${RESET}"
 # Configure sigstore attachments for the registry (user-level, no sudo required).
 # Uses a demo-specific file rather than `default.yaml`, since `registries.d` merges
 # every file in the directory; this avoids overwriting any existing registry config.
+# The signatures go to the registry that receives the signed image, which is not
+# necessarily ${REGISTRY} (for example after ./scripts/use-registry.sh localhost:30500).
+SIGNING_REGISTRY="${DESTINATION_IMAGE_NAME%%/*}"
 mkdir -p ~/.config/containers/registries.d
 cat <<EOF > ~/.config/containers/registries.d/image-signing-demo.yaml
 docker:
-    ${REGISTRY}:
+    ${SIGNING_REGISTRY}:
         use-sigstore-attachments: true
 EOF
 
@@ -494,14 +500,24 @@ printf '%s\n' '# Inspect the signed and encrypted image (metadata only, does not
 printf '%s\n' 'skopeo inspect docker://${DESTINATION_IMAGE_NAME}'
 printf '%s\n' '# Cryptographically verify the image was signed with our private key. --insecure-ignore-tlog is'
 printf '%s\n' '# required because this key pair signs offline and never uploads to the public transparency log.'
-printf '%s\n' 'cosign verify --key ./config/image-signing-key.pub --insecure-ignore-tlog ${DESTINATION_IMAGE_NAME}'
+printf '%s\n' '# A localhost registry (see ./scripts/use-registry.sh) speaks plain HTTP, so cosign must be told to use it.'
+printf '%s\n' 'COSIGN_REGISTRY_FLAGS=""'
+printf '%s\n' 'case "${DESTINATION_IMAGE_NAME%%/*}" in'
+printf '%s\n' '  localhost:*|127.0.0.1:*) COSIGN_REGISTRY_FLAGS="--allow-http-registry --allow-insecure-registry" ;;'
+printf '%s\n' 'esac'
+printf '%s\n' 'cosign verify ${COSIGN_REGISTRY_FLAGS} --key ./config/image-signing-key.pub --insecure-ignore-tlog ${DESTINATION_IMAGE_NAME}'
 printf "${RESET}"
 
 # Inspect the signed and encrypted image (metadata only, does not verify anything).
 skopeo inspect docker://${DESTINATION_IMAGE_NAME}
 # Cryptographically verify the image was signed with our private key. --insecure-ignore-tlog is
 # required because this key pair signs offline and never uploads to the public transparency log.
-cosign verify --key ./config/image-signing-key.pub --insecure-ignore-tlog ${DESTINATION_IMAGE_NAME}
+# A localhost registry (see ./scripts/use-registry.sh) speaks plain HTTP, so cosign must be told to use it.
+COSIGN_REGISTRY_FLAGS=""
+case "${DESTINATION_IMAGE_NAME%%/*}" in
+  localhost:*|127.0.0.1:*) COSIGN_REGISTRY_FLAGS="--allow-http-registry --allow-insecure-registry" ;;
+esac
+cosign verify ${COSIGN_REGISTRY_FLAGS} --key ./config/image-signing-key.pub --insecure-ignore-tlog ${DESTINATION_IMAGE_NAME}
 
 printf "${VIOLET}"
 printf '%s\n' ''
