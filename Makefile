@@ -43,6 +43,12 @@ ROWS              ?= 50
 
 DEPS := asciinema agg ffmpeg
 
+# Demos recorded through the generic docs/%.cast rules below.
+EXTRA_DEMOS       ?= java-args-env-file software-updates image-signing
+EXTRA_CASTS       := $(EXTRA_DEMOS:%=docs/%.cast)
+EXTRA_GIFS        := $(EXTRA_DEMOS:%=docs/%.gif)
+EXTRA_MP4S        := $(EXTRA_DEMOS:%=docs/%.mp4)
+
 ALL_CASTS := \
 	$(HELLOWORLD_CAST) \
 	$(CONFIGMAP_CAST) \
@@ -50,7 +56,8 @@ ALL_CASTS := \
 	$(FLASKREDIS_CAST) \
 	$(FLASKREDISNETSHIELD_CAST) \
 	$(NETWORKPOLICY_CAST) \
-	$(GOARGSENVFILE_CAST)
+	$(GOARGSENVFILE_CAST) \
+	$(EXTRA_CASTS)
 
 ALL_GIFS := \
 	$(HELLOWORLD_GIF) \
@@ -59,7 +66,8 @@ ALL_GIFS := \
 	$(FLASKREDIS_GIF) \
 	$(FLASKREDISNETSHIELD_GIF) \
 	$(NETWORKPOLICY_GIF) \
-	$(GOARGSENVFILE_GIF)
+	$(GOARGSENVFILE_GIF) \
+	$(EXTRA_GIFS)
 
 ALL_MP4S := \
 	$(HELLOWORLD_MP4) \
@@ -68,7 +76,8 @@ ALL_MP4S := \
 	$(FLASKREDIS_MP4) \
 	$(FLASKREDISNETSHIELD_MP4) \
 	$(NETWORKPOLICY_MP4) \
-	$(GOARGSENVFILE_MP4)
+	$(GOARGSENVFILE_MP4) \
+	$(EXTRA_MP4S)
 
 RED   := \033[0;31m
 GREEN := \033[0;32m
@@ -220,6 +229,21 @@ network-policy-mp4:    $(NETWORKPOLICY_MP4)
 go-args-env-file-record: $(GOARGSENVFILE_CAST)
 go-args-env-file-gif:    $(GOARGSENVFILE_GIF)
 go-args-env-file-mp4:    $(GOARGSENVFILE_MP4)
+
+# Generic rules for EXTRA_DEMOS, e.g. `make docs/image-signing.mp4`
+$(EXTRA_CASTS): docs/%.cast: docs/%.sh | check-deps
+	@echo "$(YELLOW)Recording to $@…$(RESET)"
+	@TYPE_SPEED=$(TYPE_SPEED) PAUSE_AFTER_CMD=$(PAUSE_AFTER_CMD) \
+	asciinema rec --cols "$(COLS)" --rows "$(ROWS)" --overwrite -q -t "$* Demo" -c "$<" $@
+	@echo "$(GREEN)✓ Recorded: $@$(RESET)"
+
+$(EXTRA_GIFS): docs/%.gif: docs/%.cast | check-deps
+	@agg --cols "$(COLS)" --rows "$(ROWS)" "$<" "$@"
+	@echo "$(GREEN)✓ GIF created: $@$(RESET)"
+
+$(EXTRA_MP4S): docs/%.mp4: docs/%.gif | check-deps
+	@ffmpeg -y -i "$<" -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -movflags +faststart -pix_fmt yuv420p "$@" >/dev/null 2>&1
+	@echo "$(GREEN)✓ MP4 created: $@$(RESET)"
 
 # -----------------------------
 # Dependency checks
