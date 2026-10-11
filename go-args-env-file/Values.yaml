@@ -10,3 +10,4 @@ environment:
   SCONE_ENCLAVE: 'false'
   SCONE_RUNTIME_VERSION: 6.0.8
   NAMESPACE: default
+  SCONE_HEAP: 512M

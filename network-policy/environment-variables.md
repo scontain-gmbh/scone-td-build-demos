@@ -22,3 +22,6 @@ This file defines the environment variables used to configure the `network-polic
     This should already be set to the output of `scone self show-session-signing-key`.
 11. The Kubernetes namespace where the demo manifests are deployed is stored in `${NAMESPACE}`.
     The default value is `default`.
+12. The enclave heap of each SCONE-protected container is stored in `${SCONE_HEAP}`.
+   The default is `512M`. With EDMM disabled, SGX commits the whole heap when the enclave starts,
+   so keep it small on nodes with little memory; larger heaps get the pod OOM-killed.

@@ -10,3 +10,4 @@ environment:
   REGISTRY: registry.scontain.com
   SCONE_RUNTIME_VERSION: 6.0.8
   NAMESPACE: default
+  SCONE_HEAP: 1G
