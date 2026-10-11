@@ -58,8 +58,14 @@ cat > "${work}/bin/kubectl" <<'MOCK'
 echo "$*" >> "$KUBECTL_LOG"
 case "$*" in
   "get svc -A -o jsonpath="*) printf '%b' "$MOCK_SVCS" ;;
-  "get --raw "*) [[ "$MOCK_IS_REGISTRY" == 1 ]] ;;
+  "get --raw "*)
+    case "$MOCK_IS_REGISTRY" in
+      1) echo '{}' ;;
+      401) echo 'Error from server (Unauthorized): the server has asked for the client to provide credentials' >&2; exit 1 ;;
+      *) echo 'Error from server (NotFound): the server could not find the requested resource' >&2; exit 1 ;;
+    esac ;;
   "apply -f "*) echo applied ;;
+  "-n registry rollout status "*) echo rolled-out ;;
   *) exit 1 ;;
 esac
 MOCK
@@ -69,8 +75,12 @@ ensure() {
   env PATH="${work}/bin:${PATH}" KUBECTL_LOG="${work}/kubectl.log" MOCK_SVCS="$1" MOCK_IS_REGISTRY="$2" \
     "${repo_root}/scripts/ensure-local-registry.sh" >/dev/null 2>&1 && rc=0 || rc=$?
 }
-ensure '' 0
+ensure '' 1
 check "free NodePort: the workshop registry is created" '[[ $rc == 0 ]] && grep -q "^apply -f" "${work}/kubectl.log"'
+check "free NodePort: waits for the rollout and /v2/ before success" \
+  'grep -q "rollout status deployment/registry" "${work}/kubectl.log" && grep -q "services/registry:5000/proxy/v2/" "${work}/kubectl.log"'
+ensure '30500 5000 |auth-ns/private-registry\n' 401
+check "registry that answers 401 (needs a login) is reused" '[[ $rc == 0 ]] && ! grep -q "^apply" "${work}/kubectl.log"'
 ensure '30500 30500 |reg-ns/registry-registry\n31000 80 |web/frontend\n' 1
 check "existing registry on the NodePort is reused" \
   '[[ $rc == 0 ]] && grep -q "proxy/v2/" "${work}/kubectl.log" && ! grep -q "^apply" "${work}/kubectl.log"'
