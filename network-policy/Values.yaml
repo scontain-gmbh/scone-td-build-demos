@@ -11,4 +11,4 @@ environment:
   CLIENT_IMAGE: registry.scontain.com/k8s-scone-images/network-policy:client
   SERVER_IMAGE: registry.scontain.com/k8s-scone-images/network-policy:server
   SCRIPT_DIR: .
-  SCONE_HEAP: 512M
+  ENCLAVE_HEAP: 512M
