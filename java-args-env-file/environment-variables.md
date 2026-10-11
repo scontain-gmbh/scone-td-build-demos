@@ -17,3 +17,6 @@ This file defines the environment variables used to configure this `configmap` e
    We recommend using confidential nodes and setting `${SCONE_ENCLAVE}` to `true`.
 9. We need to set the local signer: `${SIGNER}`
    This should already be preset to `scone self show-session-signing-key`
+10. The enclave heap of each SCONE-protected container is stored in `${SCONE_HEAP}`.
+   The default is `2G`. With EDMM disabled, SGX commits the whole heap when the enclave starts,
+   so keep it small on nodes with little memory; larger heaps get the pod OOM-killed.

@@ -23,3 +23,6 @@ This file defines the environment variables used to configure the `software-upda
     output of `scone self show-session-signing-key`; it is not collected here.
 13. The API user injected into the application is stored in `${API_USER}`.
     The default value is `myself`.
+14. The enclave heap of each SCONE-protected container is stored in `${SCONE_HEAP}`.
+   The default is `760M`. With EDMM disabled, SGX commits the whole heap when the enclave starts,
+   so keep it small on nodes with little memory; larger heaps get the pod OOM-killed.

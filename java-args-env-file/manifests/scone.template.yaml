@@ -31,7 +31,7 @@ spec:
   container-env:
     - { name: SCONE_VERSION,  value: "1" }
     - { name: SCONE_LOG,      value: "WARNING" }
-    - { name: SCONE_HEAP,     value: "6G" }
+    - { name: SCONE_HEAP,     value: "${SCONE_HEAP}" }
     - { name: SCONE_ALLOW_DLOPEN, value: "2" }
     - { name: SCONE_SYSLIBS, value: "1" }
   cas-policy-env:
