@@ -4,7 +4,7 @@ This file defines the environment variables used to configure the `nfs-shared-vo
 2. The URL of the generated confidential container image is stored in `${DESTINATION_IMAGE_NAME}`.
 3. The name of the pull secret for both the native and confidential container images is stored in `${IMAGE_PULL_SECRET_NAME}`.
 4. The SCONE version is stored in `${SCONE_RUNTIME_VERSION}`.
-   The recommended value is `6.1.0-rc.0`.
+   The recommended value is `6.0.8`.
 5. The CAS runs in Kubernetes namespace `${CAS_NAMESPACE}`, and its name is stored in `${CAS_NAME}`.
 6. The manifests do not derive the endpoint from those two: they use `${CAS_ENDPOINT}`, which
    defaults to `cas.default`. Changing `CAS_NAME` or `CAS_NAMESPACE` alone leaves the sessions
