@@ -33,11 +33,25 @@ Check your tools with:
 If you have no registry to push to, run a plain registry inside the cluster and point all demos at it:
 
 ```bash
-kubectl apply -f workshop/local-registry.yaml
+# Skip the apply if the cluster already serves a registry on NodePort 30500:
+kubectl get svc -A | grep -q ':30500/' || kubectl apply -f workshop/local-registry.yaml
 ./scripts/use-registry.sh localhost:30500
 ```
 
-The demos push to `localhost:30500` from the Docker engine in the cluster, and the nodes pull the same name through the NodePort. The registry uses plain HTTP and no authentication, and its images are lost when the pod restarts, so use it only on a workshop cluster. To use another registry, pass its prefix instead, for example `./scripts/use-registry.sh ghcr.io/<you>`.
+The nodes pull `localhost:30500/...` through the NodePort; containerd treats `localhost` as an insecure registry, so no node configuration is needed. The names must use `localhost`, not the node IP, because the nodes refuse plain HTTP for any other host.
+
+The Docker engine that builds and pushes the images must reach the same name:
+
+- If it runs in a pod (for example the `dind` pod of the SCONE toolbox), `localhost` is that pod, not the node. Add a sidecar that forwards `127.0.0.1:30500` to the registry service, for example `alpine/socat` with the arguments `TCP-LISTEN:30500,fork,reuseaddr,bind=127.0.0.1` and `TCP:<registry-service>.<namespace>.svc.cluster.local:<port>` (`registry.registry...:5000` for `workshop/local-registry.yaml`), and add the same sidecar to the pod that runs `skopeo`.
+- `skopeo` (image-signing demo) needs `localhost:30500` marked insecure, for example in `/etc/containers/registries.conf.d/50-local.conf`:
+
+  ```toml
+  [[registry]]
+  location = "localhost:30500"
+  insecure = true
+  ```
+
+The registry uses plain HTTP and no authentication, and it stores images in an `emptyDir`, so they are lost when the pod restarts and they count against the node's ephemeral storage. Use it only on a workshop cluster. To use another registry, pass its prefix instead, for example `./scripts/use-registry.sh ghcr.io/<you>`.
 
 ## Examples
 
