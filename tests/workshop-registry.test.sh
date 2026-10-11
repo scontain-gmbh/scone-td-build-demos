@@ -42,4 +42,39 @@ HOME="${work}/home2" DESTINATION_IMAGE_NAME="ghcr.io/me/image-signing:scone" PAT
   "set -euo pipefail; source '${work}/signing.sh'; source '${work}/verify.sh'"
 check "cosign keeps HTTPS for other registries" '! grep -q -- "--allow-http-registry" "${work}/cosign.args"'
 
+# 4. Generated scripts parse with every Bash we have (docs/*.sh run the screencasts).
+for shell in /bin/bash bash; do
+  bad=""
+  for f in "${repo_root}"/scripts/*.sh "${repo_root}"/docs/*.sh; do
+    "${shell}" -n "$f" 2>/dev/null || bad="${bad} $(basename "$f")"
+  done
+  check "generated scripts parse with $("${shell}" -c 'echo bash ${BASH_VERSION}')" '[[ -z $bad ]]'
+done
+
+# 5. ensure-local-registry.sh reuses a registry, creates one on a free port, and
+# refuses an unrelated service on the NodePort. Mocked kubectl.
+cat > "${work}/bin/kubectl" <<'MOCK'
+#!/usr/bin/env bash
+echo "$*" >> "$KUBECTL_LOG"
+case "$*" in
+  "get svc -A -o jsonpath="*) printf '%b' "$MOCK_SVCS" ;;
+  "get --raw "*) [[ "$MOCK_IS_REGISTRY" == 1 ]] ;;
+  "apply -f "*) echo applied ;;
+  *) exit 1 ;;
+esac
+MOCK
+chmod +x "${work}/bin/kubectl"
+ensure() {
+  : > "${work}/kubectl.log"
+  env PATH="${work}/bin:${PATH}" KUBECTL_LOG="${work}/kubectl.log" MOCK_SVCS="$1" MOCK_IS_REGISTRY="$2" \
+    "${repo_root}/scripts/ensure-local-registry.sh" >/dev/null 2>&1 && rc=0 || rc=$?
+}
+ensure '' 0
+check "free NodePort: the workshop registry is created" '[[ $rc == 0 ]] && grep -q "^apply -f" "${work}/kubectl.log"'
+ensure '30500 30500 |reg-ns/registry-registry\n31000 80 |web/frontend\n' 1
+check "existing registry on the NodePort is reused" \
+  '[[ $rc == 0 ]] && grep -q "proxy/v2/" "${work}/kubectl.log" && ! grep -q "^apply" "${work}/kubectl.log"'
+ensure '30500 80 |web/frontend\n' 0
+check "unrelated service on the NodePort stops the setup" '[[ $rc != 0 ]] && ! grep -q "^apply" "${work}/kubectl.log"'
+
 exit "${failures}"
