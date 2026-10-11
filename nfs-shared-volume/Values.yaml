@@ -13,3 +13,4 @@ environment:
   TEE_TYPE: sgx
   SCONE_ENCLAVE: 'false'
   NAMESPACE: nfs-demo
+  ENCLAVE_HEAP: 760M

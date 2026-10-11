@@ -15,3 +15,6 @@ This file defines the environment variables used to configure the `nfs-shared-vo
    We recommend using confidential nodes and setting `${SCONE_ENCLAVE}` to `true`.
 9. The Kubernetes namespace where the demo runs is stored in `${NAMESPACE}`.
    The two Deployments share one PVC in this namespace, which is what triggers the NFS re-sharing.
+10. The enclave heap of each SCONE-protected container is stored in `${ENCLAVE_HEAP}`.
+   The default is `760M`. With EDMM disabled, SGX commits the whole heap when the enclave starts,
+   so keep it small on nodes with little memory; larger heaps get the pod OOM-killed.
