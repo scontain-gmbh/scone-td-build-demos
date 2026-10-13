@@ -127,6 +127,8 @@ fi
 source ../scripts/load-registry-credentials.sh
 read -r -a registry_confirmation_options <<< "${CONFIRM_ALL_ENVIRONMENT_VARIABLES-}"
 registry_values_temporary="$(mktemp Values.credentials.yaml.XXXXXX)"
+# The temporary file holds the token; remove it even if this step is interrupted.
+trap 'rm -f "$registry_values_temporary"' EXIT
 if [[ -f Values.credentials.yaml ]]; then
   cp -p Values.credentials.yaml "$registry_values_temporary"
 fi
@@ -144,9 +146,17 @@ else
   exit 1
 fi
 
-kubectl create secret docker-registry -n "$NAMESPACE" "$IMAGE_PULL_SECRET_NAME" \
-  --docker-server="$REGISTRY" --docker-username="$REGISTRY_USER" --docker-password="$REGISTRY_TOKEN" \
-  --dry-run=client -o yaml | kubectl apply -n "$NAMESPACE" -f -
+trap - EXIT
+
+# Pass the credentials on stdin: as command-line flags the token would be visible in `ps`.
+registry_auth="$(printf '%s:%s' "$REGISTRY_USER" "$REGISTRY_TOKEN" | base64 | tr -d '\n')"
+printf '{"auths":{"%s":{"username":"%s","password":"%s","auth":"%s"}}}' \
+  "$REGISTRY" "$REGISTRY_USER" "$REGISTRY_TOKEN" "$registry_auth" \
+  | kubectl create secret generic -n "$NAMESPACE" "$IMAGE_PULL_SECRET_NAME" \
+      --type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson=/dev/stdin \
+      --dry-run=client -o yaml \
+  | kubectl apply -n "$NAMESPACE" -f -
+unset registry_auth
 ```
 
 ---
