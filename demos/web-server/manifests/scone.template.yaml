@@ -27,7 +27,7 @@ spec:
     - {name: SCONE_SYSLIBS, value: "1"}
     - {name: SCONE_PRODUCTION, value: "0"}
     - {name: SCONE_VERSION, value: "1"}
-    - {name: SCONE_HEAP, value: "${SCONE_HEAP}"}
+    - {name: SCONE_HEAP, value: "${ENCLAVE_HEAP}"}
   cas-policy-env:
     - {name: SCONE_VERSION, value: "1"}
   permissive: true

@@ -10,4 +10,4 @@ environment:
   SCONE_ENCLAVE: 'false'
   REGISTRY: registry.scontain.com
   NAMESPACE: default
-  SCONE_HEAP: 512M
+  ENCLAVE_HEAP: 512M
