@@ -5,8 +5,9 @@ environment:
   CAS_NAMESPACE: default
   CAS_NAME: cas
   DESTINATION_IMAGE_NAME: registry.scontain.com/k8s-scone-images/image-signing:scone
-  CVM_MODE: ''
-  SCONE_ENCLAVE: ''
+  TEE_TYPE: sgx
+  SCONE_ENCLAVE: 'false'
+  CAS_ENDPOINT: cas.default
   REGISTRY: registry.scontain.com
   SCONE_RUNTIME_VERSION: 6.0.8
   NAMESPACE: ci-scone-td-build

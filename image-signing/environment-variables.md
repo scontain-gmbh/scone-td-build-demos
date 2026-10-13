@@ -10,10 +10,13 @@ This file defines the environment variables used to configure this `image-signin
 5. The SCONE version is stored in `${SCONE_RUNTIME_VERSION}`.
    The current value is `6.0.8`.
 6. The CAS runs in Kubernetes namespace `${CAS_NAMESPACE}`.
+   `${CAS_NAME}` and `${CAS_NAMESPACE}` address the in-cluster CAS for `kubectl` calls.
 7. The CAS name is stored in `${CAS_NAME}`.
-8. If you want to use CVM mode, set `${CVM_MODE}` to `--cvm`. For SGX, leave it empty or single space.
-9. In CVM mode, you can run on confidential Kubernetes nodes or Kata Pods (set to empty).
-   We recommend using confidential nodes and setting `${SCONE_ENCLAVE}` to `--scone-enclave`.
+   The manifests use `${CAS_ENDPOINT}` instead, which defaults to `cas.default`. Point it at
+   a public CAS to run against one, for example `CAS_ENDPOINT=edge.scone-cas.cf`.
+8. Set `${TEE_TYPE}` to `cvm` for CVM mode or `sgx` for SGX.
+9. In CVM mode, you can run on confidential Kubernetes nodes or Kata Pods.
+   We recommend using confidential nodes and setting `${SCONE_ENCLAVE}` to `true`.
 10. The Kubernetes namespace where the demo manifests are deployed is stored in `${NAMESPACE}`.
     The default value is `ci-scone-td-build`.
 11. The container registry hostname is stored in `${REGISTRY}`.

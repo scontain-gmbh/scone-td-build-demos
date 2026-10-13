@@ -176,22 +176,12 @@ all_values_files=(
   "${repo_root}/nfs-shared-volume/Values.yaml"
 )
 
-# tee-type replaced the old cvm boolean, so the migrated demos consume SCONE_ENCLAVE as a
-# boolean value. image-signing (added upstream) still ships the flag-style SCONE_ENCLAVE,
-# so it is overridden after the shared loop below.
-flag_mode_files=(
-  "${repo_root}/image-signing/Values.yaml"
-)
 if [[ "$mode" == "sgx" ]]; then
   tee_type="sgx"
   scone_enclave="'false'"
-  flag_scone_enclave="''"
-  flag_cvm_mode="''"
 else
   tee_type="cvm"
   scone_enclave="'true'"
-  flag_scone_enclave="--scone-enclave"
-  flag_cvm_mode="--cvm"
 fi
 
 for values_file in "${all_values_files[@]}"; do
@@ -221,14 +211,6 @@ for values_file in "${all_values_files[@]}"; do
       upsert_scalar "$values_file" "CAS_ENDPOINT" "${eff_cas_name}.${eff_cas_namespace}"
     fi
   fi
-done
-
-# image-signing still uses the flag-style SCONE_ENCLAVE and CVM_MODE (it passes --cvm into
-# `scone-td-build register`), so override the boolean/tee-type set above; otherwise the CVM
-# sweep would leave it on the SGX path.
-for values_file in "${flag_mode_files[@]}"; do
-  upsert_scalar "$values_file" "SCONE_ENCLAVE" "$flag_scone_enclave"
-  upsert_scalar "$values_file" "CVM_MODE" "$flag_cvm_mode"
 done
 
 declare -A seen_namespaces=()

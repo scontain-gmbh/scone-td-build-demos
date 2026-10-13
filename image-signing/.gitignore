@@ -4,6 +4,7 @@ manifest.job.session.yaml
 manifest.job.sanitized.yaml
 k8s/kbs.yaml
 k8s/key-provider.yaml
-storage.json
+image-signing-example.json
+manifests/scone.yaml
 config/image-signing-key.private
 config/image-signing-key.pub
