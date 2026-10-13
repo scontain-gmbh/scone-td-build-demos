@@ -35,7 +35,7 @@ printf '%s\n' "$*" >> "$MOCK_CALLS"
 case "$*" in
   'get namespace '*) [[ "${MOCK_NAMESPACE_MISSING:-false}" != true ]] ;;
   'create namespace '*) exit 1 ;;
-  'create secret docker-registry '*) printf '{"kind":"Secret"}\n' ;;
+  'create secret generic '*) cat > "$MOCK_SECRET_INPUT"; printf '{"kind":"Secret"}\n' ;;
   'apply '*) cat >/dev/null ;;
   *) exit 99 ;;
 esac
@@ -59,7 +59,7 @@ cat > "$work/bin/scone-td-build" <<'MOCK'
 printf '%s\n' --unattested-shared-server
 MOCK
 chmod +x "$work/bin/"* "$fixture/java-args-env-file/setup-secret.sh"
-export MOCK_REAL_TPLENV="$real_tplenv" MOCK_CALLS="$work/calls"
+export MOCK_REAL_TPLENV="$real_tplenv" MOCK_CALLS="$work/calls" MOCK_SECRET_INPUT="$work/secret-input"
 export PATH="$work/bin:$PATH" SCONE_REGISTRY_ENV_FILE="$work/startup.env"
 export NAMESPACE=java-demo IMAGE_PULL_SECRET_NAME=sconeapps SIGNER=test-signer
 export CONFIRM_ALL_ENVIRONMENT_VARIABLES=""
@@ -84,7 +84,12 @@ run_java() {
 }
 sha256sum "$fixture/java-args-env-file/Values.yaml" > "$work/values-before"
 run_java env
-grep -Fq -- '--docker-server=selected.example --docker-username=selected-user --docker-password=selected-token --dry-run=client' "$MOCK_CALLS"
+grep -Fq -- 'create secret generic -n java-demo sconeapps --type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson=/dev/stdin --dry-run=client' "$MOCK_CALLS"
+grep -Fq '"selected.example":{"username":"selected-user","password":"selected-token"' "$MOCK_SECRET_INPUT"
+if grep -Fq selected-token "$MOCK_CALLS"; then
+  echo 'FAIL - the registry token is on the kubectl command line' >&2
+  exit 1
+fi
 grep -Fq 'apply -n java-demo -f -' "$MOCK_CALLS"
 sha256sum "$fixture/java-args-env-file/Values.yaml" > "$work/values-after"
 cmp -s "$work/values-before" "$work/values-after"
@@ -98,7 +103,7 @@ environment:
 VALUES
 mv "$fixture/java-args-env-file/Values.credentials.yaml.next" "$fixture/java-args-env-file/Values.credentials.yaml"
 run_java env
-grep -Fq -- '--docker-server=saved.example --docker-username=saved-user --docker-password=saved-token' "$MOCK_CALLS"
+grep -Fq '"saved.example":{"username":"saved-user","password":"saved-token"' "$MOCK_SECRET_INPUT"
 printf 'ok - ignored local credentials retain tplenv saved-value precedence\n'
 sha256sum "$fixture/java-args-env-file/Values.credentials.yaml" > "$work/credentials-before"
 if run_java env MOCK_FAIL_CREDENTIALS=true; then
@@ -107,6 +112,10 @@ if run_java env MOCK_FAIL_CREDENTIALS=true; then
 fi
 sha256sum "$fixture/java-args-env-file/Values.credentials.yaml" > "$work/credentials-after"
 cmp -s "$work/credentials-before" "$work/credentials-after"
+if compgen -G "$fixture/java-args-env-file/Values.credentials.yaml.*" >/dev/null; then
+  echo 'FAIL - a temporary credentials file was left behind' >&2
+  exit 1
+fi
 if grep -Fq 'create secret' "$MOCK_CALLS"; then
   echo 'FAIL - invalid setup still attempted secret creation' >&2
   exit 1

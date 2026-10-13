@@ -308,6 +308,14 @@ registry_values_temporary="$(mktemp Values.credentials.yaml.XXXXXX)"
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
+# The temporary file holds the token; remove it even if this step is interrupted.
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+trap 'rm -f "$registry_values_temporary"' EXIT
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 if [[ -f Values.credentials.yaml ]]; then
 EOF
 pe "${PE_CMD%$'\n'}"
@@ -376,9 +384,32 @@ IFS= read -r -d '' PE_CMD <<'EOF' || true
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
-kubectl create secret docker-registry -n "$NAMESPACE" "$IMAGE_PULL_SECRET_NAME" \
-  --docker-server="$REGISTRY" --docker-username="$REGISTRY_USER" --docker-password="$REGISTRY_TOKEN" \
-  --dry-run=client -o yaml | kubectl apply -n "$NAMESPACE" -f -
+trap - EXIT
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+# Pass the credentials on stdin: as command-line flags the token would be visible in `ps`.
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+registry_auth="$(printf '%s:%s' "$REGISTRY_USER" "$REGISTRY_TOKEN" | base64 | tr -d '\n')"
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+printf '{"auths":{"%s":{"username":"%s","password":"%s","auth":"%s"}}}' \
+  "$REGISTRY" "$REGISTRY_USER" "$REGISTRY_TOKEN" "$registry_auth" \
+  | kubectl create secret generic -n "$NAMESPACE" "$IMAGE_PULL_SECRET_NAME" \
+      --type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson=/dev/stdin \
+      --dry-run=client -o yaml \
+  | kubectl apply -n "$NAMESPACE" -f -
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+unset registry_auth
 EOF
 pe "${PE_CMD%$'\n'}"
 
