@@ -152,11 +152,11 @@ pushd image-signing
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
-# Remove `storage.json` if it exists.
+# Remove the state file of an earlier run, if it exists.
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
-rm -f storage.json || true
+rm -f image-signing-example.json || true
 EOF
 pe "${PE_CMD%$'\n'}"
 
@@ -176,8 +176,9 @@ printf '%s\n' '- `$REPO_CREDENTIALS` - Path to Docker credentials file used by t
 printf '%s\n' '- `$SCONE_RUNTIME_VERSION` - SCONE version to use (for example, `6.0.8`)'
 printf '%s\n' '- `$CAS_NAMESPACE` - CAS Kubernetes namespace (for example, `default`)'
 printf '%s\n' '- `$CAS_NAME` - CAS Kubernetes name (for example, `cas`)'
-printf '%s\n' '- `$CVM_MODE` - Set to `--cvm` for CVM mode, otherwise leave empty for SGX'
-printf '%s\n' '- `$SCONE_ENCLAVE` - In CVM mode, set to `--scone-enclave` for confidential nodes, or leave empty for Kata Pods'
+printf '%s\n' '- `$CAS_ENDPOINT` - Address the manifest targets; keep it in sync with `$CAS_NAME`.`$CAS_NAMESPACE` (default: `cas.default`), or set to an external CAS address to run against one'
+printf '%s\n' '- `$TEE_TYPE` - Set to `cvm` for CVM mode or `sgx` for SGX'
+printf '%s\n' '- `$SCONE_ENCLAVE` - In CVM mode, set to `true` for confidential nodes, or `false` for Kata Pods'
 printf '%s\n' '- `$NAMESPACE` - Kubernetes namespace where the demo runs (default: `ci-scone-td-build`)'
 printf '%s\n' ''
 printf '%s\n' 'Defaults are stored in `Values.yaml`. We use [`tplenv`](https://github.com/scontainug/tplenv) to confirm or override values:'
@@ -573,10 +574,12 @@ printf '%s\n' 'If attestation fails, inspect the command output for detected vul
 printf '%s\n' ''
 printf '%s\n' '## 9. Register and Sign the Confidential Image'
 printf '%s\n' ''
-printf '%s\n' 'The `--signing-key` flag activates the encrypted-image flow: `scone-td-build` sconifies the image,'
-printf '%s\n' 'then uses `skopeo` to encrypt the layers with the attestation-agent key provider and embed a'
-printf '%s\n' 'Sigstore signature. When `--destination-image` is set the result is pushed directly to'
-printf '%s\n' '`${DESTINATION_IMAGE_NAME}` (no `-encrypted` suffix is added).'
+printf '%s\n' '`manifests/scone.template.yaml` holds a `Register` document and an `Apply` document. Setting'
+printf '%s\n' '`image-signing-key`, `signing-key-passphrase-file` and `registry-auth-file` in the `Register`'
+printf '%s\n' 'document activates the encrypted-image flow: `scone-td-build` sconifies the image, then uses'
+printf '%s\n' '`skopeo` to encrypt the layers with the attestation-agent key provider, embed a Sigstore'
+printf '%s\n' 'signature, and push the result to `${DESTINATION_IMAGE_NAME}`. The `Apply` document then'
+printf '%s\n' 'writes `manifest.job.sanitized.yaml` and the CAS policies for the encrypted image.'
 printf '%s\n' ''
 printf '%s\n' '`${REPO_CREDENTIALS}` defaults to `${HOME}/.docker/config.json` in `Values.yaml`, and `tplenv`'
 printf '%s\n' 'exports it as a literal, single-quoted string, so `$HOME` is never expanded by the shell on its'
@@ -608,22 +611,23 @@ repo_credentials="${repo_credentials/#\~/$HOME}"
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
-# Register, sign, and encrypt the confidential image.
+export REPO_CREDENTIALS="$repo_credentials"
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
-OCICRYPT_KEYPROVIDER_CONFIG=./config/ocicrypt.conf \
-  scone-td-build register \
-    --protected-image $IMAGE_NAME \
-    --unprotected-image rust:latest \
-    --manifest-env SCONE_PRODUCTION=0 \
-    -s ./storage.json \
-    --destination-image ${DESTINATION_IMAGE_NAME} \
-    --signing-key ./config/image-signing-key.private \
-    --signing-passphrase-file ./config/empty-passphrase.txt \
-    --repo-credentials "${repo_credentials}" \
-    --version ${SCONE_RUNTIME_VERSION} \
-    ${CVM_MODE}
+# Render from the environment: Values.yaml would bring back the unexpanded REPO_CREDENTIALS.
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+tplenv --values-file /dev/null --file manifests/scone.template.yaml --output manifests/scone.yaml --indent
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+# Register, sign, and encrypt the confidential image, then generate the sanitized manifest.
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+OCICRYPT_KEYPROVIDER_CONFIG=./config/ocicrypt.conf scone-td-build apply -f manifests/scone.yaml
 EOF
 pe "${PE_CMD%$'\n'}"
 
@@ -688,14 +692,9 @@ printf '%s\n' '> containerd to be configured with the `ocicrypt` stream processo
 printf '%s\n' '> image layers at pull time. Plain k3d clusters do not include this. See'
 printf '%s\n' '> [containers/ocicrypt](https://github.com/containers/ocicrypt) for setup instructions.'
 printf '%s\n' '>'
-printf '%s\n' '> Once the cluster has `ctd-decoder`, run:'
+printf '%s\n' '> Once the cluster has `ctd-decoder`, deploy the manifest generated in step 9:'
 printf '%s\n' '>'
 printf '%s\n' '> ```text'
-printf '%s\n' '> scone-td-build apply -f manifest.job.yaml -c ${CAS_NAME}.${CAS_NAMESPACE} -p -s ./storage.json \'
-printf '%s\n' '>   --manifest-env SCONE_SYSLIBS=1 --manifest-env SCONE_PRODUCTION=0 --manifest-env SCONE_HEAP=1G \'
-printf '%s\n' '>   --spol --manifest-env SCONE_VERSION=1 --output-manifest-file manifest.job.sanitized.yaml \'
-printf '%s\n' '>   --version ${SCONE_RUNTIME_VERSION} ${CVM_MODE} ${SCONE_ENCLAVE}'
-printf '%s\n' '>'
 printf '%s\n' '> kubectl apply -f manifest.job.sanitized.yaml -n ${NAMESPACE}'
 printf '%s\n' '> kubectl wait --for=condition=complete job/image-signing -n ${NAMESPACE} --timeout=300s'
 printf '%s\n' '> kubectl logs job/image-signing -n ${NAMESPACE} --follow --pod-running-timeout=2m --timestamps'
