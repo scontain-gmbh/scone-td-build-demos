@@ -254,7 +254,12 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## 6. Add a Docker Registry Secret'
 printf '%s\n' ''
-printf '%s\n' 'If you need a pull secret for native and confidential images, create it when missing:'
+printf '%s\n' 'The pull secret is refreshed with the credentials selected by `tplenv`.'
+printf '%s\n' 'Inside the SCONE toolbox, setup loads its mounted registry credentials first.'
+printf '%s\n' 'Saved overrides belong in the ignored `Values.credentials.yaml`; empty registry'
+printf '%s\n' 'fields in the shared `Values.yaml` must not mask the toolbox credentials.'
+printf '%s\n' 'The namespace must already exist when running with the toolbox service account;'
+printf '%s\n' '`k8s_cli.sh` provisions the standard demo namespaces and scoped roles.'
 printf '%s\n' ''
 printf '%s\n' '- `$REGISTRY` — Registry hostname (default: `registry.scontain.com`)'
 printf '%s\n' '- `$REGISTRY_USER` — Registry login name'
@@ -263,7 +268,27 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 IFS= read -r -d '' PE_CMD <<'EOF' || true
-kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching of namespace ${NAMESPACE} failed -- ignoring this"
+if ! kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+  if ! kubectl create namespace "$NAMESPACE"; then
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+    echo "Namespace $NAMESPACE is unavailable. Run toolbox setup using a cluster administrator first." >&2
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+    exit 1
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+  fi
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+fi
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
@@ -271,11 +296,63 @@ IFS= read -r -d '' PE_CMD <<'EOF' || true
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
-if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
+source ../scripts/load-registry-credentials.sh
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
-  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"
+read -r -a registry_confirmation_options <<< "${CONFIRM_ALL_ENVIRONMENT_VARIABLES-}"
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+registry_values_temporary="$(mktemp Values.credentials.yaml.XXXXXX)"
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+if [[ -f Values.credentials.yaml ]]; then
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+  cp -p Values.credentials.yaml "$registry_values_temporary"
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+fi
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+if registry_exports="$(tplenv --values "$registry_values_temporary" --file registry.credentials.md --create-values-file --eval "${registry_confirmation_options[@]}")"; then
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+  eval "$registry_exports"
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+  if [[ -z "${REGISTRY:-}" || -z "${REGISTRY_USER:-}" || -z "${REGISTRY_TOKEN:-}" ]]; then
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+    rm -f "$registry_values_temporary"
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+    echo "Registry credentials are incomplete. Run this demo interactively or configure Values.credentials.yaml." >&2
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+    exit 1
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+  fi
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+  chmod 600 "$registry_values_temporary"
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+  mv -f "$registry_values_temporary" Values.credentials.yaml
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
@@ -283,20 +360,25 @@ else
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
-  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
+  rm -f "$registry_values_temporary"
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
-  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
-EOF
-pe "${PE_CMD%$'\n'}"
-IFS= read -r -d '' PE_CMD <<'EOF' || true
-  kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \
-    --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
+  exit 1
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
 fi
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+kubectl create secret docker-registry -n "$NAMESPACE" "$IMAGE_PULL_SECRET_NAME" \
+  --docker-server="$REGISTRY" --docker-username="$REGISTRY_USER" --docker-password="$REGISTRY_TOKEN" \
+  --dry-run=client -o yaml | kubectl apply -n "$NAMESPACE" -f -
 EOF
 pe "${PE_CMD%$'\n'}"
 
