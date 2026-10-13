@@ -105,23 +105,48 @@ Before applying, confirm that image values were substituted correctly.
 
 ## 6. Add a Docker Registry Secret
 
-If you need a pull secret for native and confidential images, create it when missing:
+The pull secret is refreshed with the credentials selected by `tplenv`.
+Inside the SCONE toolbox, setup loads its mounted registry credentials first.
+Saved overrides belong in the ignored `Values.credentials.yaml`; empty registry
+fields in the shared `Values.yaml` must not mask the toolbox credentials.
+The namespace must already exist when running with the toolbox service account;
+`k8s_cli.sh` provisions the standard demo namespaces and scoped roles.
 
 - `$REGISTRY` — Registry hostname (default: `registry.scontain.com`)
 - `$REGISTRY_USER` — Registry login name
 - `$REGISTRY_TOKEN` — Registry pull token (see <https://sconedocs.github.io/registry/>)
 
 ```bash
-kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching of namespace ${NAMESPACE} failed -- ignoring this"
-
-if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
-  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"
-else
-  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
-  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
-  kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \
-    --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
+if ! kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
+  if ! kubectl create namespace "$NAMESPACE"; then
+    echo "Namespace $NAMESPACE is unavailable. Run toolbox setup using a cluster administrator first." >&2
+    exit 1
+  fi
 fi
+
+source ../scripts/load-registry-credentials.sh
+read -r -a registry_confirmation_options <<< "${CONFIRM_ALL_ENVIRONMENT_VARIABLES-}"
+registry_values_temporary="$(mktemp Values.credentials.yaml.XXXXXX)"
+if [[ -f Values.credentials.yaml ]]; then
+  cp -p Values.credentials.yaml "$registry_values_temporary"
+fi
+if registry_exports="$(tplenv --values "$registry_values_temporary" --file registry.credentials.md --create-values-file --eval "${registry_confirmation_options[@]}")"; then
+  eval "$registry_exports"
+  if [[ -z "${REGISTRY:-}" || -z "${REGISTRY_USER:-}" || -z "${REGISTRY_TOKEN:-}" ]]; then
+    rm -f "$registry_values_temporary"
+    echo "Registry credentials are incomplete. Run this demo interactively or configure Values.credentials.yaml." >&2
+    exit 1
+  fi
+  chmod 600 "$registry_values_temporary"
+  mv -f "$registry_values_temporary" Values.credentials.yaml
+else
+  rm -f "$registry_values_temporary"
+  exit 1
+fi
+
+kubectl create secret docker-registry -n "$NAMESPACE" "$IMAGE_PULL_SECRET_NAME" \
+  --docker-server="$REGISTRY" --docker-username="$REGISTRY_USER" --docker-password="$REGISTRY_TOKEN" \
+  --dry-run=client -o yaml | kubectl apply -n "$NAMESPACE" -f -
 ```
 
 ---

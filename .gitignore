@@ -12,3 +12,5 @@ manifest.prod.sanitized.yaml
 scone.yaml
 docs/superpowers/
 .worktrees/
+Values.credentials.yaml
+Values.credentials.yaml.*

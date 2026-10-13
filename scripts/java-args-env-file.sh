@@ -210,7 +210,12 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## 6. Add a Docker Registry Secret'
 printf '%s\n' ''
-printf '%s\n' 'If you need a pull secret for native and confidential images, create it when missing:'
+printf '%s\n' 'The pull secret is refreshed with the credentials selected by `tplenv`.'
+printf '%s\n' 'Inside the SCONE toolbox, setup loads its mounted registry credentials first.'
+printf '%s\n' 'Saved overrides belong in the ignored `Values.credentials.yaml`; empty registry'
+printf '%s\n' 'fields in the shared `Values.yaml` must not mask the toolbox credentials.'
+printf '%s\n' 'The namespace must already exist when running with the toolbox service account;'
+printf '%s\n' '`k8s_cli.sh` provisions the standard demo namespaces and scoped roles.'
 printf '%s\n' ''
 printf '%s\n' '- `$REGISTRY` — Registry hostname (default: `registry.scontain.com`)'
 printf '%s\n' '- `$REGISTRY_USER` — Registry login name'
@@ -219,28 +224,68 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' 'kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching of namespace ${NAMESPACE} failed -- ignoring this"'
-printf '%s\n' ''
-printf '%s\n' 'if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then'
-printf '%s\n' '  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"'
-printf '%s\n' 'else'
-printf '%s\n' '  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."'
-printf '%s\n' '  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})'
-printf '%s\n' '  kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \'
-printf '%s\n' '    --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN'
+printf '%s\n' 'if ! kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then'
+printf '%s\n' '  if ! kubectl create namespace "$NAMESPACE"; then'
+printf '%s\n' '    echo "Namespace $NAMESPACE is unavailable. Run toolbox setup using a cluster administrator first." >&2'
+printf '%s\n' '    exit 1'
+printf '%s\n' '  fi'
 printf '%s\n' 'fi'
+printf '%s\n' ''
+printf '%s\n' 'source ../scripts/load-registry-credentials.sh'
+printf '%s\n' 'read -r -a registry_confirmation_options <<< "${CONFIRM_ALL_ENVIRONMENT_VARIABLES-}"'
+printf '%s\n' 'registry_values_temporary="$(mktemp Values.credentials.yaml.XXXXXX)"'
+printf '%s\n' 'if [[ -f Values.credentials.yaml ]]; then'
+printf '%s\n' '  cp -p Values.credentials.yaml "$registry_values_temporary"'
+printf '%s\n' 'fi'
+printf '%s\n' 'if registry_exports="$(tplenv --values "$registry_values_temporary" --file registry.credentials.md --create-values-file --eval "${registry_confirmation_options[@]}")"; then'
+printf '%s\n' '  eval "$registry_exports"'
+printf '%s\n' '  if [[ -z "${REGISTRY:-}" || -z "${REGISTRY_USER:-}" || -z "${REGISTRY_TOKEN:-}" ]]; then'
+printf '%s\n' '    rm -f "$registry_values_temporary"'
+printf '%s\n' '    echo "Registry credentials are incomplete. Run this demo interactively or configure Values.credentials.yaml." >&2'
+printf '%s\n' '    exit 1'
+printf '%s\n' '  fi'
+printf '%s\n' '  chmod 600 "$registry_values_temporary"'
+printf '%s\n' '  mv -f "$registry_values_temporary" Values.credentials.yaml'
+printf '%s\n' 'else'
+printf '%s\n' '  rm -f "$registry_values_temporary"'
+printf '%s\n' '  exit 1'
+printf '%s\n' 'fi'
+printf '%s\n' ''
+printf '%s\n' 'kubectl create secret docker-registry -n "$NAMESPACE" "$IMAGE_PULL_SECRET_NAME" \'
+printf '%s\n' '  --docker-server="$REGISTRY" --docker-username="$REGISTRY_USER" --docker-password="$REGISTRY_TOKEN" \'
+printf '%s\n' '  --dry-run=client -o yaml | kubectl apply -n "$NAMESPACE" -f -'
 printf "${RESET}"
 
-kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching of namespace ${NAMESPACE} failed -- ignoring this"
-
-if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
-  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"
-else
-  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
-  eval $(tplenv --file registry.credentials.md --create-values-file --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-})
-  kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \
-    --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
+if ! kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
+  if ! kubectl create namespace "$NAMESPACE"; then
+    echo "Namespace $NAMESPACE is unavailable. Run toolbox setup using a cluster administrator first." >&2
+    exit 1
+  fi
 fi
+
+source ../scripts/load-registry-credentials.sh
+read -r -a registry_confirmation_options <<< "${CONFIRM_ALL_ENVIRONMENT_VARIABLES-}"
+registry_values_temporary="$(mktemp Values.credentials.yaml.XXXXXX)"
+if [[ -f Values.credentials.yaml ]]; then
+  cp -p Values.credentials.yaml "$registry_values_temporary"
+fi
+if registry_exports="$(tplenv --values "$registry_values_temporary" --file registry.credentials.md --create-values-file --eval "${registry_confirmation_options[@]}")"; then
+  eval "$registry_exports"
+  if [[ -z "${REGISTRY:-}" || -z "${REGISTRY_USER:-}" || -z "${REGISTRY_TOKEN:-}" ]]; then
+    rm -f "$registry_values_temporary"
+    echo "Registry credentials are incomplete. Run this demo interactively or configure Values.credentials.yaml." >&2
+    exit 1
+  fi
+  chmod 600 "$registry_values_temporary"
+  mv -f "$registry_values_temporary" Values.credentials.yaml
+else
+  rm -f "$registry_values_temporary"
+  exit 1
+fi
+
+kubectl create secret docker-registry -n "$NAMESPACE" "$IMAGE_PULL_SECRET_NAME" \
+  --docker-server="$REGISTRY" --docker-username="$REGISTRY_USER" --docker-password="$REGISTRY_TOKEN" \
+  --dry-run=client -o yaml | kubectl apply -n "$NAMESPACE" -f -
 
 printf "${VIOLET}"
 printf '%s\n' ''
