@@ -103,18 +103,35 @@ Before applying, confirm that image values were substituted correctly.
 
 ## 6. Add a Docker Registry Secret
 
-If you need a pull secret for native and confidential images, create it when missing:
+The pull secret is refreshed with the registry credentials loaded in step 3.
+Inside the SCONE toolbox, its mounted registry credentials take precedence.
+The namespace must already exist when running with the toolbox service account;
+`k8s_cli.sh` provisions the standard demo namespaces and scoped roles.
 
 ```bash
-kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching of namespace ${NAMESPACE} failed -- ignoring this"
-
-if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
-  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"
-else
-  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
-  kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \
-    --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
+if ! kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
+  if ! kubectl create namespace "$NAMESPACE"; then
+    echo "Namespace $NAMESPACE is unavailable. Run toolbox setup using a cluster administrator first." >&2
+    exit 1
+  fi
 fi
+
+# Inside the toolbox, use its mounted registry credentials.
+source "$DEMO_DIR/../../scripts/load-registry-credentials.sh"
+if [[ -z "${REGISTRY:-}" || -z "${REGISTRY_USER:-}" || -z "${REGISTRY_TOKEN:-}" ]]; then
+  echo "Registry credentials are incomplete. Run this demo interactively or set REGISTRY, REGISTRY_USER and REGISTRY_TOKEN." >&2
+  exit 1
+fi
+
+# Pass the credentials on stdin: as command-line flags the token would be visible in `ps`.
+registry_auth="$(printf '%s:%s' "$REGISTRY_USER" "$REGISTRY_TOKEN" | base64 | tr -d '\n')"
+printf '{"auths":{"%s":{"username":"%s","password":"%s","auth":"%s"}}}' \
+  "$REGISTRY" "$REGISTRY_USER" "$REGISTRY_TOKEN" "$registry_auth" \
+  | kubectl create secret generic -n "$NAMESPACE" "$IMAGE_PULL_SECRET_NAME" \
+      --type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson=/dev/stdin \
+      --dry-run=client -o yaml \
+  | kubectl apply -n "$NAMESPACE" -f -
+unset registry_auth
 ```
 
 ---

@@ -168,8 +168,13 @@ run_all_script="scripts/run-all-demos.sh"
   echo '  exit 1'
   echo 'fi'
   echo
+  echo '# Registry exports from the entrypoint are not inherited by kubectl exec or SSH.'
+  echo '# shellcheck source=scripts/load-registry-credentials.sh'
+  echo 'source "${script_dir}/load-registry-credentials.sh"'
+  echo
   echo 'if [[ -z "${SIGNER:-}" ]]; then'
-  echo '  export SIGNER="$(scone self show-session-signing-key)"'
+  echo '  SIGNER="$(scone self show-session-signing-key)"'
+  echo '  export SIGNER'
   echo 'fi'
   echo
   echo 'print_script_list() {'

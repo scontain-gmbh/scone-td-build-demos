@@ -212,31 +212,62 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## 6. Add a Docker Registry Secret'
 printf '%s\n' ''
-printf '%s\n' 'If you need a pull secret for native and confidential images, create it when missing:'
+printf '%s\n' 'The pull secret is refreshed with the registry credentials loaded in step 3.'
+printf '%s\n' 'Inside the SCONE toolbox, its mounted registry credentials take precedence.'
+printf '%s\n' 'The namespace must already exist when running with the toolbox service account;'
+printf '%s\n' '`k8s_cli.sh` provisions the standard demo namespaces and scoped roles.'
 printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
-printf '%s\n' 'kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching of namespace ${NAMESPACE} failed -- ignoring this"'
-printf '%s\n' ''
-printf '%s\n' 'if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then'
-printf '%s\n' '  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"'
-printf '%s\n' 'else'
-printf '%s\n' '  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."'
-printf '%s\n' '  kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \'
-printf '%s\n' '    --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN'
+printf '%s\n' 'if ! kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then'
+printf '%s\n' '  if ! kubectl create namespace "$NAMESPACE"; then'
+printf '%s\n' '    echo "Namespace $NAMESPACE is unavailable. Run toolbox setup using a cluster administrator first." >&2'
+printf '%s\n' '    exit 1'
+printf '%s\n' '  fi'
 printf '%s\n' 'fi'
+printf '%s\n' ''
+printf '%s\n' '# Inside the toolbox, use its mounted registry credentials.'
+printf '%s\n' 'source "$DEMO_DIR/../../scripts/load-registry-credentials.sh"'
+printf '%s\n' 'if [[ -z "${REGISTRY:-}" || -z "${REGISTRY_USER:-}" || -z "${REGISTRY_TOKEN:-}" ]]; then'
+printf '%s\n' '  echo "Registry credentials are incomplete. Run this demo interactively or set REGISTRY, REGISTRY_USER and REGISTRY_TOKEN." >&2'
+printf '%s\n' '  exit 1'
+printf '%s\n' 'fi'
+printf '%s\n' ''
+printf '%s\n' '# Pass the credentials on stdin: as command-line flags the token would be visible in `ps`.'
+printf '%s\n' 'registry_auth="$(printf '\''%s:%s'\'' "$REGISTRY_USER" "$REGISTRY_TOKEN" | base64 | tr -d '\''\n'\'')"'
+printf '%s\n' 'printf '\''{"auths":{"%s":{"username":"%s","password":"%s","auth":"%s"}}}'\'' \'
+printf '%s\n' '  "$REGISTRY" "$REGISTRY_USER" "$REGISTRY_TOKEN" "$registry_auth" \'
+printf '%s\n' '  | kubectl create secret generic -n "$NAMESPACE" "$IMAGE_PULL_SECRET_NAME" \'
+printf '%s\n' '      --type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson=/dev/stdin \'
+printf '%s\n' '      --dry-run=client -o yaml \'
+printf '%s\n' '  | kubectl apply -n "$NAMESPACE" -f -'
+printf '%s\n' 'unset registry_auth'
 printf "${RESET}"
 
-kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - 2> /dev/null || echo "Patching of namespace ${NAMESPACE} failed -- ignoring this"
-
-if kubectl get secret -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" >/dev/null 2>&1; then
-  echo "Secret ${IMAGE_PULL_SECRET_NAME} already exists"
-else
-  echo "Secret ${IMAGE_PULL_SECRET_NAME} does not exist - creating now."
-  kubectl create secret docker-registry -n "${NAMESPACE}" "${IMAGE_PULL_SECRET_NAME}" \
-    --docker-server=$REGISTRY --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_TOKEN
+if ! kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
+  if ! kubectl create namespace "$NAMESPACE"; then
+    echo "Namespace $NAMESPACE is unavailable. Run toolbox setup using a cluster administrator first." >&2
+    exit 1
+  fi
 fi
+
+# Inside the toolbox, use its mounted registry credentials.
+source "$DEMO_DIR/../../scripts/load-registry-credentials.sh"
+if [[ -z "${REGISTRY:-}" || -z "${REGISTRY_USER:-}" || -z "${REGISTRY_TOKEN:-}" ]]; then
+  echo "Registry credentials are incomplete. Run this demo interactively or set REGISTRY, REGISTRY_USER and REGISTRY_TOKEN." >&2
+  exit 1
+fi
+
+# Pass the credentials on stdin: as command-line flags the token would be visible in `ps`.
+registry_auth="$(printf '%s:%s' "$REGISTRY_USER" "$REGISTRY_TOKEN" | base64 | tr -d '\n')"
+printf '{"auths":{"%s":{"username":"%s","password":"%s","auth":"%s"}}}' \
+  "$REGISTRY" "$REGISTRY_USER" "$REGISTRY_TOKEN" "$registry_auth" \
+  | kubectl create secret generic -n "$NAMESPACE" "$IMAGE_PULL_SECRET_NAME" \
+      --type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson=/dev/stdin \
+      --dry-run=client -o yaml \
+  | kubectl apply -n "$NAMESPACE" -f -
+unset registry_auth
 
 printf "${VIOLET}"
 printf '%s\n' ''

@@ -113,6 +113,14 @@ Use the following examples to learn how `scone-td-build` transforms applications
 
 ## Automation and Testing
 
+The suite runner loads `/scone-registry/scone-registry-env` when executed inside
+the SCONE toolbox, so child demos receive the registry credentials selected during
+toolbox setup. Set `SCONE_REGISTRY_ENV_FILE` to load another trusted export file.
+The Java demo stops before creating its pull secret if any registry credential is empty.
+Toolbox setup provisions `default`, `java-demo`, `ci-scone-td-build`, `nfs-demo`,
+`governance-demo` and `pet-clinic` with namespace-scoped demo roles; it does not grant
+namespace creation to the service account.
+
 Each example includes a generated script in `scripts/demos/`. These scripts suggest default values and prompt you to confirm or change them. Values are stored in each example's `Values.yaml` (seeded from its `values.template.yaml` on the first run). If you edit a README, regenerate the scripts with `./scripts/extract-all-demo-scripts.sh -y`.
 
 Once these `Values.yaml` files are initialized, you can run all examples with:

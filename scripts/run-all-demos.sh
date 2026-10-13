@@ -58,8 +58,13 @@ if [[ $# -gt 0 ]]; then
   exit 1
 fi
 
+# Registry exports from the entrypoint are not inherited by kubectl exec or SSH.
+# shellcheck source=scripts/load-registry-credentials.sh
+source "${script_dir}/load-registry-credentials.sh"
+
 if [[ -z "${SIGNER:-}" ]]; then
-  export SIGNER="$(scone self show-session-signing-key)"
+  SIGNER="$(scone self show-session-signing-key)"
+  export SIGNER
 fi
 
 print_script_list() {

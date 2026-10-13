@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install tplenv
+        run: cargo install tplenv --version 0.11.0 --locked
       - name: Check generated scripts parse
         run: for f in scripts/*.sh docs/*.sh; do bash -n "$f"; done
       - name: Run script tests
