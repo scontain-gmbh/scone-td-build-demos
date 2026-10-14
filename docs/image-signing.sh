@@ -314,6 +314,14 @@ printf '%s\n' ''
 printf "%b" "$RESET"
 
 IFS= read -r -d '' PE_CMD <<'EOF' || true
+# Remove the key pair of an earlier run, since skopeo refuses to overwrite it.
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+rm -f ./config/image-signing-key.*
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Generate the Ed25519 signing key pair in the format expected by skopeo.
 EOF
 pe "${PE_CMD%$'\n'}"
