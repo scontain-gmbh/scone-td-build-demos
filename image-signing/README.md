@@ -107,6 +107,8 @@ Generate an Ed25519 key pair. The private key signs the image; the public key ca
 to verify signatures without exposing the private key.
 
 ```bash
+# Remove the key pair of an earlier run, since skopeo refuses to overwrite it.
+rm -f ./config/image-signing-key.*
 # Generate the Ed25519 signing key pair in the format expected by skopeo.
 skopeo generate-sigstore-key --output-prefix ./config/image-signing-key --passphrase-file ./config/empty-passphrase.txt
 ```

@@ -234,10 +234,14 @@ printf '%s\n' ''
 printf "${RESET}"
 
 printf "${ORANGE}"
+printf '%s\n' '# Remove the key pair of an earlier run, since skopeo refuses to overwrite it.'
+printf '%s\n' 'rm -f ./config/image-signing-key.*'
 printf '%s\n' '# Generate the Ed25519 signing key pair in the format expected by skopeo.'
 printf '%s\n' 'skopeo generate-sigstore-key --output-prefix ./config/image-signing-key --passphrase-file ./config/empty-passphrase.txt'
 printf "${RESET}"
 
+# Remove the key pair of an earlier run, since skopeo refuses to overwrite it.
+rm -f ./config/image-signing-key.*
 # Generate the Ed25519 signing key pair in the format expected by skopeo.
 skopeo generate-sigstore-key --output-prefix ./config/image-signing-key --passphrase-file ./config/empty-passphrase.txt
 
