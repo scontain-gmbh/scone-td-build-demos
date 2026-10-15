@@ -1,0 +1,19 @@
+environment:
+  IMAGE_NAME: registry.scontain.com/k8s-scone-images/pet-clinic:native
+  DESTINATION_IMAGE_NAME: registry.scontain.com/k8s-scone-images/pet-clinic:protected
+  PETCLINIC_REF: 51045d1648dad955df586150c1a1a6e22ef400c2
+  MARIADB_IMAGE: mariadb:11.4
+  REGISTRY: registry.scontain.com
+  IMAGE_PULL_SECRET_NAME: sconeapps
+  SCONE_RUNTIME_VERSION: 6.0.8
+  CAS_NAMESPACE: default
+  CAS_NAME: cas
+  CAS_ENDPOINT: cas.default
+  TEE_TYPE: sgx
+  SCONE_ENCLAVE: 'false'
+  NAMESPACE: pet-clinic
+  ENCLAVE_HEAP: 4G
+  DB_NAME: petclinic
+  DB_USER: petclinic
+  DB_PASSWORD: petclinic
+  DB_ROOT_PASSWORD: rootpass

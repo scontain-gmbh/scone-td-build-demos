@@ -53,6 +53,7 @@ files=(
   "go-args-env-file/README.md scripts/go-args-env-file.sh"
   "java-args-env-file/README.md scripts/java-args-env-file.sh"
   "software-updates/README.md scripts/software-updates.sh"
+  "pet-clinic/README.md scripts/pet-clinic.sh"
   "image-signing/README.md scripts/image-signing.sh"
   "nfs-shared-volume/README.md scripts/nfs-shared-volume.sh"
 )
