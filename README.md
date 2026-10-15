@@ -99,6 +99,7 @@ Use the following examples to learn how `scone-td-build` transforms applications
 - [flask-redis-netshield](./flask-redis-netshield/README.md): Extends `flask-redis` by adding a network policy to encrypt network traffic between `flask` and `redis` services.
 - [go-args-env-file](./go-args-env-file/README.md): Deploy a SCONE-protected Go utility that prints command-line arguments, environment variables, and reads two config files from `/config/`. We use a slightly enhanced Go runtime which uses a libc to issue system calls.
 - [java-args-env-file](./java-args-env-file/README.md): Deploy a Java utility that prints command-line arguments, environment variables, and reads two config files from `/config/`.
+- [pet-clinic](./pet-clinic/README.md): Run the Spring PetClinic application confidentially inside an SGX enclave, backed by a native MariaDB. The JVM and the JDBC credentials it uses are protected and attest to the CAS.
 - [image-signing](./image-signing/README.md): Sign and encrypt a confidential container image with a Sigstore key and verify the signature before deploying it to Kubernetes.
 - [software-updates](./software-updates/README.md): Perform a **software update** of a confidential Python application. `API_PASSWORD` is encrypted into the CAS session (never visible in any Kubernetes object) and preserved across the rolling update from Version 1 to Version 2.
 

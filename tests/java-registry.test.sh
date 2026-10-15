@@ -64,7 +64,7 @@ export PATH="$work/bin:$PATH" SCONE_REGISTRY_ENV_FILE="$work/startup.env"
 export NAMESPACE=java-demo IMAGE_PULL_SECRET_NAME=sconeapps SIGNER=test-signer
 export CONFIRM_ALL_ENVIRONMENT_VARIABLES=""
 # All suite children must receive the mounted registry credentials.
-for name in hello-world configmap web-server network-policy flask-redis flask-redis-netshield go-args-env-file java-args-env-file software-updates image-signing nfs-shared-volume; do
+for name in hello-world configmap web-server network-policy flask-redis flask-redis-netshield go-args-env-file java-args-env-file software-updates pet-clinic image-signing nfs-shared-volume; do
   cat > "$fixture/scripts/$name.sh" <<'MOCK'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -76,7 +76,7 @@ MOCK
 done
 export MOCK_CHILDREN="$work/children"
 (cd "$fixture" && ./scripts/run-all-scripts.sh > "$work/output" 2>&1)
-[[ "$(wc -l < "$MOCK_CHILDREN")" == 11 ]]
+[[ "$(wc -l < "$MOCK_CHILDREN")" == 12 ]]
 printf 'ok - suite runner exports mounted registry credentials to every child\n'
 run_java() {
   : > "$MOCK_CALLS"

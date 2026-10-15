@@ -44,7 +44,7 @@ ROWS              ?= 50
 DEPS := asciinema agg ffmpeg
 
 # Demos recorded through the generic docs/%.cast rules below.
-EXTRA_DEMOS       ?= java-args-env-file software-updates image-signing
+EXTRA_DEMOS       ?= java-args-env-file software-updates pet-clinic image-signing
 EXTRA_CASTS       := $(EXTRA_DEMOS:%=docs/%.cast)
 EXTRA_GIFS        := $(EXTRA_DEMOS:%=docs/%.gif)
 EXTRA_MP4S        := $(EXTRA_DEMOS:%=docs/%.mp4)

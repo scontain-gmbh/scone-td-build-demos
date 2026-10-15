@@ -137,6 +137,7 @@ scripts=(
   "go-args-env-file.sh"
   "java-args-env-file.sh"
   "software-updates.sh"
+  "pet-clinic.sh"
   "image-signing.sh"
   "nfs-shared-volume.sh"
 )
