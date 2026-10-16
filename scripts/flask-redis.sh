@@ -419,8 +419,8 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Watch all resources come up'
-printf '%s\n' '# List the Kubernetes resources in the namespace.'
-printf '%s\n' 'kubectl get all -n ${NAMESPACE}'
+printf '%s\n' '# List the demo'\''s workloads. `get all` also lists provider resources the toolbox may not read.'
+printf '%s\n' 'kubectl get deployments,replicasets,pods,services -n ${NAMESPACE}'
 printf '%s\n' ''
 printf '%s\n' '# Wait for Redis'
 printf '%s\n' '# Wait for the deployment rollout to complete.'
@@ -442,8 +442,8 @@ printf '%s\n' 'kubectl logs -n ${NAMESPACE} -l app=redis --tail=20'
 printf "${RESET}"
 
 # Watch all resources come up
-# List the Kubernetes resources in the namespace.
-kubectl get all -n ${NAMESPACE}
+# List the demo's workloads. `get all` also lists provider resources the toolbox may not read.
+kubectl get deployments,replicasets,pods,services -n ${NAMESPACE}
 
 # Wait for Redis
 # Wait for the deployment rollout to complete.
@@ -708,8 +708,8 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Watch all resources come up'
-printf '%s\n' '# List the Kubernetes resources in the namespace.'
-printf '%s\n' 'kubectl get all -n ${NAMESPACE}'
+printf '%s\n' '# List the demo'\''s workloads. `get all` also lists provider resources the toolbox may not read.'
+printf '%s\n' 'kubectl get deployments,replicasets,pods,services -n ${NAMESPACE}'
 printf '%s\n' ''
 printf '%s\n' '# Wait for Redis'
 printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
@@ -727,8 +727,8 @@ printf '%s\n' 'kubectl logs -n ${NAMESPACE} -l app=redis --tail=20'
 printf "${RESET}"
 
 # Watch all resources come up
-# List the Kubernetes resources in the namespace.
-kubectl get all -n ${NAMESPACE}
+# List the demo's workloads. `get all` also lists provider resources the toolbox may not read.
+kubectl get deployments,replicasets,pods,services -n ${NAMESPACE}
 
 # Wait for Redis
 # Wait for the Kubernetes resource to reach the expected state.

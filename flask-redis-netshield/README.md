@@ -205,8 +205,8 @@ kubectl apply -n ${NAMESPACE} -f k8s/manifest.yaml --namespace ${NAMESPACE}
 
 ```bash
 # Watch all resources come up
-# List the Kubernetes resources in the namespace.
-kubectl get all -n ${NAMESPACE}
+# List the demo's workloads. `get all` also lists provider resources the toolbox may not read.
+kubectl get deployments,replicasets,pods,services -n ${NAMESPACE}
 
 # Wait for Redis
 # Wait for the deployment rollout to complete.
@@ -347,8 +347,8 @@ kubectl apply -n ${NAMESPACE} -f manifest.prod.sanitized.yaml --namespace ${NAME
 
 ```bash
 # Watch all resources come up
-# List the Kubernetes resources in the namespace.
-kubectl get all -n ${NAMESPACE}
+# List the demo's workloads. `get all` also lists provider resources the toolbox may not read.
+kubectl get deployments,replicasets,pods,services -n ${NAMESPACE}
 
 # Wait for Redis
 # Wait for the deployment rollout to complete.
