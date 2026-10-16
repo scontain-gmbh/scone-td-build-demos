@@ -549,11 +549,11 @@ IFS= read -r -d '' PE_CMD <<'EOF' || true
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
-# List the Kubernetes resources in the namespace.
+# List the demo's workloads. `get all` also lists provider resources the toolbox may not read.
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
-kubectl get all -n ${NAMESPACE}
+kubectl get deployments,replicasets,pods,services -n ${NAMESPACE}
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
@@ -930,11 +930,11 @@ IFS= read -r -d '' PE_CMD <<'EOF' || true
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
-# List the Kubernetes resources in the namespace.
+# List the demo's workloads. `get all` also lists provider resources the toolbox may not read.
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
-kubectl get all -n ${NAMESPACE}
+kubectl get deployments,replicasets,pods,services -n ${NAMESPACE}
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
