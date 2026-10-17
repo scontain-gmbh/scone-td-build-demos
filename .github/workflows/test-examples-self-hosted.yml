@@ -32,6 +32,10 @@ jobs:
         shell: bash
     env:
       KUBECONFIG: /tmp/kubeconfig
+      # The runner sets HOME=/github/home in job containers; keep the image's
+      # root toolchain (rustup default stable) reachable.
+      RUSTUP_HOME: /root/.rustup
+      CARGO_HOME: /root/.cargo
       REGISTRY: registry.scontain.com
       IMAGE_PULL_SECRET_NAME: sconeapps
     steps:
