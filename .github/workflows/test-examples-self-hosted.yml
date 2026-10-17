@@ -113,6 +113,10 @@ jobs:
       - name: Run all examples in SGX mode
         id: sgx
         continue-on-error: true
+        # java-args-env-file and pet-clinic read the registry login from the environment.
+        env:
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
         run: ./scripts/run-all-scripts.sh --continue-on-failure
 
       - name: Prepare CVM values and cluster secrets
@@ -128,6 +132,9 @@ jobs:
         id: cvm
         if: always()
         continue-on-error: true
+        env:
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
         run: ./scripts/run-all-scripts.sh --continue-on-failure
 
       - name: Fail workflow if any mode failed
