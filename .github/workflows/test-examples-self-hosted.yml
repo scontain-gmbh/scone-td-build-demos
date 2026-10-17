@@ -144,6 +144,17 @@ jobs:
           REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
         run: ./scripts/run-all-scripts.sh --continue-on-failure
 
+      # Why CVM Jobs never complete: show where their pods were scheduled.
+      - name: Show CVM pod placement
+        if: always() && steps.cvm.outcome == 'failure'
+        run: |
+          ns="ci-td-build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-cvm"
+          kubectl get nodes -o wide --show-labels | cut -c1-400 || true
+          kubectl get pods -n "$ns" -o wide || true
+          for pod in $(kubectl get pods -n "$ns" -o name | head -3); do
+            kubectl describe -n "$ns" "$pod" | sed -n '/^Node-Selectors/,/^Events/p;/^Events/,$p' | head -40 || true
+          done
+
       - name: Fail workflow if any mode failed
         if: always()
         run: |
