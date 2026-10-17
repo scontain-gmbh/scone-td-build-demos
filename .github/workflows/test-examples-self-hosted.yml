@@ -17,7 +17,9 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: self-hosted
     container:
-      image: registry.scontain.com/workshop/scone
+      # Pinned: 6.0.8 ships scone-td-build 0.4.0, tplenv and retry-spinner; the
+      # unpinned image later dropped them.
+      image: registry.scontain.com/workshop/scone:6.0.8@sha256:9456916650e3a0b7625ead65c30eb181ced3442e465f0746d7d2706dc1e3f99e
       credentials:
         username: ${{ secrets.REGISTRY_USER }}
         password: ${{ secrets.REGISTRY_TOKEN }}
