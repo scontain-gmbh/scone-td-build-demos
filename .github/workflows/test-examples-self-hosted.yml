@@ -95,6 +95,13 @@ jobs:
             ln -s /root/.docker "$HOME/.docker"
           fi
 
+      # scone-td-build pulls the SCONE packages image and the demo images it
+      # pushed; fail early, with the cause, if the login cannot read them.
+      - name: Check registry read access
+        run: |
+          docker pull --quiet registry.scontain.com/scone.cloud/scone-deb-pkgs:6.0.8 >/dev/null \
+            || { echo "::error::The REGISTRY_USER login cannot pull scone.cloud/scone-deb-pkgs:6.0.8 (needs read_registry)"; exit 1; }
+
       - name: Prepare SGX values and cluster secrets
         env:
           REGISTRY: ${{ env.REGISTRY }}
