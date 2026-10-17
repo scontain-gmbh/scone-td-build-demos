@@ -124,6 +124,14 @@ jobs:
           echo "CVM outcome: ${{ steps.cvm.outcome }}"
           [[ "${{ steps.sgx.outcome }}" == "success" && "${{ steps.cvm.outcome }}" == "success" ]]
 
+      # The job builds on the runner host's Docker engine (shared with other
+      # jobs), so remove exactly the images this run tagged. Never prune.
+      - name: Remove this run's demo images
+        if: always()
+        run: |
+          suffix="ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          docker images --format '{{.Repository}}:{{.Tag}}' | grep -F -- "-${suffix}" | xargs -r docker rmi || true
+
       - name: Clean up runner credentials
         if: always()
         run: |
