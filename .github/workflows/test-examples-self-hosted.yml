@@ -36,6 +36,9 @@ jobs:
       # root toolchain (rustup default stable) reachable.
       RUSTUP_HOME: /root/.rustup
       CARGO_HOME: /root/.cargo
+      # image-signing's skopeo push reads this file; point it at this job's
+      # docker login, not whatever /github/home holds from earlier jobs.
+      REPO_CREDENTIALS: /root/.docker/config.json
       REGISTRY: registry.scontain.com
       IMAGE_PULL_SECRET_NAME: sconeapps
     steps:
@@ -91,8 +94,12 @@ jobs:
           # docker stores the login under DOCKER_CONFIG (/root/.docker), but
           # scone-td-build reads $HOME/.docker, and the runner sets HOME to
           # /github/home. Link it (no copy: /github/home lives on the host).
-          if [[ "$HOME" != /root && ! -e "$HOME/.docker" ]]; then
-            ln -s /root/.docker "$HOME/.docker"
+          if [[ "$HOME" != /root ]]; then
+            if [[ -e "$HOME/.docker" && ! -L "$HOME/.docker" ]]; then
+              echo "::warning::$HOME/.docker already exists from an earlier job on this runner; moving it aside"
+              mv "$HOME/.docker" "$HOME/.docker.stale-${GITHUB_RUN_ID}"
+            fi
+            ln -sfn /root/.docker "$HOME/.docker"
           fi
 
       # scone-td-build pulls the SCONE packages image and the demo images it
