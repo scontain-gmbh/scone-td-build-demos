@@ -101,7 +101,7 @@ jobs:
           IMAGE_PULL_SECRET_NAME: ${{ env.IMAGE_PULL_SECRET_NAME }}
           REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
           REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
-        run: ./scripts/prepare-example-ci.sh --mode sgx
+        run: ./scripts/prepare-example-ci.sh --mode sgx --namespace "ci-td-build-${{ github.run_id }}-${{ github.run_attempt }}-sgx"
 
       - name: Run all examples in SGX mode
         id: sgx
@@ -115,7 +115,7 @@ jobs:
           IMAGE_PULL_SECRET_NAME: ${{ env.IMAGE_PULL_SECRET_NAME }}
           REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
           REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
-        run: ./scripts/prepare-example-ci.sh --mode cvm
+        run: ./scripts/prepare-example-ci.sh --mode cvm --namespace "ci-td-build-${{ github.run_id }}-${{ github.run_attempt }}-cvm"
 
       - name: Run all examples in CVM mode
         id: cvm
@@ -137,6 +137,15 @@ jobs:
         run: |
           suffix="ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           docker images --format '{{.Repository}}:{{.Tag}}' | grep -F -- "-${suffix}" | xargs -r docker rmi || true
+
+      # Each run deploys into its own namespaces, so leftovers from an earlier
+      # run (immutable Jobs, old Deployments) never collide with this one.
+      - name: Delete this run's demo namespaces
+        if: always()
+        run: |
+          for mode in sgx cvm; do
+            kubectl delete namespace "ci-td-build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${mode}" --ignore-not-found --wait=false || true
+          done
 
       - name: Clean up runner credentials
         if: always()
