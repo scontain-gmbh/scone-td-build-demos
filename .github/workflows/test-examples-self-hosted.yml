@@ -42,6 +42,18 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      # k8s-scone-images also holds the released demo images. Give every image
+      # CI builds a run-unique tag, so a CI run never overwrites a released tag.
+      - name: Use CI-unique image tags
+        run: |
+          suffix="ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          sed -i -E "s#(registry\.scontain\.com/k8s-scone-images/[A-Za-z0-9._-]+):([A-Za-z0-9._-]+)#\1:\2-${suffix}#g" \
+            */Values.yaml image-signing/manifest.job.yaml
+          if grep -hE 'k8s-scone-images/[A-Za-z0-9._-]+:' */Values.yaml image-signing/manifest.job.yaml | grep -v -- "-${suffix}"; then
+            echo "An image reference kept a released tag" >&2
+            exit 1
+          fi
+
       - name: Validate required GitHub secrets
         env:
           KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
