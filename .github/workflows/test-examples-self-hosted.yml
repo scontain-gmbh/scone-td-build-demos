@@ -88,6 +88,12 @@ jobs:
           REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
         run: |
           printf '%s' "$REGISTRY_TOKEN" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
+          # docker stores the login under DOCKER_CONFIG (/root/.docker), but
+          # scone-td-build reads $HOME/.docker, and the runner sets HOME to
+          # /github/home. Link it (no copy: /github/home lives on the host).
+          if [[ "$HOME" != /root && ! -e "$HOME/.docker" ]]; then
+            ln -s /root/.docker "$HOME/.docker"
+          fi
 
       - name: Prepare SGX values and cluster secrets
         env:
@@ -136,4 +142,5 @@ jobs:
         if: always()
         run: |
           docker logout "$REGISTRY" || true
+          [[ -L "$HOME/.docker" ]] && rm -f "$HOME/.docker" || true
           rm -f "$KUBECONFIG" || true
