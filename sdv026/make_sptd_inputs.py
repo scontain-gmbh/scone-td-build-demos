@@ -178,7 +178,10 @@ def main():
                     "workload": {"kind": kind, "namespace": namespace, "name": name, "path": "workload.json",
                                  "uid": f"sdv026-synthetic-uid-{name}", "resource_version": "sdv026-synthetic-1"},
                     "snapshots": [{k: v for k, v in s.items() if not k.startswith("_")} for s in snapshots],
-                    "bootstrap": {"cas_address": "cas.default:18765", "config_id": f"sdv026/{case}/{name}"},
+                    # Opaque selector: a readable one ("sdv026/flask-redis/flask-api") contains the
+                    # protected env value "redis" and is (correctly) rejected by the canary scan.
+                    "bootstrap": {"cas_address": "cas.default:18765",
+                                  "config_id": "sdv026/w" + sha(f"{case}/{name}".encode())[7:19]},
                     "images": plan_images, "protectedEnvironment": env,
                     "protectedEnvironmentFrom": [], "protectedVolumes": volumes}
             write_json(os.path.join(root, "plan.json"), plan)
