@@ -151,10 +151,10 @@ def main():
                                         "configPath": cfg_path})
                     for e in c.get("env", []):
                         env.append({"container_name": c["name"], "name": e["name"],
-                                    "object_id": f"sdv026-env-{c['name']}-{e['name']}".lower().replace("_", "-")})
+                                    "object_id": "sdv026-env-" + sha(f"{case}/{name}/{c['name']}/{e['name']}".encode())[7:19]})
             referenced = set()
             for v in pod.get("volumes", []):
-                volumes.append({"name": v["name"], "object_id": f"sdv026-volume-{name}-{v['name']}"})
+                volumes.append({"name": v["name"], "object_id": "sdv026-volume-" + sha(f"{case}/{name}/{v['name']}".encode())[7:19]})
                 for src in [v] + v.get("projected", {}).get("sources", []):
                     if "configMap" in src:
                         referenced.add(("ConfigMap", src["configMap"]["name"]))
@@ -178,8 +178,9 @@ def main():
                     "workload": {"kind": kind, "namespace": namespace, "name": name, "path": "workload.json",
                                  "uid": f"sdv026-synthetic-uid-{name}", "resource_version": "sdv026-synthetic-1"},
                     "snapshots": [{k: v for k, v in s.items() if not k.startswith("_")} for s in snapshots],
-                    # Opaque selector: a readable one ("sdv026/flask-redis/flask-api") contains the
-                    # protected env value "redis" and is (correctly) rejected by the canary scan.
+                    # Opaque selectors and object ids: readable ones ("sdv026/flask-redis/flask-api",
+                    # "sdv026-env-flask-api-redis-host") contain the protected env value "redis"
+                    # and are (correctly) rejected by the public-output canary scan.
                     "bootstrap": {"cas_address": "cas.default:18765",
                                   "config_id": "sdv026/w" + sha(f"{case}/{name}".encode())[7:19]},
                     "images": plan_images, "protectedEnvironment": env,
