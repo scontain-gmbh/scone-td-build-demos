@@ -68,8 +68,6 @@ CASES = [
 OPTIONAL_CASES = [
     ("java-args-env-file-sptd", "java-args-env-file/manifests/manifest.sptd.template.yaml", "java-args-env-file", "java-args-env-file/Values.yaml", []),
     ("web-server-sptd", "web-server/manifest.sptd.template.yaml", "web-server", "web-server/Values.yaml", []),
-    ("configmap-sptd", "configmap/manifest.sptd.template.yaml", "configmap", "configmap/Values.yaml", []),
-    ("flask-redis-netshield-sptd", "flask-redis-netshield/k8s/manifest.sptd.template.yaml", "flask-redis-netshield", "flask-redis-netshield/Values.yaml", []),
 ]
 WORKLOAD_KINDS = {"Pod": "/spec", "Job": "/spec/template/spec", "Deployment": "/spec/template/spec",
                   "StatefulSet": "/spec/template/spec", "DaemonSet": "/spec/template/spec",

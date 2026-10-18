@@ -14,8 +14,13 @@ RUN go mod download 2>/dev/null || true
 COPY . .
 RUN go build -v -o /usr/local/bin/go-args-env-file .
 
-# The app reads files from /config at runtime — declare it as a volume hint.
-# In Kubernetes the ConfigMap / Secret are mounted here.
-VOLUME ["/config"]
+# ─── Stage 2: run ────────────────────────────────────────────────────────────
+# The app reads files from /config at runtime; in Kubernetes the ConfigMap /
+# Secret are mounted there. No VOLUME hint: an image-declared volume becomes an
+# anonymous, unprotected runtime volume, which scone-sptd-build refuses. The run
+# stage does not inherit the golang base image either, whose config sets
+# ArgsEscaped=true (also refused by scone-sptd-build).
+FROM alpine:3.22
+COPY --from=builder /usr/local/bin/go-args-env-file /usr/local/bin/go-args-env-file
 
 ENTRYPOINT ["/usr/local/bin/go-args-env-file"]

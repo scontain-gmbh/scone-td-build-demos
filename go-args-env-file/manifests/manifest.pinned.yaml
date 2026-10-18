@@ -4,7 +4,7 @@
 # image field pins the linux/amd64 manifest of its Dockerfile base image instead.
 # That image does NOT contain the demo application. Replace it with the real
 # native image digest before any deployment.
-# DEMO_IMAGE stand-in: ghcr.io/scontain/golang:1.25.4-alpine (single-platform manifest, no index)
+# DEMO_IMAGE stand-in: alpine:3.22 (run-stage base of go-args-env-file/Dockerfile since the SDV-026 fix; was ghcr.io/scontain/golang:1.25.4-alpine)
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -58,7 +58,7 @@ spec:
         - name: ${IMAGE_PULL_SECRET_NAME}
       containers:
         - name: go-args-env-file
-          image: ghcr.io/scontain/golang@sha256:a92dbf0be6579dbd2d338b706108147bc7c48cf158d82486e996aebe751dd371
+          image: docker.io/library/alpine@sha256:3e9b4b680bfc9fb5269227cffbd6d42be39fbf7c0b908123913864aa4447e764
           imagePullPolicy: Always
           args:
             - "arg1"

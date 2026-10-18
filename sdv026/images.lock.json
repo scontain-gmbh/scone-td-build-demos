@@ -193,6 +193,22 @@
         "digest": "sha256:26b2eb03618e749084668eaff68cff8f81dda12d06ac641be7a6398b82a6f25b",
         "file": "oci-configs/registry_2.config.json"
       }
+    },
+    {
+      "reference": "alpine:3.22",
+      "kind": "real",
+      "resolved_at": "2026-10-18T20:44:44+00:00",
+      "pinned": "docker.io/library/alpine@sha256:3e9b4b680bfc9fb5269227cffbd6d42be39fbf7c0b908123913864aa4447e764",
+      "amd64_manifest_digest": "sha256:3e9b4b680bfc9fb5269227cffbd6d42be39fbf7c0b908123913864aa4447e764",
+      "amd64_manifest_media_type": "application/vnd.oci.image.manifest.v1+json",
+      "index_digest": "sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8",
+      "index_media_type": "application/vnd.oci.image.index.v1+json",
+      "config": {
+        "media_type": "application/vnd.oci.image.config.v1+json",
+        "size": 611,
+        "digest": "sha256:c83674e1999044d33d751661371b873539f47e5b5c5ca3320c7e0377acca6238",
+        "file": "oci-configs/alpine_3.22.config.json"
+      }
     }
   ],
   "native": {
@@ -224,40 +240,6 @@
           "size": 4918,
           "digest": "sha256:36e42eff41b9eb93dc4ed26d11e991862615699a187192eeb0239904880f98ba",
           "file": "oci-configs/SYNTHETIC-derived-hello-world.config.json"
-        }
-      }
-    },
-    "go-args-env-file": {
-      "reference": "registry.scontain.com/k8s-scone-images/go-args-env-file:native",
-      "anonymous_resolution": {
-        "resolved_at": "2026-10-18T05:49:31+00:00",
-        "result": "HTTP 403: {\"errors\":[{\"code\":\"DENIED\",\"message\":\"access forbidden\"}],\"http_status\":403}"
-      },
-      "stand_in": {
-        "kind": "stand-in",
-        "base_reference": "ghcr.io/scontain/golang:1.25.4-alpine",
-        "pinned": "ghcr.io/scontain/golang@sha256:a92dbf0be6579dbd2d338b706108147bc7c48cf158d82486e996aebe751dd371",
-        "why": "native image is access-forbidden anonymously; Dockerfile base image digest used instead; it does not contain the demo app"
-      },
-      "derived_synthetic": {
-        "kind": "synthetic",
-        "pinned": "synthetic.invalid/go-args-env-file@sha256:5c507bcae898cf06b01104f6ea69c597a37567b315831a875d63e7f8338c28bb",
-        "why": "SYNTHETIC digest (sha256 of 'sdv026-synthetic-image:'+config digest), not a registry object; config = base config with the Dockerfile's ENTRYPOINT/CMD/WORKDIR/VOLUME/EXPOSE applied",
-        "dockerfile_changes": {
-          "Entrypoint": [
-            "/usr/local/bin/go-args-env-file"
-          ],
-          "Cmd": null,
-          "WorkingDir": "/src",
-          "Volumes": {
-            "/config": {}
-          }
-        },
-        "config": {
-          "media_type": "application/vnd.docker.container.image.v1+json",
-          "size": 2391,
-          "digest": "sha256:4b76b584b6aedc318a369efe937faa1379707ef809d49f59fb11df14d2e656e2",
-          "file": "oci-configs/SYNTHETIC-derived-go-args-env-file.config.json"
         }
       }
     },
@@ -680,6 +662,39 @@
           "size": 5651,
           "digest": "sha256:f41cadca3e82c0881d4dc550c22df8dd7054e8371688281d1310d3187684334c",
           "file": "oci-configs/SYNTHETIC-derived-software-updates-v2.config.json"
+        }
+      }
+    },
+    "go-args-env-file": {
+      "demo": "go-args-env-file",
+      "reference": "registry.scontain.com/k8s-scone-images/go-args-env-file:native",
+      "anonymous_resolution": {
+        "resolved_at": "2026-10-18T20:44:46+00:00",
+        "result": "HTTP 403: {\"errors\":[{\"code\":\"DENIED\",\"message\":\"access forbidden\"}],\"http_status\":403}"
+      },
+      "stand_in": {
+        "kind": "stand-in",
+        "base_reference": "alpine:3.22",
+        "pinned": "docker.io/library/alpine@sha256:3e9b4b680bfc9fb5269227cffbd6d42be39fbf7c0b908123913864aa4447e764",
+        "why": "native image is access-forbidden anonymously; Dockerfile final-stage base image digest used instead; it does not contain the demo app"
+      },
+      "derived_synthetic": {
+        "kind": "synthetic",
+        "pinned": "synthetic.invalid/go-args-env-file@sha256:037058a63ffc6188a261d6ac96436368ee07a03ef7644848fe7c7c807f6c5909",
+        "why": "SYNTHETIC digest (sha256 of 'sdv026-synthetic-image:'+config digest), not a registry object; config = final-stage base config with the Dockerfile's ENTRYPOINT/CMD/USER/WORKDIR/ENV/VOLUME/EXPOSE applied (derive_configs.py)",
+        "dockerfile": "go-args-env-file/Dockerfile",
+        "build_args": {},
+        "dockerfile_changes": {
+          "Entrypoint": [
+            "/usr/local/bin/go-args-env-file"
+          ],
+          "Cmd": null
+        },
+        "config": {
+          "media_type": "application/vnd.oci.image.config.v1+json",
+          "size": 777,
+          "digest": "sha256:aba195595acd3c4a90c7587eae50ef98a4203ef3402466aeac5695d5cfaa64bf",
+          "file": "oci-configs/SYNTHETIC-derived-go-args-env-file.config.json"
         }
       }
     }
