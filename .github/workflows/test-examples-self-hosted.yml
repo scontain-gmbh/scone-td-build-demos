@@ -155,12 +155,17 @@ jobs:
             kubectl describe -n "$ns" "$pod" | sed -n '/^Node-Selectors/,/^Events/p;/^Events/,$p' | head -40 || true
           done
 
-      - name: Fail workflow if any mode failed
+      # SGX gates the job. CVM keeps running and reporting, but is
+      # non-blocking until the test cluster's CVM node runs the demos.
+      - name: Fail workflow if SGX mode failed
         if: always()
         run: |
           echo "SGX outcome: ${{ steps.sgx.outcome }}"
-          echo "CVM outcome: ${{ steps.cvm.outcome }}"
-          [[ "${{ steps.sgx.outcome }}" == "success" && "${{ steps.cvm.outcome }}" == "success" ]]
+          echo "CVM outcome: ${{ steps.cvm.outcome }} (non-blocking)"
+          if [[ "${{ steps.cvm.outcome }}" != "success" ]]; then
+            echo "::warning::CVM demos did not all pass; this does not fail the job"
+          fi
+          [[ "${{ steps.sgx.outcome }}" == "success" ]]
 
       # The job builds on the runner host's Docker engine (shared with other
       # jobs), so remove exactly the images this run tagged. Never prune.
