@@ -51,15 +51,6 @@ openssl genrsa -out certs/redis-ca.key 4096
 openssl req -x509 -new -nodes -key certs/redis-ca.key -sha256 -days 3650 \
   -out certs/redis-ca.crt -subj "/CN=redis-ca"
 
-# Redis server cert
-# Generate the Redis server private key.
-openssl genrsa -out certs/redis.key 2048
-# Create a certificate signing request.
-openssl req -new -key certs/redis.key -out certs/redis.csr -subj "/CN=redis"
-# Sign the certificate with the certificate authority.
-openssl x509 -req -in certs/redis.csr -CA certs/redis-ca.crt -CAkey certs/redis-ca.key \
-  -CAcreateserial -out certs/redis.crt -days 365 -sha256
-
 # Flask server cert
 # Generate the Flask server private key.
 openssl genrsa -out certs/flask.key 2048
@@ -102,6 +93,25 @@ Then let `tplenv` query all environment variables used by this example:
 ```bash
 # Load environment variables from the tplenv definition file.
 eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES} --output /dev/null)
+```
+
+Then issue the Redis server certificate. The Flask API connects to Redis by its fully
+qualified Service name (`REDIS_HOST=redis.${NAMESPACE}.svc.cluster.local`), and the Redis
+client checks the server hostname, so the certificate names both that name and the short
+name `redis`. It is issued here because it needs `NAMESPACE`:
+
+```bash
+# Fail early if NAMESPACE is not set.
+: "${NAMESPACE:?NAMESPACE must be set}"
+# Generate the Redis server private key.
+openssl genrsa -out certs/redis.key 2048
+# Create a certificate signing request.
+openssl req -new -key certs/redis.key -out certs/redis.csr -subj "/CN=redis"
+# Name both Redis DNS names as subjectAltName.
+printf "subjectAltName=DNS:redis,DNS:redis.%s.svc.cluster.local\n" "${NAMESPACE}" > certs/redis.ext
+# Sign the certificate with the certificate authority.
+openssl x509 -req -in certs/redis.csr -CA certs/redis-ca.crt -CAkey certs/redis-ca.key \
+  -CAcreateserial -out certs/redis.crt -days 365 -sha256 -extfile certs/redis.ext
 ```
 
 Then build and push the native Docker image:

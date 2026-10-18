@@ -233,7 +233,7 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## 4. Build and Push the Native Docker Image'
 printf '%s\n' ''
-printf '%s\n' 'The Dockerfile uses a two-stage build: a `golang:1.22-alpine` builder stage compiles a fully static binary, which is then copied into a minimal `scratch` runtime image.'
+printf '%s\n' 'The Dockerfile uses a two-stage build: a `ghcr.io/scontain/golang:1.25.4-alpine` builder stage compiles a fully static binary, which is then copied into a minimal `alpine:3.22` runtime image (no `VOLUME`, and not the golang base, whose config sets `ArgsEscaped`).'
 printf '%s\n' ''
 printf "%b" "$RESET"
 

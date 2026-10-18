@@ -12,7 +12,7 @@ RUN go mod download 2>/dev/null || true
 
 # Copy source and build a fully static binary
 COPY . .
-RUN go build -v -o /usr/local/bin/go-args-env-file .
+RUN CGO_ENABLED=0 go build -v -o /usr/local/bin/go-args-env-file .
 
 # ─── Stage 2: run ────────────────────────────────────────────────────────────
 # The app reads files from /config at runtime; in Kubernetes the ConfigMap /
