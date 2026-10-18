@@ -1,0 +1,171 @@
+{
+  "schema": "sdv026-images-lock/1",
+  "note": "Resolved anonymously (no credential files) via the registry v2 API by sdv026/resolve_digests.py. 'real' = public digest as resolved; 'stand-in' = base-image digest standing in for an access-forbidden native image; 'synthetic' = locally constructed, never a registry object.",
+  "images": [
+    {
+      "reference": "rust:latest",
+      "kind": "real",
+      "resolved_at": "2026-10-18T05:49:32+00:00",
+      "pinned": "docker.io/library/rust@sha256:d7c9d46725b95c89b733b30883c02fc39d6cbf829be6cdfdc2ace077c7c830e8",
+      "amd64_manifest_digest": "sha256:d7c9d46725b95c89b733b30883c02fc39d6cbf829be6cdfdc2ace077c7c830e8",
+      "amd64_manifest_media_type": "application/vnd.oci.image.manifest.v1+json",
+      "index_digest": "sha256:e259494b14672950a909b4c54527e19d29cae6ebf980672114c8bb85e5594e4a",
+      "index_media_type": "application/vnd.oci.image.index.v1+json",
+      "config": {
+        "media_type": "application/vnd.oci.image.config.v1+json",
+        "size": 4870,
+        "digest": "sha256:a737f918704813b8ba3f86a793c8e46991ef31130b2612c08b9d80845549cc7d",
+        "file": "oci-configs/rust_latest.config.json"
+      }
+    },
+    {
+      "reference": "ghcr.io/scontain/golang:1.25.4-alpine",
+      "kind": "real",
+      "resolved_at": "2026-10-18T05:49:34+00:00",
+      "pinned": "ghcr.io/scontain/golang@sha256:a92dbf0be6579dbd2d338b706108147bc7c48cf158d82486e996aebe751dd371",
+      "amd64_manifest_digest": "sha256:a92dbf0be6579dbd2d338b706108147bc7c48cf158d82486e996aebe751dd371",
+      "amd64_manifest_media_type": "application/vnd.docker.distribution.manifest.v2+json",
+      "index_digest": null,
+      "index_media_type": null,
+      "config": {
+        "media_type": "application/vnd.docker.container.image.v1+json",
+        "size": 2334,
+        "digest": "sha256:9c497160eef93fc8eaae09c71a3a93456d5f90660ad7e64a913a3d09a692432c",
+        "file": "oci-configs/ghcr.io_scontain_golang_1.25.4-alpine.config.json"
+      }
+    },
+    {
+      "reference": "python:3.11-alpine",
+      "kind": "real",
+      "resolved_at": "2026-10-18T05:49:35+00:00",
+      "pinned": "docker.io/library/python@sha256:bfebb8e11b53c46715fe3634e3b7bc5afb33b21ec82521539af1467c81ad3aed",
+      "amd64_manifest_digest": "sha256:bfebb8e11b53c46715fe3634e3b7bc5afb33b21ec82521539af1467c81ad3aed",
+      "amd64_manifest_media_type": "application/vnd.oci.image.manifest.v1+json",
+      "index_digest": "sha256:d9368b3a5ac59afea7b5d4f2e2aea0941dbf9fdee9c369c5bec00b98244bc929",
+      "index_media_type": "application/vnd.oci.image.index.v1+json",
+      "config": {
+        "media_type": "application/vnd.oci.image.config.v1+json",
+        "size": 5282,
+        "digest": "sha256:607dc744833974b365cc338d565e01bb76eaebe25993fe328ce185170bcd8f05",
+        "file": "oci-configs/python_3.11-alpine.config.json"
+      }
+    },
+    {
+      "reference": "redis:7-bookworm",
+      "kind": "real",
+      "resolved_at": "2026-10-18T05:49:37+00:00",
+      "pinned": "docker.io/library/redis@sha256:cd745595f143052dd6a743bc5651d3ce4b03979fe5c99c7fcfab73461f6f217b",
+      "amd64_manifest_digest": "sha256:cd745595f143052dd6a743bc5651d3ce4b03979fe5c99c7fcfab73461f6f217b",
+      "amd64_manifest_media_type": "application/vnd.oci.image.manifest.v1+json",
+      "index_digest": "sha256:4fa24486b8bcca8eec45ee0eb166edc674795e53a2b53d1a9ef263eecebaac85",
+      "index_media_type": "application/vnd.oci.image.index.v1+json",
+      "config": {
+        "media_type": "application/vnd.oci.image.config.v1+json",
+        "size": 5721,
+        "digest": "sha256:d24fb73aa9caa76060b48f711af3831f1e95286c745da622c00419ed864cd291",
+        "file": "oci-configs/redis_7-bookworm.config.json"
+      }
+    }
+  ],
+  "native": {
+    "hello-world": {
+      "reference": "registry.scontain.com/k8s-scone-images/hello-world:native",
+      "anonymous_resolution": {
+        "resolved_at": "2026-10-18T05:49:30+00:00",
+        "result": "HTTP 403: {\"errors\":[{\"code\":\"DENIED\",\"message\":\"access forbidden\"}],\"http_status\":403}"
+      },
+      "stand_in": {
+        "kind": "stand-in",
+        "base_reference": "rust:latest",
+        "pinned": "docker.io/library/rust@sha256:d7c9d46725b95c89b733b30883c02fc39d6cbf829be6cdfdc2ace077c7c830e8",
+        "why": "native image is access-forbidden anonymously; Dockerfile base image digest used instead; it does not contain the demo app"
+      },
+      "derived_synthetic": {
+        "kind": "synthetic",
+        "pinned": "registry.scontain.com/k8s-scone-images/hello-world@sha256:461af4c5972b619f96255c41b9696352c5c32bfe561b22442ba628602192da25",
+        "why": "SYNTHETIC digest (sha256 of 'sdv026-synthetic-image:'+config digest), not a registry object; config = base config with the Dockerfile's ENTRYPOINT/CMD/WORKDIR/VOLUME/EXPOSE applied",
+        "dockerfile_changes": {
+          "Entrypoint": null,
+          "Cmd": [
+            "/usr/local/bin/hello-world"
+          ],
+          "WorkingDir": "/usr/src/hello-world"
+        },
+        "config": {
+          "media_type": "application/vnd.oci.image.config.v1+json",
+          "size": 4918,
+          "digest": "sha256:36e42eff41b9eb93dc4ed26d11e991862615699a187192eeb0239904880f98ba",
+          "file": "oci-configs/SYNTHETIC-derived-hello-world.config.json"
+        }
+      }
+    },
+    "go-args-env-file": {
+      "reference": "registry.scontain.com/k8s-scone-images/go-args-env-file:native",
+      "anonymous_resolution": {
+        "resolved_at": "2026-10-18T05:49:31+00:00",
+        "result": "HTTP 403: {\"errors\":[{\"code\":\"DENIED\",\"message\":\"access forbidden\"}],\"http_status\":403}"
+      },
+      "stand_in": {
+        "kind": "stand-in",
+        "base_reference": "ghcr.io/scontain/golang:1.25.4-alpine",
+        "pinned": "ghcr.io/scontain/golang@sha256:a92dbf0be6579dbd2d338b706108147bc7c48cf158d82486e996aebe751dd371",
+        "why": "native image is access-forbidden anonymously; Dockerfile base image digest used instead; it does not contain the demo app"
+      },
+      "derived_synthetic": {
+        "kind": "synthetic",
+        "pinned": "registry.scontain.com/k8s-scone-images/go-args-env-file@sha256:5c507bcae898cf06b01104f6ea69c597a37567b315831a875d63e7f8338c28bb",
+        "why": "SYNTHETIC digest (sha256 of 'sdv026-synthetic-image:'+config digest), not a registry object; config = base config with the Dockerfile's ENTRYPOINT/CMD/WORKDIR/VOLUME/EXPOSE applied",
+        "dockerfile_changes": {
+          "Entrypoint": [
+            "/usr/local/bin/go-args-env-file"
+          ],
+          "Cmd": null,
+          "WorkingDir": "/src",
+          "Volumes": {
+            "/config": {}
+          }
+        },
+        "config": {
+          "media_type": "application/vnd.docker.container.image.v1+json",
+          "size": 2391,
+          "digest": "sha256:4b76b584b6aedc318a369efe937faa1379707ef809d49f59fb11df14d2e656e2",
+          "file": "oci-configs/SYNTHETIC-derived-go-args-env-file.config.json"
+        }
+      }
+    },
+    "flask-redis": {
+      "reference": "registry.scontain.com/k8s-scone-images/flask-redis:latest",
+      "anonymous_resolution": {
+        "resolved_at": "2026-10-18T05:49:32+00:00",
+        "result": "HTTP 403: {\"errors\":[{\"code\":\"DENIED\",\"message\":\"access forbidden\"}],\"http_status\":403}"
+      },
+      "stand_in": {
+        "kind": "stand-in",
+        "base_reference": "python:3.11-alpine",
+        "pinned": "docker.io/library/python@sha256:bfebb8e11b53c46715fe3634e3b7bc5afb33b21ec82521539af1467c81ad3aed",
+        "why": "native image is access-forbidden anonymously; Dockerfile base image digest used instead; it does not contain the demo app"
+      },
+      "derived_synthetic": {
+        "kind": "synthetic",
+        "pinned": "registry.scontain.com/k8s-scone-images/flask-redis@sha256:9f3e459f0fe2fcbad6fd688fb12d67f449325453a6b58e8367ba695185b67684",
+        "why": "SYNTHETIC digest (sha256 of 'sdv026-synthetic-image:'+config digest), not a registry object; config = base config with the Dockerfile's ENTRYPOINT/CMD/WORKDIR/VOLUME/EXPOSE applied",
+        "dockerfile_changes": {
+          "Cmd": [
+            "/usr/local/bin/python",
+            "app.py"
+          ],
+          "WorkingDir": "/app",
+          "ExposedPorts": {
+            "4996/tcp": {}
+          }
+        },
+        "config": {
+          "media_type": "application/vnd.oci.image.config.v1+json",
+          "size": 5329,
+          "digest": "sha256:d2e59f45266d757d99dce8d73a2b40eda580a730d146d0496aa87ccb76eafc04",
+          "file": "oci-configs/SYNTHETIC-derived-flask-redis.config.json"
+        }
+      }
+    }
+  }
+}

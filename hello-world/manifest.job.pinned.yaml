@@ -1,0 +1,25 @@
+# SDV-026 digest-pinned copy of hello-world/manifest.job.template.yaml (scone-td-build-demos bcd3fb8).
+# Digests resolved anonymously on 2026-10-18 (05:49Z); see sdv026/images.lock.json.
+# STAND-IN: registry.scontain.com/k8s-scone-images/hello-world:native (IMAGE_NAME) is access-forbidden anonymously (HTTP 403), so its
+# image field pins the linux/amd64 manifest of its Dockerfile base image instead.
+# That image does NOT contain the demo application. Replace it with the real
+# native image digest before any deployment.
+# IMAGE_NAME stand-in: rust:latest (index sha256:e259494b14672950a909b4c54527e19d29cae6ebf980672114c8bb85e5594e4a)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hello-world
+spec:
+  template:
+    metadata:
+      labels:
+        app: hello-world
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: hello-world
+          image: docker.io/library/rust@sha256:d7c9d46725b95c89b733b30883c02fc39d6cbf829be6cdfdc2ace077c7c830e8
+          imagePullPolicy: Always
+      imagePullSecrets:
+        - name: ${IMAGE_PULL_SECRET_NAME}
+  backoffLimit: 4

@@ -1,0 +1,91 @@
+# SDV-026 digest-pinned copy of go-args-env-file/manifests/manifest.reduced.template.yaml (scone-td-build-demos bcd3fb8).
+# Digests resolved anonymously on 2026-10-18 (05:49Z); see sdv026/images.lock.json.
+# STAND-IN: registry.scontain.com/k8s-scone-images/go-args-env-file:native (DEMO_IMAGE) is access-forbidden anonymously (HTTP 403), so its
+# image field pins the linux/amd64 manifest of its Dockerfile base image instead.
+# That image does NOT contain the demo application. Replace it with the real
+# native image digest before any deployment.
+# DEMO_IMAGE stand-in: ghcr.io/scontain/golang:1.25.4-alpine (single-platform manifest, no index)
+# SDV-026 reduced variant of manifest.template.yaml for the SPTD offline compiler.
+# Changes relative to manifest.template.yaml (everything else is unchanged):
+#  * The two subPath mounts (ConfigMap key configs.yaml at /config/configs.yaml and
+#    Secret key secrets at /config/secrets) are replaced by ONE whole-volume mount
+#    of a projected volume at /config. Its two sources select exactly the same keys
+#    to the same file names, so the application still reads /config/configs.yaml
+#    and /config/secrets. scone-sptd-build turns this protected (ConfigMap/Secret/
+#    projected) volume into a contract-file reference; subPath is rejected.
+#  * The Downward API env entries POD_NAME and POD_NAMESPACE (fieldRef) are dropped,
+#    so the demo no longer prints them.
+#  * args [arg1, arg2] and APP_ENV=production are kept.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  labels:
+    app: go-args-env-file
+data:
+  configs.yaml: |
+    # Example configuration
+    app:
+      name: go-args-env-file
+      log_level: info
+    feature_flags:
+      enable_debug: false
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+  labels:
+    app: go-args-env-file
+type: Opaque
+stringData:
+  secrets: |
+    DB_PASSWORD=changeme
+    API_KEY=replace-with-real-key
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: go-args-env-file
+  labels:
+    app: go-args-env-file
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: go-args-env-file
+    spec:
+      volumes:
+        - name: config-volume
+          projected:
+            sources:
+              - configMap:
+                  name: app-config
+                  items:
+                    - key: configs.yaml
+                      path: configs.yaml
+              - secret:
+                  name: app-secrets
+                  items:
+                    - key: secrets
+                      path: secrets
+      imagePullSecrets:
+        - name: ${IMAGE_PULL_SECRET_NAME}
+      containers:
+        - name: go-args-env-file
+          image: ghcr.io/scontain/golang@sha256:a92dbf0be6579dbd2d338b706108147bc7c48cf158d82486e996aebe751dd371
+          imagePullPolicy: Always
+          args:
+            - "arg1"
+            - "arg2"
+          env:
+            - name: APP_ENV
+              value: "production"
+          volumeMounts:
+            - name: config-volume
+              mountPath: /config
+              readOnly: true
+      restartPolicy: Never
