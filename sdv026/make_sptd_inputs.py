@@ -68,6 +68,7 @@ CASES = [
 OPTIONAL_CASES = [
     ("java-args-env-file-sptd", "java-args-env-file/manifests/manifest.sptd.template.yaml", "java-args-env-file", "java-args-env-file/Values.yaml", []),
     ("web-server-sptd", "web-server/manifest.sptd.template.yaml", "web-server", "web-server/Values.yaml", []),
+    ("image-signing-kbs-sptd", "image-signing/k8s/kbs.sptd.template.yaml", "image-signing", "image-signing/Values.yaml", []),
 ]
 WORKLOAD_KINDS = {"Pod": "/spec", "Job": "/spec/template/spec", "Deployment": "/spec/template/spec",
                   "StatefulSet": "/spec/template/spec", "DaemonSet": "/spec/template/spec",
