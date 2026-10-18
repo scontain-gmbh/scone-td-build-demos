@@ -11,7 +11,11 @@ Variants:
   standin          image = base-image digest (real registry object) + its real config
   derived          image = SYNTHETIC digest under the native repo name + SYNTHETIC
                    config (base config with the Dockerfile's ENTRYPOINT/CMD/... applied)
-  derived-novolume like derived, but with the config's Volumes removed (probe only)
+  probe            PROBE ONLY, never a deployable input: like derived, but every image
+                   config (including the real redis one) has the execution controls
+                   Volumes/ArgsEscaped removed and a python argv[0] renamed, so the
+                   compiler reports the next workload-level blocker. All probe images
+                   get SYNTHETIC digests.
 
 Everything not taken from the demo manifests is synthetic and labelled so:
 snapshot uids/resourceVersions, bootstrap selectors, prepared-image digests,
@@ -74,20 +78,38 @@ def image_inputs(lock, lock_dir, variant):
             syn = native["derived_synthetic"]
             cfg = open(os.path.join(lock_dir, syn["config"]["file"]), "rb").read()
             desc, ref, label = syn["config"], syn["pinned"], f"SYNTHETIC digest + SYNTHETIC derived config for {native['reference']}"
-            if variant == "derived-novolume":
-                doc = json.loads(cfg)
-                if doc["config"].pop("Volumes", None) is not None:
-                    cfg = json.dumps(doc, sort_keys=True, separators=(",", ":")).encode()
-                    desc = {"media_type": desc["media_type"], "size": len(cfg), "digest": sha(cfg)}
-                    ref = ref.rsplit("@", 1)[0] + "@" + sha(b"sdv026-synthetic-image:" + desc["digest"].encode())
-                    label += " with Volumes removed (probe)"
         out[("native", demo)] = (standin, ref, cfg, desc, label)
+    if variant == "probe":
+        for key, value in list(out.items()):
+            if key[0] == "native":
+                out[key] = (value[0],) + probe(*value[1:])
+            else:
+                out[key] = probe(*value)
     return out
+
+
+def probe(ref, cfg, desc, label):
+    """Neutralize image-config blockers; returns a SYNTHETIC probe image."""
+    label = ("REAL " + ref) if label == "real" else label
+    doc = json.loads(cfg)
+    changes = [f for f in ("Volumes", "ArgsEscaped") if doc["config"].pop(f, None) is not None]
+    for field in ("Entrypoint", "Cmd"):
+        argv = doc["config"].get(field) or []
+        if argv and argv[0].rsplit("/", 1)[-1] in ("python", "python3"):
+            argv[0] = "/usr/local/bin/sdv026-probe-not-python"
+            changes.append(f"{field}[0] python renamed")
+            break
+    if not changes:
+        return ref, cfg, desc, label
+    cfg = json.dumps(doc, sort_keys=True, separators=(",", ":")).encode()
+    desc = {"media_type": desc["media_type"], "size": len(cfg), "digest": sha(cfg)}
+    ref = ref.rsplit("@", 1)[0] + "@" + sha(b"sdv026-synthetic-image:" + desc["digest"].encode())
+    return ref, cfg, desc, f"PROBE (SYNTHETIC) from [{label}], removed: {', '.join(changes)}"
 
 
 def main():
     demos_root, out_dir, variant = sys.argv[1], sys.argv[2], sys.argv[3]
-    assert variant in ("standin", "derived", "derived-novolume"), variant
+    assert variant in ("standin", "derived", "probe"), variant
     lock_dir = os.path.join(demos_root, "sdv026")
     lock = json.load(open(os.path.join(lock_dir, "images.lock.json")))
     images = image_inputs(lock, lock_dir, variant)
@@ -116,7 +138,7 @@ def main():
                         ref, cfg, desc, label = native[1], native[2], native[3], native[4]
                     else:
                         ref, cfg, desc, label = images[c["image"]]
-                        label = "REAL " + ref
+                        label = ("REAL " + ref) if label == "real" else label
                     c["image"] = ref
                     labels[c["name"]] = label
                     cfg_path = f"oci/{c['name']}.config.json"
