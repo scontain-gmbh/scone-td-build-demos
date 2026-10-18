@@ -9,7 +9,7 @@ workload document, an input root accepted by `scone-sptd-build build`:
 
 Variants:
   standin          image = base-image digest (real registry object) + its real config
-  derived          image = SYNTHETIC digest under the native repo name + SYNTHETIC
+  derived          image = SYNTHETIC digest under synthetic.invalid/<name> + SYNTHETIC
                    config (base config with the Dockerfile's ENTRYPOINT/CMD/... applied)
   probe            PROBE ONLY, never a deployable input: like derived, but every image
                    config (including the real redis one) has the execution controls
@@ -103,7 +103,8 @@ def probe(ref, cfg, desc, label):
         return ref, cfg, desc, label
     cfg = json.dumps(doc, sort_keys=True, separators=(",", ":")).encode()
     desc = {"media_type": desc["media_type"], "size": len(cfg), "digest": sha(cfg)}
-    ref = ref.rsplit("@", 1)[0] + "@" + sha(b"sdv026-synthetic-image:" + desc["digest"].encode())
+    # Probe images are never registry objects: name them under synthetic.invalid.
+    ref = "synthetic.invalid/" + ref.rsplit("@", 1)[0].rsplit("/", 1)[-1] + "@" + sha(b"sdv026-synthetic-image:" + desc["digest"].encode())
     return ref, cfg, desc, f"PROBE (SYNTHETIC) from [{label}], removed: {', '.join(changes)}"
 
 
