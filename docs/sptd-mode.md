@@ -146,6 +146,11 @@ executable file in the image (no symlink such as `/usr/local/bin/python3`); a ru
 `runAsUser`/`runAsGroup` must equal the policy identity; one registry holds one profile per
 image config.
 
+Interpreted demos (Python: software-updates, flask-redis, flask-redis-netshield, nfs-shared-volume)
+are not supported yet, even where a command like `python3.11` gets past the checks: the
+intended route is an explicit script profile (measured interpreter and script, fixed isolated
+argv), which doesn't exist yet. Treat those demos as not passing in sptd mode.
+
 `SPTD_DEV_LINT` (optional) points to scone-sptd-build's `sptd-dev-lint`. When set, each Apply
 file is linted first (`--path offline` for controllers, else `canonical`), and findings
 (exit 3) stop the run.
