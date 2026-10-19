@@ -30,7 +30,7 @@ Environment:
   SPTD_SIGN_CMD        command run as: $SPTD_SIGN_CMD <oci-layout> <confidential-manifest>
   SPTD_PUSH            "false" to skip the registry push (preload instead)
 """
-import argparse, hashlib, json, os, shlex, shutil, subprocess, sys
+import argparse, hashlib, json, os, re, shlex, shutil, subprocess, sys
 
 try:
     import yaml
@@ -184,6 +184,30 @@ def shape_for_node(doc):
         pod["nodeName"] = os.environ["SPTD_NODE_NAME"]
 
 
+def sptd_variant(base, name):
+    """Use <stem>.sptd.template.yaml (rendered to <stem>.sptd.yaml) when a demo ships one.
+
+    Some demos keep an sptd-only manifest variant beside the regular template, for
+    example a projected volume instead of a subPath mount. The README renders only the
+    regular template, so render the variant here the same way (tplenv, or ${VAR}
+    substitution from the environment when tplenv is unavailable).
+    """
+    stem = name[: -len(".yaml")] if name.endswith(".yaml") else name
+    template = os.path.join(base, stem + ".sptd.template.yaml")
+    if not os.path.isfile(template):
+        return name
+    rendered = stem + ".sptd.yaml"
+    target = os.path.join(base, rendered)
+    if shutil.which("tplenv"):
+        run(["tplenv", "--file", template, "--create-values-file", "--output", target], cwd=base)
+    else:
+        text = open(template).read()
+        text = re.sub(r"\$\{(\w+)\}", lambda m: os.environ.get(m.group(1), m.group(0)), text)
+        open(target, "w").write(text)
+    log(f"using sptd variant {rendered} for {name}")
+    return rendered
+
+
 def apply(scone_yaml):
     base = os.path.dirname(os.path.abspath(scone_yaml))
     docs = load_yaml_docs(scone_yaml)
@@ -199,6 +223,7 @@ def apply(scone_yaml):
     os.makedirs(work, exist_ok=True)
     for spec in applies:
         files = spec["file"] if isinstance(spec["file"], list) else [spec["file"]]
+        files = [sptd_variant(base, f) for f in files]
         inputs = [d for f in files for d in load_yaml_docs(os.path.join(base, f))]
         configmaps = {d["metadata"]["name"]: d for d in inputs if d.get("kind") == "ConfigMap"}
         output = []
