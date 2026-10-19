@@ -80,8 +80,10 @@ numbering before onboarding and refuses a bundle whose `baked-volumes.json` diff
 - flask-redis (redis): `redis.conf` is descriptor 100, the TLS files 101-103; the baked
   `redis.conf` points at them, and redis starts as `redis-server /proc/self/fd/100`. `/data`
   is a memory emptyDir.
-- go-args-env-file, java-args-env-file: the sptd source image links `/config/configs.yaml` to
-  `/proc/self/fd/100` and `/config/secrets` to `/proc/self/fd/101`.
+- go-args-env-file, java-args-env-file: each ships a `manifest.sptd.template.yaml` that
+  mounts the ConfigMap and Secret as whole volumes outside `/config` instead of `subPath`
+  mounts (java-args-env-file also runs the native-image binary). The sptd source image links
+  `/config/configs.yaml` to `/proc/self/fd/100` and `/config/secrets` to `/proc/self/fd/101`.
 - web-server: the `game-demo` ConfigMap at `/config` is baked; the sptd source image links each
   `/config/<key>` to its descriptor, and the dispatcher checks the links (`imageLinks` in the
   overrides). `MY_POD_IP` is left out in sptd mode: the server listens on `0.0.0.0` and only
