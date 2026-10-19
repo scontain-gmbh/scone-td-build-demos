@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# scone-td-build dispatcher for sptd mode (docs/sptd-mode.md).
+# TEE_TYPE != sptd: run the real scone-td-build (the next one in PATH) unchanged.
+# TEE_TYPE == sptd: handle `apply -f <scone.yaml>` with scone-sptd-build instead.
+set -euo pipefail
+
+self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+real_scone_td_build() {
+  local entry candidate
+  local IFS=:
+  for entry in $PATH; do
+    [[ -n "$entry" ]] || continue
+    candidate="$entry/scone-td-build"
+    [[ "$(cd "$entry" 2>/dev/null && pwd)" == "$self_dir" ]] && continue
+    if [[ -x "$candidate" && ! -d "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+if [[ "${TEE_TYPE:-}" != "sptd" ]]; then
+  real="$(real_scone_td_build)" || {
+    echo "scone-td-build: not found in PATH (outside the sptd dispatcher)" >&2
+    exit 127
+  }
+  exec "$real" "$@"
+fi
+
+# sptd mode: only `apply -f FILE` (or --file FILE) is supported.
+if [[ "${1:-}" != "apply" ]]; then
+  echo "scone-td-build (sptd mode): only 'apply -f <scone.yaml>' is supported, got: $*" >&2
+  exit 2
+fi
+shift
+file=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -f|--file) file="${2:-}"; shift 2 ;;
+    --help|-h)
+      echo "Usage: scone-td-build apply -f <scone.yaml>   (TEE_TYPE=sptd: builds with scone-sptd-build)"
+      exit 0 ;;
+    *) echo "scone-td-build (sptd mode): unsupported option '$1'" >&2; exit 2 ;;
+  esac
+done
+[[ -n "$file" && -f "$file" ]] || { echo "scone-td-build (sptd mode): -f <scone.yaml> is required" >&2; exit 2; }
+
+echo "scone-td-build (sptd mode): CAS attestation is off in this mode; building with scone-sptd-build" >&2
+exec python3 "$self_dir/../td-build-sptd.py" apply --file "$file"
