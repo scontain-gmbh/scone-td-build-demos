@@ -25,14 +25,25 @@ envcas with embedded secrets.
   `apply -f scone.yaml` itself:
   1. Reads the `Register` and `Apply` documents. It uses `source-image`, `output-image`,
      `file` and `output-manifest`, and ignores the CAS, `scone-version` and SCONE env fields.
-  2. Resolves each `source-image` to its manifest digest and config. It uses the image the
-     native step just pushed, so the config is real, not synthetic.
-  3. Writes the scone-sptd-build input root for each workload (from the SDV-026 harness
-     `sdv026/make_sptd_inputs.py`, generalised) and runs `scone-sptd-build build`.
-  4. Makes the built image available to the node (see "Image delivery").
-  5. Writes `output-manifest` under the same name. It's the input manifest with the
-     sptd-built image digest, `runtimeClassName: scone-process-td`, and, until S7,
-     `hostNetwork: true`, `nodeName` and a `node.kubernetes.io/not-ready` toleration.
+  2. Copies each `source-image` (the image the native step just pushed) to a local OCI
+     layout with `skopeo copy docker://… oci:…`, and records its manifest digest.
+  3. Runs `scone-sptd-build dev-prepare` phase 1 (NON_RELEASE, being built by the sptd-build
+     thread): `--image-layout --image-digest --workload <doc> [--configmap …] --container
+     <name>`. It writes `embedded-configuration.json` and its digest. CAS is bypassed and
+     only public plaintext inputs are used.
+  4. Builds the static dev envcas test launcher from that embedded configuration.
+  5. Runs `dev-prepare` phase 2 (`--launcher-root --envcas --envcas-digest`). It writes an OCI
+     layout plus the confidential manifest, with the image replaced by the output digest and
+     the scone RuntimeClass set.
+  6. Signs for VM 163's NON_RELEASE dev pod signer with the onboarding tooling from
+     sptd-build #108 (`make_profile_index.py`, issuer). The key path comes from
+     `SPTD_POD_SIGNER_KEY`.
+  7. Delivers the image: `skopeo copy oci:… docker://$output-image` to the demo registry,
+     or preload into VM 163's containerd.
+  8. Writes `output-manifest` under the same name, adding, until S7, `hostNetwork: true`,
+     `nodeName` and a `node.kubernetes.io/not-ready` toleration.
+  Before step 3 it can run `scone-sptd-build build` on a generated input root (SDV-026
+  harness) to report compiler refusals early.
 - `scripts/run-all-scripts.sh` and `scripts/prepare-example-ci.sh` print the one PATH line
   that sptd mode needs: `export PATH="$PWD/scripts/sptd/bin:$PATH"`. Alternatively the CI
   job sets it.
