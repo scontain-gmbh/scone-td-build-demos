@@ -78,7 +78,7 @@ named workloads only, never the demo's own manifests or the sgx/cvm modes. Per c
                    their mounts from the Pod, and the Pod plan never declares them
   configRewrites   {configMap, key, directives}: in that baked ConfigMap value, each line
                    "<directive> <path>" whose path is a baked file gets that file's descriptor
-  command          explicit command; {"descriptor": "<original path>"} becomes /dev/fd/N
+  command          explicit command; {"descriptor": "<original path>"} becomes /proc/self/fd/N
   memoryEmptyDirs  {name, mountPath, sizeLimit, owner}: memory emptyDir added to the Pod (owner
                    must equal the policy identity); the workload becomes a bare Pod with a plan
   resources        merged into the container's resources (a memory tmpfs counts against the
@@ -339,6 +339,18 @@ def baked_sources(spec, container, selections):
     return result
 
 
+def open_path(descriptor):
+    """The path a TD opens for a baked descriptor: /proc/self/fd/N, not the /dev/fd/N symlink.
+
+    /dev/fd is itself a symlink in /dev; when the TD's /dev is a tmpfs, resolving it needs an
+    lnk_file read the dev SELinux policy doesn't grant. /proc/self/fd/N avoids that hop.
+    """
+    prefix = "/dev/fd/"
+    if not descriptor.startswith(prefix):
+        raise Refused(f"unexpected baked descriptor {descriptor}")
+    return "/proc/self/fd/" + descriptor[len(prefix):]
+
+
 def baked_descriptors(sources, snapshots):
     """{original path: /dev/fd/N} in the compiler's documented order.
 
@@ -362,7 +374,7 @@ def rewrite_config(value, directives, descriptors):
         if len(words) == 2 and words[0] in directives:
             if words[1] not in descriptors:
                 raise Refused(f"{words[0]} names {words[1]}, which is not a baked file")
-            line = line.replace(words[1], descriptors[words[1]], 1)
+            line = line.replace(words[1], open_path(descriptors[words[1]]), 1)
         lines.append(line)
     return "".join(lines)
 
@@ -430,10 +442,11 @@ def check_image_links(archive, links, descriptors):
     for path, source in links.items():
         if source not in descriptors:
             raise Refused(f"image link {path} names {source}, which is not a baked file")
-        if found[path] != descriptors[source]:
-            raise Refused(f"image link {path} is {found[path]!r}, expected a symlink to {descriptors[source]}")
+        if found[path] != open_path(descriptors[source]):
+            raise Refused(f"image link {path} is {found[path]!r}, expected a symlink to "
+                          f"{open_path(descriptors[source])}")
     log("image links match the baked descriptors: "
-        + ", ".join(f"{path} -> {descriptors[source]}" for path, source in links.items()))
+        + ", ".join(f"{path} -> {open_path(descriptors[source])}" for path, source in links.items()))
 
 
 def source_archive(image, settings, cwork):
@@ -719,7 +732,8 @@ def a8_container(settings, demo, doc, container, image, target, objects, work, r
             check_image_links(archive, override["imageLinks"], descriptors)
     if "command" in override:
         try:
-            command = [descriptors[arg["descriptor"]] if isinstance(arg, dict) else arg for arg in override["command"]]
+            command = [open_path(descriptors[arg["descriptor"]]) if isinstance(arg, dict) else arg
+                       for arg in override["command"]]
         except KeyError as error:
             raise Refused(f"override command names {error}, which is not a baked file")
         log(f"{name}: override command {command}")

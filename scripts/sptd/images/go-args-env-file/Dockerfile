@@ -3,7 +3,7 @@
 # Build context: go-args-env-file/. Differences from the demo's own Dockerfile:
 #  - static binary on a distroless nonroot base (uid 65532), no VOLUME;
 #  - /config/configs.yaml and /config/secrets are read-only symlinks to the baked descriptor
-#    files /dev/fd/100 (ConfigMap app-config) and /dev/fd/101 (Secret app-secrets). The sptd
+#    files /proc/self/fd/100 (ConfigMap app-config) and /proc/self/fd/101 (Secret app-secrets). The sptd
 #    dispatcher refuses the build if baked-volumes.json assigns other descriptors.
 FROM ghcr.io/scontain/golang:1.25.4-alpine AS builder
 WORKDIR /src
@@ -12,8 +12,8 @@ RUN go mod download 2>/dev/null || true
 COPY . .
 RUN CGO_ENABLED=0 go build -trimpath -o /out/go-args-env-file . \
     && mkdir -p /out/config \
-    && ln -s /dev/fd/100 /out/config/configs.yaml \
-    && ln -s /dev/fd/101 /out/config/secrets
+    && ln -s /proc/self/fd/100 /out/config/configs.yaml \
+    && ln -s /proc/self/fd/101 /out/config/secrets
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=builder /out/go-args-env-file /usr/local/bin/go-args-env-file

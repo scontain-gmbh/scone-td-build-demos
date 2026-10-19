@@ -73,14 +73,15 @@ The node's envcas reads the root pin as bare hex (`SCONE_SPTD_N3_ROOT_PIN`), wit
 Until CAS delivers configuration files to a TD, some demos bake their ConfigMap and Secret
 files into the sealed launcher (rust-envcas `scone-td-dev-compile` built with
 `nonrelease-dev-baked-volumes`). The files appear in the TD as read-only descriptor files
-`/dev/fd/100`, `/dev/fd/101`, … numbered by volume name, then path. The script computes the
+descriptors 100, 101, … numbered by volume name, then path, and opened as
+`/proc/self/fd/N` (not the `/dev/fd/N` symlink). The script computes the
 numbering before onboarding and refuses a bundle whose `baked-volumes.json` differs.
 
-- flask-redis (redis): `redis.conf` is `/dev/fd/100`, the TLS files `/dev/fd/101`-`103`; the
-  baked `redis.conf` points at them, and redis starts as `redis-server /dev/fd/100`. `/data`
+- flask-redis (redis): `redis.conf` is descriptor 100, the TLS files 101-103; the baked
+  `redis.conf` points at them, and redis starts as `redis-server /proc/self/fd/100`. `/data`
   is a memory emptyDir.
 - go-args-env-file, java-args-env-file: the sptd source image links `/config/configs.yaml` to
-  `/dev/fd/100` and `/config/secrets` to `/dev/fd/101`.
+  `/proc/self/fd/100` and `/config/secrets` to `/proc/self/fd/101`.
 - web-server: the `game-demo` ConfigMap at `/config` is baked; the sptd source image links each
   `/config/<key>` to its descriptor, and the dispatcher checks the links (`imageLinks` in the
   overrides). `MY_POD_IP` is left out in sptd mode: the server listens on `0.0.0.0` and only
