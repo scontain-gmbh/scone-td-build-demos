@@ -1,0 +1,22 @@
+{
+  "schema": "sptd-demo-overrides-v1",
+  "nonRelease": true,
+  "comment": "sptd mode only, temporary until CAS delivers these files. The game-demo ConfigMap mounted at /config is baked into the sealed launcher as /dev/fd descriptor files; the sptd source image (scripts/sptd/images/web-server) links /config/<key> to them, and the dispatcher checks the links. MY_POD_IP (Downward API status.podIP) is left out: the server binds 0.0.0.0 and only echoes that variable, so /env/MY_POD_IP answers 404. The command is the absolute /app/web-server. The demo's manifest and the sgx/cvm modes are unchanged.",
+  "workloads": {
+    "web-server": {
+      "containers": {
+        "web-server": {
+          "bakedVolumes": [{"name": "config", "content_pin": true}],
+          "imageLinks": {
+            "/config/game.properties": "/config/game.properties",
+            "/config/player_initial_lives": "/config/player_initial_lives",
+            "/config/ui_properties_file_name": "/config/ui_properties_file_name",
+            "/config/user-interface.properties": "/config/user-interface.properties"
+          },
+          "removeEnv": ["MY_POD_IP"],
+          "command": ["/app/web-server"]
+        }
+      }
+    }
+  }
+}

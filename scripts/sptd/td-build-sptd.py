@@ -316,6 +316,11 @@ def with_overrides(doc, override):
             container.setdefault("volumeMounts", []).append({"name": memory["name"], "mountPath": memory["mountPath"]})
         for section, values in item.get("resources", {}).items():
             container.setdefault("resources", {}).setdefault(section, {}).update(values)
+        for env_name in item.get("removeEnv", []):
+            before = len(container.get("env", []))
+            container["env"] = [e for e in container.get("env", []) if e["name"] != env_name]
+            if len(container["env"]) == before:
+                raise SystemExit(f"{doc['metadata']['name']}: override removes unknown env {env_name}")
     return doc
 
 
@@ -389,6 +394,46 @@ def archive_member(archive, name):
             if member.name.removeprefix("./") == name and member.isfile():
                 return tar.extractfile(member).read()
     raise Refused(f"oci-archive has no {name}")
+
+
+def image_symlinks(archive, wanted):
+    """Symlink targets of `wanted` paths in the image's final filesystem (last layer wins).
+
+    Reads the oci-archive's manifest and layer tars; whiteouts and later regular files
+    replace an earlier symlink. Paths are absolute ("/config/x"); missing ones map to None.
+    """
+    import gzip, io
+    index = json.loads(archive_member(archive, "index.json"))
+    manifest = json.loads(archive_member(archive, "blobs/" + index["manifests"][0]["digest"].replace(":", "/")))
+    state = {path: None for path in wanted}
+    for layer in manifest["layers"]:
+        blob = archive_member(archive, "blobs/" + layer["digest"].replace(":", "/"))
+        if blob[:2] == b"\x1f\x8b":
+            blob = gzip.decompress(blob)
+        with tarfile.open(fileobj=io.BytesIO(blob), mode="r:") as tar:
+            for member in tar:
+                path = "/" + member.name.removeprefix("./").rstrip("/")
+                base = os.path.basename(path)
+                if base.startswith(".wh."):
+                    removed = os.path.join(os.path.dirname(path), base[4:])
+                    for key in state:
+                        if key == removed or key.startswith(removed + "/"):
+                            state[key] = None
+                elif path in state:
+                    state[path] = member.linkname if member.issym() else ("<not a symlink>")
+    return state
+
+
+def check_image_links(archive, links, descriptors):
+    """NON_RELEASE: each image path must be a symlink to the baked descriptor of its source."""
+    found = image_symlinks(archive, list(links))
+    for path, source in links.items():
+        if source not in descriptors:
+            raise Refused(f"image link {path} names {source}, which is not a baked file")
+        if found[path] != descriptors[source]:
+            raise Refused(f"image link {path} is {found[path]!r}, expected a symlink to {descriptors[source]}")
+    log("image links match the baked descriptors: "
+        + ", ".join(f"{path} -> {descriptors[source]}" for path, source in links.items()))
 
 
 def source_archive(image, settings, cwork):
@@ -670,6 +715,8 @@ def a8_container(settings, demo, doc, container, image, target, objects, work, r
             data[rewrite["key"]] = rewrite_config(data[rewrite["key"]], set(rewrite["directives"]), descriptors)
         log(f"{name}: NON_RELEASE baked volumes {', '.join(s['name'] for s in selections)}: "
             + ", ".join(f"{path} -> {fd}" for path, fd in descriptors.items()))
+        if override.get("imageLinks"):
+            check_image_links(archive, override["imageLinks"], descriptors)
     if "command" in override:
         try:
             command = [descriptors[arg["descriptor"]] if isinstance(arg, dict) else arg for arg in override["command"]]

@@ -81,6 +81,10 @@ numbering before onboarding and refuses a bundle whose `baked-volumes.json` diff
   is a memory emptyDir.
 - go-args-env-file, java-args-env-file: the sptd source image links `/config/configs.yaml` to
   `/dev/fd/100` and `/config/secrets` to `/dev/fd/101`.
+- web-server: the `game-demo` ConfigMap at `/config` is baked; the sptd source image links each
+  `/config/<key>` to its descriptor, and the dispatcher checks the links (`imageLinks` in the
+  overrides). `MY_POD_IP` is left out in sptd mode: the server listens on `0.0.0.0` and only
+  echoes that variable, so `/env/MY_POD_IP` answers 404.
 
 Baked values are fixed at build time. This whole mechanism, including those symlinks, is
 removed once CAS delivers the files.
