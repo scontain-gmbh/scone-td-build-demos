@@ -1,4 +1,4 @@
-# SDV-026 SPTD variant of go-args-env-file/Dockerfile, used only by the sdv026 harness
+# SDV-026 SPTD variant of go-args-env-file/Dockerfile (build context: go-args-env-file/), used only by the sdv026 harness
 # (sdv026/derive_configs.py) for the scone-sptd-build offline compiler. The sgx/cvm
 # walkthrough and CI keep using go-args-env-file/Dockerfile, whose final image is the
 # scontain golang image: that image carries /opt/scone, and the SCONE-protected job

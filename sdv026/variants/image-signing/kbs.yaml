@@ -1,4 +1,5 @@
-# SDV-026 SPTD variant of kbs.template.yaml for the scone-sptd-build offline compiler.
+# SDV-026 SPTD variant of image-signing/k8s/kbs.template.yaml for the scone-sptd-build offline
+# compiler, read only by the sdv026 harness (sdv026/make_sptd_inputs.py).
 # Only change: the subPath mount of ConfigMap key sgx_default_qcnl.conf at
 # /etc/sgx_default_qcnl.conf becomes a read-only mount of a projected volume at
 # /etc/sgx-qcnl (a directory of its own, so /etc is not shadowed) that selects the

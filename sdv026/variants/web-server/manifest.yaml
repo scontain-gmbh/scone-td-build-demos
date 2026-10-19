@@ -1,4 +1,5 @@
-# SDV-026 SPTD variant of manifest.template.yaml for the scone-sptd-build offline compiler.
+# SDV-026 SPTD variant of web-server/manifest.template.yaml for the scone-sptd-build offline
+# compiler, read only by the sdv026 harness (sdv026/make_sptd_inputs.py).
 # Changes (everything else is unchanged):
 #  * MY_POD_IP (Downward API fieldRef status.podIP) is dropped: scone-sptd-build has
 #    no Downward API source yet (RFA-043), so /env/MY_POD_IP returns "not found".

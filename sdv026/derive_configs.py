@@ -26,7 +26,7 @@ import json, os, re, shlex, sys, hashlib
 NATIVES = {
     # Re-derived (replaces the hand-made entry) from the SPTD Dockerfile variant with the alpine
     # run stage; the walkthrough keeps go-args-env-file/Dockerfile on the scontain golang image.
-    "go-args-env-file": ("go-args-env-file", "registry.scontain.com/k8s-scone-images/go-args-env-file:native", "go-args-env-file/Dockerfile.sptd", {}),
+    "go-args-env-file": ("go-args-env-file", "registry.scontain.com/k8s-scone-images/go-args-env-file:native", "sdv026/variants/go-args-env-file/Dockerfile", {}),
     "configmap": ("configmap", "registry.scontain.com/k8s-scone-images/configmap:native", "configmap/folder-reader/Dockerfile", {}),
     "network-policy-client": ("network-policy", "registry.scontain.com/k8s-scone-images/network-policy:client", "network-policy/client/Dockerfile", {}),
     "network-policy-server": ("network-policy", "registry.scontain.com/k8s-scone-images/network-policy:server", "network-policy/server/Dockerfile", {}),

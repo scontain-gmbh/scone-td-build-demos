@@ -1,4 +1,5 @@
-# SDV-026 SPTD variant of mariadb.template.yaml for the scone-sptd-build offline compiler.
+# SDV-026 SPTD variant of pet-clinic/manifests/mariadb.template.yaml for the scone-sptd-build
+# offline compiler, read only by the sdv026 harness (sdv026/make_sptd_inputs.py).
 # Only changes: the db-data emptyDir is memory-backed (medium: Memory, sizeLimit 1Gi),
 # the first protected writable-volume class (RFA-123), and the container memory limit
 # is raised from 2Gi to 3Gi because tmpfs pages count against it. The sgx/cvm

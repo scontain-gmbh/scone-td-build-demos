@@ -66,11 +66,9 @@ CASES = [
 ]
 # Optional cases (demo-side SPTD variants added on the fix commit); skipped when absent.
 OPTIONAL_CASES = [
-    ("java-args-env-file-sptd", "java-args-env-file/manifests/manifest.sptd.template.yaml", "java-args-env-file", "java-args-env-file/Values.yaml", []),
-    ("web-server-sptd", "web-server/manifest.sptd.template.yaml", "web-server", "web-server/Values.yaml", []),
-    ("image-signing-kbs-sptd", "image-signing/k8s/kbs.sptd.template.yaml", "image-signing", "image-signing/Values.yaml", []),
-    ("pet-clinic-db-sptd", "pet-clinic/manifests/mariadb.sptd.template.yaml", "pet-clinic", "pet-clinic/Values.yaml", ["pet-clinic/manifests/secret.template.yaml"]),
-    ("go-args-env-file-sptd", "go-args-env-file/manifests/manifest.sptd.template.yaml", "go-args-env-file", "go-args-env-file/Values.yaml", []),
+    ("web-server-sptd", "sdv026/variants/web-server/manifest.yaml", "web-server", "web-server/Values.yaml", []),
+    ("image-signing-kbs-sptd", "sdv026/variants/image-signing/kbs.yaml", "image-signing", "image-signing/Values.yaml", []),
+    ("pet-clinic-db-sptd", "sdv026/variants/pet-clinic/mariadb.yaml", "pet-clinic", "pet-clinic/Values.yaml", ["pet-clinic/manifests/secret.template.yaml"]),
     # SPTD cases of the same manifests whose argv[0] is an image symlink; SPTD_COMMANDS below
     # replaces it with the real file. The as-written cases above stay unchanged.
     ("flask-redis-sptd", "flask-redis/k8s/manifest.pinned.yaml", "flask-redis", None, []),
