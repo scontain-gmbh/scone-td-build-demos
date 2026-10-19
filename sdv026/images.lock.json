@@ -682,7 +682,7 @@
         "kind": "synthetic",
         "pinned": "synthetic.invalid/go-args-env-file@sha256:037058a63ffc6188a261d6ac96436368ee07a03ef7644848fe7c7c807f6c5909",
         "why": "SYNTHETIC digest (sha256 of 'sdv026-synthetic-image:'+config digest), not a registry object; config = final-stage base config with the Dockerfile's ENTRYPOINT/CMD/USER/WORKDIR/ENV/VOLUME/EXPOSE applied (derive_configs.py)",
-        "dockerfile": "go-args-env-file/Dockerfile",
+        "dockerfile": "go-args-env-file/Dockerfile.sptd",
         "build_args": {},
         "dockerfile_changes": {
           "Entrypoint": [
