@@ -1,0 +1,80 @@
+# SDV-026 SPTD variant of manifest.template.yaml, read only by the sptd dispatcher
+# (td-build-sptd.py sptd_variant) and the sdv026 harness. Changes (everything else
+# is unchanged):
+#  * The Downward API env POD_NAME and POD_NAMESPACE (fieldRef) is dropped.
+#  * The two subPath mounts become plain read-only whole-volume mounts outside /config:
+#    ConfigMap app-config at /etc/sptd-baked/app-config and Secret app-secrets at
+#    /etc/sptd-baked/app-secrets. The dev bake (bakedVolumes) delivers their files as
+#    /dev/fd/N from 100 in order of volume name, then path: config-volume/configs.yaml
+#    is /dev/fd/100 and secrets-volume/secrets is /dev/fd/101. The sptd image links
+#    /config/configs.yaml and /config/secrets to those descriptors, so main.go still
+#    reads /config/configs.yaml and /config/secrets. The paths here only order the fds.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  labels:
+    app: go-args-env-file
+data:
+  configs.yaml: |
+    # Example configuration
+    app:
+      name: go-args-env-file
+      log_level: info
+    feature_flags:
+      enable_debug: false
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+  labels:
+    app: go-args-env-file
+type: Opaque
+stringData:
+  secrets: |
+    DB_PASSWORD=changeme
+    API_KEY=replace-with-real-key
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: go-args-env-file
+  labels:
+    app: go-args-env-file
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: go-args-env-file
+    spec:
+      volumes:
+        - name: config-volume
+          configMap:
+            name: app-config
+        - name: secrets-volume
+          secret:
+            secretName: app-secrets
+      imagePullSecrets:
+        - name: ${IMAGE_PULL_SECRET_NAME}
+      containers:
+        - name: go-args-env-file
+          image: ${DEMO_IMAGE}
+          imagePullPolicy: Always
+          args:
+            - "arg1"
+            - "arg2"
+          env:
+            - name: APP_ENV
+              value: "production"
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/sptd-baked/app-config
+              readOnly: true
+            - name: secrets-volume
+              mountPath: /etc/sptd-baked/app-secrets
+              readOnly: true
+      restartPolicy: Never

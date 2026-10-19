@@ -70,6 +70,7 @@ OPTIONAL_CASES = [
     ("web-server-sptd", "web-server/manifest.sptd.template.yaml", "web-server", "web-server/Values.yaml", []),
     ("image-signing-kbs-sptd", "image-signing/k8s/kbs.sptd.template.yaml", "image-signing", "image-signing/Values.yaml", []),
     ("pet-clinic-db-sptd", "pet-clinic/manifests/mariadb.sptd.template.yaml", "pet-clinic", "pet-clinic/Values.yaml", ["pet-clinic/manifests/secret.template.yaml"]),
+    ("go-args-env-file-sptd", "go-args-env-file/manifests/manifest.sptd.template.yaml", "go-args-env-file", "go-args-env-file/Values.yaml", []),
     # SPTD cases of the same manifests whose argv[0] is an image symlink; SPTD_COMMANDS below
     # replaces it with the real file. The as-written cases above stay unchanged.
     ("flask-redis-sptd", "flask-redis/k8s/manifest.pinned.yaml", "flask-redis", None, []),
