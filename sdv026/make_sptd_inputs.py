@@ -70,6 +70,13 @@ OPTIONAL_CASES = [
     ("web-server-sptd", "web-server/manifest.sptd.template.yaml", "web-server", "web-server/Values.yaml", []),
     ("image-signing-kbs-sptd", "image-signing/k8s/kbs.sptd.template.yaml", "image-signing", "image-signing/Values.yaml", []),
     ("pet-clinic-db-sptd", "pet-clinic/manifests/mariadb.sptd.template.yaml", "pet-clinic", "pet-clinic/Values.yaml", ["pet-clinic/manifests/secret.template.yaml"]),
+    # SPTD cases of the same manifests whose argv[0] is an image symlink; SPTD_COMMANDS below
+    # replaces it with the real file. The as-written cases above stay unchanged.
+    ("flask-redis-sptd", "flask-redis/k8s/manifest.pinned.yaml", "flask-redis", None, []),
+    ("flask-redis-netshield-sptd", "flask-redis-netshield/k8s/manifest.template.yaml", "flask-redis-netshield", "flask-redis-netshield/Values.yaml", []),
+    ("nfs-shared-volume-sptd", "nfs-shared-volume/manifest.template.yaml", "nfs-shared-volume", "nfs-shared-volume/Values.yaml", []),
+    ("software-updates-v1-sptd", "software-updates/k8s/manifest.v1.template.yaml", "software-updates", "software-updates/Values.yaml", []),
+    ("software-updates-v2-sptd", "software-updates/k8s/manifest.v2.template.yaml", "software-updates", "software-updates/Values.yaml", []),
 ]
 WORKLOAD_KINDS = {"Pod": "/spec", "Job": "/spec/template/spec", "Deployment": "/spec/template/spec",
                   "StatefulSet": "/spec/template/spec", "DaemonSet": "/spec/template/spec",
@@ -81,6 +88,19 @@ EXTERNAL_SECRETS = {
     "api-credentials": ["API_PASSWORD"],
 }
 VM163 = {"namespace": "sdv-demos", "node": "sptd-k8s-163", "runtime_class": "scone-process-td"}
+# SPTD-only container commands: the scone-sptd-build emitter refuses a symlink as the
+# executable, and /usr/local/bin/python and /usr/local/bin/python3 are symlinks to
+# python3.11 in the pinned python:3.11-slim and python:3.11-alpine images, where
+# /usr/local/bin/python3.11 is the regular file. Each command is the image CMD
+# (Dockerfile) with that argv[0] and the script path made absolute (WORKDIR is /app).
+PY = "/usr/local/bin/python3.11"
+SPTD_COMMANDS = {
+    "flask-redis-sptd": {"flask-api": [PY, "/app/app.py"]},
+    "flask-redis-netshield-sptd": {"flask-api": [PY, "/app/app.py"]},
+    "nfs-shared-volume-sptd": {"app": [PY, "/app/app.py"]},
+    "software-updates-v1-sptd": {"python-hello-user": [PY, "/app/print_env.py"]},
+    "software-updates-v2-sptd": {"python-hello-user": [PY, "/app/print_env.py"]},
+}
 
 
 def sha(data: bytes) -> str:
@@ -228,6 +248,10 @@ def main():
             doc = copy.deepcopy(doc)
             if variant == "vm163":
                 vm163_shape(doc)
+            for c in pod_of(doc).get("containers", []):
+                if c["name"] in SPTD_COMMANDS.get(case, {}):
+                    c["command"] = list(SPTD_COMMANDS[case][c["name"]])
+                    c.pop("args", None)
             namespace = doc["metadata"].get("namespace")
             root = os.path.join(out_dir, variant, case, name)
             pod = pod_of(doc)

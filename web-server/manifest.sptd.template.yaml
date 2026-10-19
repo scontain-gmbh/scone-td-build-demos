@@ -2,6 +2,7 @@
 # Changes (everything else is unchanged):
 #  * MY_POD_IP (Downward API fieldRef status.podIP) is dropped: scone-sptd-build has
 #    no Downward API source yet (RFA-043), so /env/MY_POD_IP returns "not found".
+#  * command is /app/web-server (the file the Dockerfile copies) instead of ./web-server.
 #  * player_initial_lives is "three" instead of "3": every value of a consumed
 #    ConfigMap is a protected canary, and a one-character "3" occurs in every public
 #    sha256 digest, so the output scan refuses it.
@@ -40,7 +41,8 @@ spec:
         - name: web-server
           image: ${IMAGE_NAME}
           imagePullPolicy: Always
-          command: ["./web-server"]
+          # The real file: the scone-sptd-build emitter needs an absolute executable path.
+          command: ["/app/web-server"]
           env:
             - name: SIMPLE_ENV
               value: "IM WORKING WELL"
