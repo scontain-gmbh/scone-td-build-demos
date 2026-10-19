@@ -986,14 +986,22 @@ def sptd_source_image(base, image):
     """
     directory, root = base, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     root = os.path.dirname(root)  # repository root (scripts/sptd/.. /..)
-    while True:
-        dockerfile = os.path.join(directory, "Dockerfile.sptd")
-        if os.path.isfile(dockerfile):
-            break
-        parent = os.path.dirname(directory)
-        if directory == root or parent == directory:
-            return image
-        directory = parent
+    # sptd-mode images kept outside the demo directories, built with the demo as context:
+    # scripts/sptd/images/<demo>/Dockerfile (for example native-image or baked-file symlinks).
+    relative = os.path.relpath(os.path.abspath(base), root)
+    demo = relative.split(os.sep, 1)[0] if not relative.startswith("..") else None
+    dockerfile = os.path.join(root, "scripts", "sptd", "images", demo or "-", "Dockerfile")
+    if demo and os.path.isfile(dockerfile):
+        directory = os.path.join(root, demo)
+    else:
+        while True:
+            dockerfile = os.path.join(directory, "Dockerfile.sptd")
+            if os.path.isfile(dockerfile):
+                break
+            parent = os.path.dirname(directory)
+            if directory == root or parent == directory:
+                return image
+            directory = parent
     repo = image_repository(image)
     tag = f"{repo}:sptd-source"
     run(["docker", "build", "-f", dockerfile, "-t", tag, directory])
