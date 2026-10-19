@@ -135,6 +135,23 @@ names. No generated `scripts/<demo>.sh` needs to be edited by hand.
   a `SconeSecret` with `valueGenerated: {kind: ascii}` becomes a generated Secret snapshot
   that is sealed into the launcher and dropped from the output.
 
+  Per-demo overrides (NON_RELEASE, `scripts/sptd/policies/<demo>.overrides.json`) change
+  only the sptd build of named workloads. flask-redis uses one for its redis server: the
+  `redis-config` ConfigMap and the `redis-tls` Secret are baked into the sealed launcher as
+  `/dev/fd/N` descriptor files (rust-envcas `scone-td-dev-compile` with
+  `nonrelease-dev-baked-volumes`, declared in `SPTD_A8_COMPILER_FEATURES`), and onboard.py
+  removes them and their mounts from the Pod. The descriptors are numbered from 100 by volume
+  name, then projected path: 100 `/etc/redis/redis.conf`, 101 `/tls/redis-ca.crt`, 102
+  `/tls/redis.crt`, 103 `/tls/redis.key`. The script computes this mapping before onboarding,
+  points the baked copy of `redis.conf`'s `tls-cert-file`, `tls-key-file` and
+  `tls-ca-cert-file` at the descriptors, runs `redis-server /dev/fd/100`, and refuses the
+  bundle if its `baked-volumes.json` differs. The numbering uses only names and paths, so the
+  rewritten value keeps every number and one onboarding pass suffices. The override also adds
+  a 1Gi memory emptyDir at `/data` (owner 65532:65532, memory limit raised to 1280Mi), which
+  needs `SPTD_A8_MEMORY_ASSEMBLY` and the `memory_empty_dir` tool, so redis becomes a bare Pod
+  with one signed Pod plan that declares neither baked volume. Baked values are fixed at
+  build time and not rotated; the demo's own `redis.conf` and the sgx/cvm modes are unchanged.
+
 - `dev-prepare`: the earlier scone-sptd-build `sptd-dev-prepare` path, unchanged.
 
 Owner limits that the demos hit with `a8` (rust-envcas c61cf4e, rootfs 4533447, the pins

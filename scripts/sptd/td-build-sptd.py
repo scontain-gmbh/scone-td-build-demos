@@ -65,6 +65,27 @@ Environment (a8):
   SPTD_A8_REGISTRY     existing signed profile-registry.json to append to (optional)
   SPTD_A8_TAG          registry tag prefix; each entry is <prefix>-<profile> (default: sptd-dev)
   SPTD_A8_OFFLINE      "true": refuse images that are not in SPTD_SOURCE_LAYOUTS (no skopeo)
+  SPTD_A8_MEMORY_ASSEMBLY  sptd-dev-memory-assembly-v1 JSON for containers with a memory emptyDir;
+                       SPTD_A8_TOOLS then also names memory_empty_dir (sptd-build NON_RELEASE
+                       sptd-dev-memory-empty-dir)
+  SPTD_A8_COMPILER_FEATURES  comma-separated features the compiler was built with; baked volumes
+                       need nonrelease-dev-baked-volumes (rust-envcas scone-td-dev-compile)
+
+Per-demo overrides (a8, NON_RELEASE): <policies>/<demo>.overrides.json changes the sptd build of
+named workloads only, never the demo's own manifests or the sgx/cvm modes. Per container:
+  bakedVolumes     ConfigMap/Secret volumes to bake into the sealed launcher as /dev/fd/N
+                   descriptor files ({name, content_pin: true}); onboard.py removes them and
+                   their mounts from the Pod, and the Pod plan never declares them
+  configRewrites   {configMap, key, directives}: in that baked ConfigMap value, each line
+                   "<directive> <path>" whose path is a baked file gets that file's descriptor
+  command          explicit command; {"descriptor": "<original path>"} becomes /dev/fd/N
+  memoryEmptyDirs  {name, mountPath, sizeLimit, owner}: memory emptyDir added to the Pod (owner
+                   must equal the policy identity); the workload becomes a bare Pod with a plan
+  resources        merged into the container's resources (a memory tmpfs counts against the
+                   memory limit)
+Descriptor numbers follow the compiler's documented order: from 100 by volume name, then
+projected path. They are computed before onboarding and checked against the bundle's
+baked-volumes.json afterwards.
 
 Environment (dev-prepare):
   SPTD_DEV_PREPARE     path to the sptd-dev-prepare binary (default: sptd-dev-prepare in PATH)
@@ -220,6 +241,9 @@ def prepare_container(tool, workload_path, doc, container, image, target, config
 
 A8_REQUIRED_ENV = ("SPTD_ONBOARD", "SPTD_A8_TOOLS", "SPTD_DEV_SIGNING_KEY", "SPTD_DEV_ROOT_PIN")
 A8_TOOLS = {"rootfs_build", "rootfs_verify", "compiler", "emitter", "signer", "cargo", "envcas_source"}
+A8_OPTIONAL_TOOLS = {"memory_empty_dir"}
+BAKE_FEATURE = "nonrelease-dev-baked-volumes"
+FIRST_BAKED_DESCRIPTOR = 100
 
 
 class Refused(Exception):
@@ -243,8 +267,12 @@ def a8_settings():
     if not re.fullmatch(r"sha256:[0-9a-f]{64}", pin):
         raise SystemExit("SPTD_DEV_ROOT_PIN must be sha256:<64 hex>")
     tools = json.load(open(os.environ["SPTD_A8_TOOLS"]))
-    if set(tools) != A8_TOOLS:
-        raise SystemExit("SPTD_A8_TOOLS must name exactly: " + ", ".join(sorted(A8_TOOLS)))
+    if not A8_TOOLS <= set(tools) <= A8_TOOLS | A8_OPTIONAL_TOOLS:
+        raise SystemExit("SPTD_A8_TOOLS must name exactly: " + ", ".join(sorted(A8_TOOLS)) +
+                         " (and optionally " + ", ".join(sorted(A8_OPTIONAL_TOOLS)) + ")")
+    assembly = os.environ.get("SPTD_A8_MEMORY_ASSEMBLY")
+    if bool(assembly) != ("memory_empty_dir" in tools):
+        raise SystemExit("SPTD_A8_MEMORY_ASSEMBLY and the memory_empty_dir tool are required together")
     layouts = {}
     if os.environ.get("SPTD_SOURCE_LAYOUTS"):
         layouts = json.load(open(os.environ["SPTD_SOURCE_LAYOUTS"]))
@@ -254,7 +282,84 @@ def a8_settings():
             "cargo_target": os.environ.get("SPTD_A8_CARGO_TARGET"),
             "policies": os.path.abspath(os.environ.get("SPTD_POLICY_DIR", os.path.join(here, "policies"))),
             "layouts": layouts, "tag": os.environ.get("SPTD_A8_TAG", "sptd-dev"),
-            "registry": os.environ.get("SPTD_A8_REGISTRY")}
+            "registry": os.environ.get("SPTD_A8_REGISTRY"),
+            "memory_assembly": os.path.abspath(assembly) if assembly else None,
+            "compiler_features": [f for f in os.environ.get("SPTD_A8_COMPILER_FEATURES", "").split(",") if f]}
+
+
+def a8_overrides(settings, demo):
+    """The demo's sptd-only overrides (<policies>/<demo>.overrides.json), keyed by workload name."""
+    path = os.path.join(settings["policies"], f"{demo}.overrides.json")
+    if not os.path.isfile(path):
+        return {}
+    value = json.load(open(path))
+    if value.get("schema") != "sptd-demo-overrides-v1" or value.get("nonRelease") is not True:
+        raise SystemExit(f"{path}: expected schema sptd-demo-overrides-v1 with nonRelease true")
+    log(f"NON_RELEASE overrides {os.path.relpath(path, settings['policies'])} for "
+        + ", ".join(sorted(value["workloads"])))
+    return value["workloads"]
+
+
+def with_overrides(doc, override):
+    """A copy of the workload with the override's memory emptyDirs and resources applied."""
+    doc = copy.deepcopy(doc)
+    spec = pod_spec(doc)
+    for name, item in (override or {}).get("containers", {}).items():
+        container = next((c for c in spec.get("initContainers", []) + spec.get("containers", []) if c["name"] == name), None)
+        if container is None:
+            raise SystemExit(f"{doc['metadata']['name']}: override names unknown container {name}")
+        for memory in item.get("memoryEmptyDirs", []):
+            if any(v["name"] == memory["name"] for v in spec.get("volumes", [])):
+                raise SystemExit(f"{doc['metadata']['name']}: override volume {memory['name']} already exists")
+            spec.setdefault("volumes", []).append({"name": memory["name"],
+                                                   "emptyDir": {"medium": "Memory", "sizeLimit": memory["sizeLimit"]}})
+            container.setdefault("volumeMounts", []).append({"name": memory["name"], "mountPath": memory["mountPath"]})
+        for section, values in item.get("resources", {}).items():
+            container.setdefault("resources", {}).setdefault(section, {}).update(values)
+    return doc
+
+
+def baked_sources(spec, container, selections):
+    """[(volume name, mountPath, kind, object name, items)] of the selected ConfigMap/Secret volumes."""
+    result = []
+    for selection in selections:
+        volume = next((v for v in spec.get("volumes", []) if v["name"] == selection["name"]), None)
+        mount = [m for m in container.get("volumeMounts", []) if m["name"] == selection["name"]]
+        if volume is None or len(mount) != 1 or not ({"configMap", "secret"} & set(volume)):
+            raise Refused(f"baked volume {selection['name']} is not one mounted ConfigMap or Secret volume")
+        kind = "ConfigMap" if "configMap" in volume else "Secret"
+        source = volume["configMap"] if kind == "ConfigMap" else volume["secret"]
+        result.append((selection["name"], mount[0]["mountPath"].rstrip("/"), kind,
+                       source["name" if kind == "ConfigMap" else "secretName"], source.get("items")))
+    return result
+
+
+def baked_descriptors(sources, snapshots):
+    """{original path: /dev/fd/N} in the compiler's documented order.
+
+    rust-envcas scone-td-dev-compile (nonrelease-dev-baked-volumes) numbers the projected
+    files from 100 in order of volume name and then projected path; with no items, every
+    key is projected at its own name. Only names and paths enter the numbering, never
+    values, so rewriting a baked value keeps every number.
+    """
+    paths = []
+    for name, mount, kind, object_name, items in sorted(sources, key=lambda s: s[0].encode()):
+        relative = [item["path"] for item in items] if items else list(snapshots[kind][object_name]["data"])
+        paths += [f"{mount}/{path}" for path in sorted(relative, key=str.encode)]
+    return {path: f"/dev/fd/{number}" for number, path in enumerate(paths, FIRST_BAKED_DESCRIPTOR)}
+
+
+def rewrite_config(value, directives, descriptors):
+    """Point each "<directive> <path>" line at the baked file's descriptor."""
+    lines = []
+    for line in value.splitlines(keepends=True):
+        words = line.split()
+        if len(words) == 2 and words[0] in directives:
+            if words[1] not in descriptors:
+                raise Refused(f"{words[0]} names {words[1]}, which is not a baked file")
+            line = line.replace(words[1], descriptors[words[1]], 1)
+        lines.append(line)
+    return "".join(lines)
 
 
 def layout_to_archive(layout, archive):
@@ -488,6 +593,9 @@ def a8_diagnose(settings, request, cwork):
         facts["artifactDigest"] = artifact
         config = os.path.join(diag, "config.json")
         open(config, "wb").write(archive_member(request["archive"], "blobs/sha256/" + facts["configDigest"].split(":", 1)[1]))
+        if "baked_volumes" in request or "memory_empty_dir_assembly" in request:
+            return ("stages up to rootfs facts pass; this diagnosis does not replay baked-volume or "
+                    "memory emptyDir receipts")
         compiled = os.path.join(diag, "compiled")
         os.makedirs(compiled, mode=0o700)
         compile_request = dict(request.get("snapshots", {}), pod=request["pod"], policy=request["policy"],
@@ -529,8 +637,11 @@ def a8_check_bundle(settings, bundle):
     return report
 
 
-def a8_container(settings, demo, doc, container, image, target, objects, work, registry, role_only=False):
-    """Onboard one container. Returns (bundle dir, contract image reference, report, explicit command)."""
+def a8_container(settings, demo, doc, container, image, target, objects, work, registry, role_only=False,
+                 override=None):
+    """Onboard one container. Returns (bundle dir, contract image reference, report, explicit command,
+    baked volume names)."""
+    override = override or {}
     name = f"{doc['metadata']['name']}-{container['name']}"
     profile = dns_label(name if doc["metadata"]["name"] != container["name"] else container["name"])
     cwork = os.path.join(work, "a8", demo, doc["metadata"]["name"], container["name"])
@@ -539,9 +650,36 @@ def a8_container(settings, demo, doc, container, image, target, objects, work, r
     repository = a8_repository(target)
     archive, manifest_digest, config = source_archive(image, settings, cwork)
     image_ref = f"{repository}@{manifest_digest}"
-    command = cmd_only_command(container, config)
-    if command:
-        log(f"{name}: Cmd-only image; using its Cmd as the explicit command {command}")
+    selections = override.get("bakedVolumes", [])
+    baked = {"ConfigMap": {}, "Secret": {}}
+    descriptors = {}
+    if selections:
+        if BAKE_FEATURE not in settings["compiler_features"]:
+            raise Refused(f"baked volumes need a compiler built with {BAKE_FEATURE} "
+                          "(SPTD_A8_COMPILER_FEATURES)")
+        sources = baked_sources(pod_spec(doc), container, selections)
+        for _, _, kind, object_name, _ in sources:
+            if object_name not in objects[kind]:
+                raise Refused(f"baked {kind} {object_name} is not in the Apply files")
+            baked[kind][object_name] = snapshot(objects[kind][object_name], kind == "Secret")
+        descriptors = baked_descriptors(sources, baked)
+        for rewrite in override.get("configRewrites", []):
+            data = baked["ConfigMap"].get(rewrite["configMap"], {}).get("data", {})
+            if rewrite["key"] not in data:
+                raise Refused(f"config rewrite names {rewrite['configMap']}/{rewrite['key']}, which is not baked")
+            data[rewrite["key"]] = rewrite_config(data[rewrite["key"]], set(rewrite["directives"]), descriptors)
+        log(f"{name}: NON_RELEASE baked volumes {', '.join(s['name'] for s in selections)}: "
+            + ", ".join(f"{path} -> {fd}" for path, fd in descriptors.items()))
+    if "command" in override:
+        try:
+            command = [descriptors[arg["descriptor"]] if isinstance(arg, dict) else arg for arg in override["command"]]
+        except KeyError as error:
+            raise Refused(f"override command names {error}, which is not a baked file")
+        log(f"{name}: override command {command}")
+    else:
+        command = cmd_only_command(container, config)
+        if command:
+            log(f"{name}: Cmd-only image; using its Cmd as the explicit command {command}")
     pod = a8_pod(doc, container, image_ref, command)
     argv0 = effective_argv0(dict(container, command=command) if command else container, config)
     if not argv0.startswith("/"):
@@ -551,6 +689,20 @@ def a8_container(settings, demo, doc, container, image, target, objects, work, r
     missing = sorted((configmaps - set(objects["ConfigMap"])) | (secrets - set(objects["Secret"])))
     if missing:
         raise Refused("env references objects that are not in the Apply files: " + ", ".join(missing))
+    snapshots = {"ConfigMap": {n: snapshot(objects["ConfigMap"][n], False) for n in configmaps},
+                 "Secret": {n: snapshot(objects["Secret"][n], True) for n in secrets}}
+    for kind in snapshots:
+        snapshots[kind].update(baked[kind])
+    mounted = {m["name"] for m in container.get("volumeMounts", [])}
+    memory = [v for v in pod["spec"].get("volumes", [])
+              if (v.get("emptyDir") or {}).get("medium") == "Memory" and v["name"] in mounted]
+    identity = policy["process"]["identity"]
+    for item in override.get("memoryEmptyDirs", []):
+        if item.get("owner") != {"uid": identity["uid"], "gid": identity["gid"]}:
+            raise Refused(f"memory emptyDir {item['name']} owner differs from the policy identity")
+    tools = {k: v for k, v in settings["tools"].items() if k in A8_TOOLS or (memory and k == "memory_empty_dir")}
+    if memory and "memory_empty_dir" not in tools:
+        raise Refused("memory emptyDir needs SPTD_A8_MEMORY_ASSEMBLY and the memory_empty_dir tool")
     request = {
         "schema": "scone-dev-onboard-request-v1",
         "archive": archive, "archive_sha256": stream_digest(archive),
@@ -566,11 +718,18 @@ def a8_container(settings, demo, doc, container, image, target, objects, work, r
         "registry_entry": {"profile": profile, "repository": repository, "tag": f"{settings['tag']}-{profile}"[:128],
                            "config_id": "scone/" + profile},
         "signing_key": settings["key"], "root_pin": settings["pin"],
-        "tools": settings["tools"],
-        "snapshots": {"configMaps": [snapshot(objects["ConfigMap"][n], False) for n in sorted(configmaps)],
-                      "secrets": [snapshot(objects["Secret"][n], True) for n in sorted(secrets)],
+        "tools": tools,
+        "snapshots": {"configMaps": [snapshots["ConfigMap"][n] for n in sorted(snapshots["ConfigMap"])],
+                      "secrets": [snapshots["Secret"][n] for n in sorted(snapshots["Secret"])],
                       "payloads": []},
     }
+    if selections:
+        request["baked_volumes"] = selections
+        request["compiler_features"] = [BAKE_FEATURE]
+    if memory:
+        request["memory_empty_dir_assembly"] = settings["memory_assembly"]
+        request["memory_empty_dir_assembly_sha256"] = stream_digest(settings["memory_assembly"])
+        log(f"{name}: memory emptyDir {', '.join(v['name'] for v in memory)} (NON_RELEASE receipt, key 4)")
     request["policy_sha256"] = stream_digest(request["policy"])
     if settings["cargo_target"]:
         request["cargo_target"] = os.path.abspath(settings["cargo_target"])
@@ -593,6 +752,11 @@ def a8_container(settings, demo, doc, container, image, target, objects, work, r
             refusal = (result.stderr or result.stdout).strip()
             raise Refused(f"{refusal}; first stage refusal: {a8_diagnose(settings, request, cwork)}")
         report = a8_check_bundle(settings, bundle)
+        if selections:
+            mapping = json.load(open(os.path.join(bundle, "baked-volumes.json")))
+            found = {item["path"]: item["descriptor"] for item in mapping["files"]}
+            if found != descriptors:
+                raise Refused(f"bundle descriptor mapping {found} differs from the documented order {descriptors}")
     finally:
         os.unlink(archive)
         # Keep the request for debugging, without the snapshot values (Secrets, generated values).
@@ -601,7 +765,7 @@ def a8_container(settings, demo, doc, container, image, target, objects, work, r
                 item["data"] = {k: "<redacted>" for k in item["data"]}
         write_json(request_path, request)
     contract = json.load(open(os.path.join(bundle, "contract.json")))
-    return bundle, contract["image"]["reference"], report, command
+    return bundle, contract["image"]["reference"], report, command, {s["name"] for s in selections}
 
 
 def a8_rewrite(doc, container_name, bundle):
@@ -652,12 +816,24 @@ def a8_plan_pod(settings, demo, doc, bundles, work):
     pod = a8_pod(doc, {"name": None}, None)  # labels kept, so Services still select the Pod
     spec = pod["spec"]
     spec.setdefault("restartPolicy", "Always")
+    baked = set()
     for item in spec.get("initContainers", []) + spec.get("containers", []):
-        bundle, image_ref, command = bundles[item["name"]]
+        bundle, image_ref, command, names = bundles[item["name"]]
         item["image"] = image_ref
         item["imagePullPolicy"] = "Never"
         if command:
             item["command"] = command
+        if names:
+            # The role was compiled against the transformed Pod: the baked files are sealed
+            # descriptors, so neither the plan nor the bare Pod declares these volumes.
+            item["volumeMounts"] = [m for m in item.get("volumeMounts", []) if m["name"] not in names]
+            if not item["volumeMounts"]:
+                del item["volumeMounts"]
+            baked |= names
+    if baked:
+        spec["volumes"] = [v for v in spec.get("volumes", []) if v["name"] not in baked]
+        if not spec["volumes"]:
+            del spec["volumes"]
     shape_for_node(pod)
     pwork = os.path.join(work, "a8", demo, doc["metadata"]["name"], ".pod-plan")
     if os.path.exists(pwork):
@@ -693,8 +869,11 @@ def a8_plan_pod(settings, demo, doc, bundles, work):
     return {"apiVersion": "v1", "kind": "Pod", "metadata": workload["metadata"], "spec": workload["spec"]}, plan_dir
 
 
-def a8_workload(settings, demo, doc, images, base, objects, work, registry):
+def a8_workload(settings, demo, doc, images, base, objects, work, registry, overrides=None):
     """Onboard every registered role of one workload. Returns (output doc, entries, refused, registry)."""
+    override = (overrides or {}).get(doc["metadata"]["name"])
+    if override:
+        doc = with_overrides(doc, override)
     plan = needs_pod_plan(doc)
     spec = pod_spec(doc)
     result = copy.deepcopy(doc)
@@ -716,9 +895,9 @@ def a8_workload(settings, demo, doc, images, base, objects, work, registry):
         entry = {"demo": demo, "workload": f"{doc['kind']}/{doc['metadata']['name']}",
                  "container": container["name"], "source": source, "podPlan": plan or None}
         try:
-            bundle, image_ref, report, command = a8_container(settings, demo, doc, container, source,
-                                                              images[container["image"]], objects, work,
-                                                              registry, role_only=bool(plan))
+            bundle, image_ref, report, command, baked = a8_container(
+                settings, demo, doc, container, source, images[container["image"]], objects, work,
+                registry, role_only=bool(plan), override=(override or {}).get("containers", {}).get(container["name"]))
             registry = os.path.join(bundle, "profile-registry.json")
             if not plan:
                 a8_rewrite(result, container["name"], bundle)
@@ -727,12 +906,14 @@ def a8_workload(settings, demo, doc, images, base, objects, work, registry):
             entry.update(result="REFUSED", refusal=str(error))
             log(f"{doc['metadata']['name']}/{container['name']}: REFUSED: {error}")
         else:
-            bundles[container["name"]] = (bundle, image_ref, command)
+            bundles[container["name"]] = (bundle, image_ref, command, baked)
             entry.update(result="PASS", bundle=bundle, image=image_ref, registry=registry,
                          roleOnly=report.get("requiresSignedPodPlan", False),
                          profileDigest=report["profileDigest"], contractDigest=report["contractDigest"],
                          artifactDigest=report["artifactDigest"], launcherFeatures=report.get("launcherFeatures"),
-                         providerAdmissionRefusal=report.get("providerAdmissionRefusal"))
+                         providerAdmissionRefusal=report.get("providerAdmissionRefusal"),
+                         bakedDescriptors=report.get("bakedDescriptors"),
+                         memoryEmptyDirDeclared=report.get("memoryEmptyDirDeclared", False))
             log(f"{doc['metadata']['name']}/{container['name']}: PASS: bundle {bundle} "
                 "(offline preload bundle, runtimeReady false)")
         entries.append(entry)
@@ -873,6 +1054,7 @@ def apply(scone_yaml):
     route = os.environ.get("SPTD_ROUTE", "a8")
     if route == "a8":
         settings, tool = a8_settings(), None
+        overrides = a8_overrides(settings, demo_name(scone_yaml))
         registry = os.path.abspath(settings["registry"]) if settings["registry"] else None
         log("route a8: offline onboarding (onboard.py), preload bundles, runtimeReady false")
     elif route == "dev-prepare":
@@ -909,7 +1091,7 @@ def apply(scone_yaml):
                 continue
             if route == "a8":
                 result, entries, count, registry = a8_workload(settings, demo, doc, images, base, objects,
-                                                               work, registry)
+                                                               work, registry, overrides)
                 results += entries
                 refused += count
                 output.append(result)
