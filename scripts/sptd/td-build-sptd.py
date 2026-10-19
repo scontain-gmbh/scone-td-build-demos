@@ -24,7 +24,8 @@ Environment:
   SPTD_BUILD_SRC       scone-sptd-build checkout (for examples/clock/development-envcas)
   SPTD_WORK_DIR        work directory (default: ./.sptd-work)
   SPTD_NODE_NAME       node name for nodeName (default: unset, no nodeName)
-  SPTD_RUNTIME_CLASS   override the RuntimeClass name sptd-dev-prepare sets
+  SPTD_RUNTIME_CLASS   RuntimeClass for prepared Pods (default scone-process-td, the class
+                       the node archive installs with handler scone)
   SPTD_HOST_NETWORK    "false" to keep the Pod network (default: true until S7)
   SPTD_SIGN_CMD        command run as: $SPTD_SIGN_CMD <oci-layout> <confidential-manifest>
   SPTD_PUSH            "false" to skip the registry push (preload instead)
@@ -171,8 +172,7 @@ def prepare_container(tool, workload_path, doc, container, image, target, config
 
 def shape_for_node(doc):
     pod = pod_spec(doc)
-    if os.environ.get("SPTD_RUNTIME_CLASS"):
-        pod["runtimeClassName"] = os.environ["SPTD_RUNTIME_CLASS"]
+    pod["runtimeClassName"] = os.environ.get("SPTD_RUNTIME_CLASS", "scone-process-td")
     if os.environ.get("SPTD_HOST_NETWORK", "true") != "false":
         pod["hostNetwork"] = True
         pod["dnsPolicy"] = "ClusterFirstWithHostNet"
