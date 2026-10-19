@@ -1,9 +1,28 @@
 #!/usr/bin/env python3
 """sptd mode for `scone-td-build apply -f scone.yaml` (docs/sptd-mode.md). NON_RELEASE.
 
-Reads the Register and Apply documents of scone.yaml and, for every workload in the
-Apply files, prepares each registered container with `sptd-dev-prepare`
-(scone-sptd-build, built with --features rfa-development):
+Reads the Register and Apply documents of scone.yaml and turns every registered container
+of every workload in the Apply files into a SCONE Process TD dev image. Two routes:
+
+SPTD_ROUTE=a8 (default): A8 offline onboarding (sptd-hello-container-dev
+`scone-dev-onboard/onboard.py REQUEST.json FRESH_OUTPUT_DIR`). Per container:
+
+  1. the native image (Register source-image) as a pinned OCI archive: a local layout or
+     archive from $SPTD_SOURCE_LAYOUTS, else `skopeo copy docker://… oci-archive:…`
+  2. a one-container Pod (the workload's Pod template, image pinned to the manifest
+     digest, automountServiceAccountToken and enableServiceLinks false), the ConfigMap
+     and Secret snapshots it references from the Apply files, the launch-contract
+     policy (scripts/sptd/policies/<demo>.json, else generic.json) and the request
+  3. onboard.py: EROFS + dm-verity rootfs, envcas launch contract, sealed launcher,
+     signed profile, signed registry (appended across the containers of one run)
+  4. a check of the bundle: checksums, signed profile, runtimeReady false
+
+  The output-manifest pins each container to the bundle's image reference with
+  RuntimeClass scone-dev. The bundle is an offline preload bundle: nothing is installed
+  or pushed, and the node must preload it before the Pod can start.
+
+SPTD_ROUTE=dev-prepare: scone-sptd-build `sptd-dev-prepare` (built with
+--features rfa-development):
 
   1. copy the native image (Register source-image) to a local OCI layout (skopeo)
   2. phase 1: embedded configuration and its digest
@@ -12,25 +31,45 @@ Apply files, prepares each registered container with `sptd-dev-prepare`
   5. sign with $SPTD_SIGN_CMD if set (PR #108 onboarding tooling), else stay unsigned
   6. push the layout to the Register output-image repository (skopeo)
 
-Then it writes the Apply output-manifest: every non-workload document unchanged, every
-workload replaced by its confidential manifest, reshaped for the single-node demo
-cluster until S7 (hostNetwork, nodeName, not-ready toleration).
+Both routes then write the Apply output-manifest: every non-workload document unchanged,
+every prepared workload reshaped for the single-node demo cluster until S7 (hostNetwork,
+nodeName, not-ready toleration).
 
-Development only: CAS is bypassed, envcas attestation is disabled, embedded values and
-ConfigMap files are public plaintext in the image. Never use it with real secrets.
+Development only: CAS is bypassed, envcas attestation is disabled. Never use it with real
+secrets or a real signing key.
 
-Environment:
-  SPTD_DEV_PREPARE     path to the sptd-dev-prepare binary (default: sptd-dev-prepare in PATH)
-  SPTD_BUILD_SRC       scone-sptd-build checkout (for examples/clock/development-envcas)
+Environment (both routes):
+  SPTD_ROUTE           a8 (default) or dev-prepare
   SPTD_WORK_DIR        work directory (default: ./.sptd-work)
   SPTD_NODE_NAME       node name for nodeName (default: unset, no nodeName)
   SPTD_RUNTIME_CLASS   RuntimeClass for prepared Pods (default scone-dev, the dev class with
                        handler scone-dev; scone-process-td is the protected-application class)
   SPTD_HOST_NETWORK    "false" to keep the Pod network (default: true until S7)
+  SPTD_DEV_LINT        optional scone-sptd-build `sptd-dev-lint` binary: pre-flight lint of every
+                       Apply file (--path offline for controllers); findings (exit 3) stop the run
+
+Environment (a8):
+  SPTD_ONBOARD         path to scone-dev-onboard/onboard.py (required)
+  SPTD_A8_TOOLS        JSON file with onboard's `tools` object: rootfs_build, rootfs_verify,
+                       compiler, emitter, signer, cargo, envcas_source (required)
+  SPTD_A8_CARGO_TARGET cargo target dir for the sealed launcher build (optional)
+  SPTD_DEV_SIGNING_KEY Ed25519 dev signing key (PEM) for profile and registry (required;
+                       never generated here)
+  SPTD_DEV_ROOT_PIN    sha256: pin of that key's domain-separated SPKI (required)
+  SPTD_POLICY_DIR      policy templates (default: scripts/sptd/policies)
+  SPTD_SOURCE_LAYOUTS  JSON file {source-image: OCI layout dir or oci-archive tar}; such
+                       images are read locally instead of with skopeo
+  SPTD_A8_REGISTRY     existing signed profile-registry.json to append to (optional)
+  SPTD_A8_TAG          registry tag prefix; each entry is <prefix>-<profile> (default: sptd-dev)
+  SPTD_A8_OFFLINE      "true": refuse images that are not in SPTD_SOURCE_LAYOUTS (no skopeo)
+
+Environment (dev-prepare):
+  SPTD_DEV_PREPARE     path to the sptd-dev-prepare binary (default: sptd-dev-prepare in PATH)
+  SPTD_BUILD_SRC       scone-sptd-build checkout (for examples/clock/development-envcas)
   SPTD_SIGN_CMD        command run as: $SPTD_SIGN_CMD <oci-layout> <confidential-manifest>
   SPTD_PUSH            "false" to skip the registry push (preload instead)
 """
-import argparse, hashlib, json, os, re, shlex, shutil, subprocess, sys
+import argparse, base64, copy, hashlib, json, os, re, secrets, shlex, shutil, string, subprocess, sys, tarfile
 
 try:
     import yaml
@@ -172,6 +211,432 @@ def prepare_container(tool, workload_path, doc, container, image, target, config
     return manifest
 
 
+# ---------------------------------------------------------------------------------------
+# A8 route: sptd-hello-container-dev scone-dev-onboard/onboard.py
+# ---------------------------------------------------------------------------------------
+
+A8_REQUIRED_ENV = ("SPTD_ONBOARD", "SPTD_A8_TOOLS", "SPTD_DEV_SIGNING_KEY", "SPTD_DEV_ROOT_PIN")
+A8_TOOLS = {"rootfs_build", "rootfs_verify", "compiler", "emitter", "signer", "cargo", "envcas_source"}
+
+
+class Refused(Exception):
+    """One container could not be onboarded; the message says why."""
+
+
+def stream_digest(path):
+    checksum = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            checksum.update(chunk)
+    return "sha256:" + checksum.hexdigest()
+
+
+def a8_settings():
+    missing = [name for name in A8_REQUIRED_ENV if not os.environ.get(name)]
+    if missing:
+        raise SystemExit("SPTD_ROUTE=a8 needs " + ", ".join(missing) +
+                         " (the signing key and root pin are never generated here)")
+    pin = os.environ["SPTD_DEV_ROOT_PIN"]
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", pin):
+        raise SystemExit("SPTD_DEV_ROOT_PIN must be sha256:<64 hex>")
+    tools = json.load(open(os.environ["SPTD_A8_TOOLS"]))
+    if set(tools) != A8_TOOLS:
+        raise SystemExit("SPTD_A8_TOOLS must name exactly: " + ", ".join(sorted(A8_TOOLS)))
+    layouts = {}
+    if os.environ.get("SPTD_SOURCE_LAYOUTS"):
+        layouts = json.load(open(os.environ["SPTD_SOURCE_LAYOUTS"]))
+    here = os.path.dirname(os.path.abspath(__file__))
+    return {"onboard": os.path.abspath(os.environ["SPTD_ONBOARD"]), "tools": tools,
+            "key": os.path.abspath(os.environ["SPTD_DEV_SIGNING_KEY"]), "pin": pin,
+            "cargo_target": os.environ.get("SPTD_A8_CARGO_TARGET"),
+            "policies": os.path.abspath(os.environ.get("SPTD_POLICY_DIR", os.path.join(here, "policies"))),
+            "layouts": layouts, "tag": os.environ.get("SPTD_A8_TAG", "sptd-dev"),
+            "registry": os.environ.get("SPTD_A8_REGISTRY")}
+
+
+def layout_to_archive(layout, archive):
+    """Write an OCI layout directory as an oci-archive tar (regular files only, fixed metadata)."""
+    names = ["oci-layout", "index.json"]
+    for root, _, files in os.walk(os.path.join(layout, "blobs")):
+        names += [os.path.relpath(os.path.join(root, f), layout) for f in files]
+    with tarfile.open(archive, "w", format=tarfile.PAX_FORMAT) as tar:
+        directories = sorted({os.path.dirname(n) for n in names if os.path.dirname(n)} |
+                             {"blobs"})
+        for name in directories + sorted(names):
+            path = os.path.join(layout, name)
+            info = tarfile.TarInfo(name)
+            info.mtime, info.uid, info.gid, info.uname, info.gname = 0, 0, 0, "", ""
+            if os.path.isdir(path):
+                info.type, info.mode = tarfile.DIRTYPE, 0o755
+                tar.addfile(info)
+                continue
+            info.size, info.mode = os.path.getsize(path), 0o644
+            with open(path, "rb") as f:
+                tar.addfile(info, f)
+
+
+def archive_member(archive, name):
+    with tarfile.open(archive, "r") as tar:
+        for member in tar:
+            if member.name.removeprefix("./") == name and member.isfile():
+                return tar.extractfile(member).read()
+    raise Refused(f"oci-archive has no {name}")
+
+
+def source_archive(image, settings, cwork):
+    """Return (archive path, manifest digest, OCI config) for the source image."""
+    archive = os.path.join(cwork, "source.oci.tar")
+    if os.path.exists(archive):
+        os.unlink(archive)
+    local = settings["layouts"].get(image)
+    if local and os.path.isdir(local):
+        log(f"using local OCI layout {local} for {image}")
+        layout_to_archive(local, archive)
+    elif local:
+        log(f"using local oci-archive {local} for {image}")
+        shutil.copyfile(local, archive)
+    elif os.environ.get("SPTD_A8_OFFLINE") == "true":
+        raise Refused(f"{image} is not in SPTD_SOURCE_LAYOUTS and SPTD_A8_OFFLINE=true (no registry copy)")
+    else:
+        source = image if image.startswith("docker-daemon:") else f"docker://{image}"
+        try:
+            run(["skopeo", "copy", "--override-os", "linux", "--override-arch", "amd64",
+                 source, f"oci-archive:{archive}:source"])
+        except (OSError, subprocess.CalledProcessError) as error:
+            raise Refused(f"skopeo copy of {image} failed: {error}")
+    index = json.loads(archive_member(archive, "index.json"))
+    manifests = index.get("manifests", [])
+    if len(manifests) != 1:
+        raise Refused(f"{image}: expected one manifest in the OCI archive, got {len(manifests)}")
+    digest = manifests[0]["digest"]
+    manifest = json.loads(archive_member(archive, "blobs/sha256/" + digest.split(":", 1)[1]))
+    config = json.loads(archive_member(archive, "blobs/sha256/" + manifest["config"]["digest"].split(":", 1)[1]))
+    return archive, digest, config
+
+
+def a8_repository(target):
+    """Registry repository spelling for the profile registry: no docker.io/, no port, lowercase."""
+    repo = image_repository(target)
+    repo = repo.removeprefix("docker.io/")
+    if re.fullmatch(r"[a-z0-9]+(?:[._-][a-z0-9]+)*(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)*", repo) and len(repo) <= 255:
+        return repo
+    raise Refused(f"output-image repository {repo!r} is not a valid profile-registry repository "
+                  "(lowercase path, no port)")
+
+
+def dns_label(text):
+    label = re.sub(r"[^a-z0-9-]+", "-", text.lower()).strip("-")[:63].strip("-")
+    if not label:
+        raise Refused(f"cannot derive a profile id from {text!r}")
+    return label
+
+
+def effective_argv0(container, config):
+    """Kubernetes command/args over OCI Entrypoint/Cmd, as the owner compiler resolves them."""
+    image = config.get("config", {})
+    if container.get("command"):
+        return container["command"][0]
+    entrypoint = image.get("Entrypoint") or []
+    if entrypoint:
+        return entrypoint[0]
+    command = container.get("args") or image.get("Cmd") or []
+    if not command:
+        raise Refused("no command: neither the Pod nor the image config names an executable")
+    return command[0]
+
+
+def cmd_only_command(container, config):
+    """Cmd of a Cmd-only image when the Pod sets neither command nor args, else None.
+
+    Kubernetes runs such a container as exactly Cmd, the same as `command: <Cmd>`. The
+    pinned owner compiler (rust-envcas c61cf4e scone-td-dev-compile) passes only the
+    Entrypoint part as the command to the environment compiler, which refuses it as an
+    "empty effective command". Making Cmd the explicit command keeps argv unchanged.
+    """
+    image = config.get("config", {})
+    if container.get("command") or container.get("args") or image.get("Entrypoint") or not image.get("Cmd"):
+        return None
+    return list(image["Cmd"])
+
+
+def a8_pod(doc, container, image_ref, command=None):
+    """One Pod for the compiler: the workload's Pod template with this container pinned."""
+    template = doc["spec"]["template"] if doc["kind"] != "Pod" else doc
+    if doc["kind"] == "CronJob":
+        template = doc["spec"]["jobTemplate"]["spec"]["template"]
+    meta = template.get("metadata", {}) if doc["kind"] != "Pod" else doc.get("metadata", {})
+    spec = copy.deepcopy(pod_spec(doc))
+    spec["automountServiceAccountToken"] = False
+    spec["enableServiceLinks"] = False
+    for item in spec.get("containers", []) + spec.get("initContainers", []):
+        if item["name"] == container["name"]:
+            item["image"] = image_ref
+            if command:
+                item["command"] = command
+    pod = {"apiVersion": "v1", "kind": "Pod",
+           "metadata": {"name": doc["metadata"]["name"],
+                        "namespace": doc["metadata"].get("namespace", "default")},
+           "spec": spec}
+    if meta.get("labels"):
+        pod["metadata"]["labels"] = meta["labels"]
+    return pod
+
+
+def referenced_objects(container):
+    configmaps, secrets = set(), set()
+    for item in container.get("envFrom", []):
+        if "configMapRef" in item:
+            configmaps.add(item["configMapRef"]["name"])
+        if "secretRef" in item:
+            secrets.add(item["secretRef"]["name"])
+    for item in container.get("env", []):
+        source = item.get("valueFrom", {})
+        if "configMapKeyRef" in source:
+            configmaps.add(source["configMapKeyRef"]["name"])
+        if "secretKeyRef" in source:
+            secrets.add(source["secretKeyRef"]["name"])
+    return configmaps, secrets
+
+
+def scone_secret(doc):
+    """A SconeSecret (CAS-generated values) as an offline Secret snapshot.
+
+    Only `valueGenerated: {kind: ascii, size: N}` is supported: the value is generated
+    here, compiled into a sealed payload of the launcher and never written to the output
+    manifest. Each run generates a new value.
+    """
+    data = {}
+    for key, spec in (doc.get("data") or {}).items():
+        generated = (spec or {}).get("valueGenerated") if isinstance(spec, dict) else None
+        if not generated or generated.get("kind") != "ascii" or not isinstance(generated.get("size"), int) \
+                or not 0 < generated["size"] <= 4096:
+            raise Refused(f"SconeSecret {doc['metadata']['name']}/{key}: only valueGenerated kind ascii is supported")
+        alphabet = string.ascii_letters + string.digits
+        data[key] = base64.b64encode("".join(secrets.choice(alphabet) for _ in range(generated["size"])).encode()).decode()
+    return {"apiVersion": "v1", "kind": "Secret", "metadata": dict(doc["metadata"]), "data": data}
+
+
+def snapshot(doc, secret):
+    data = dict(doc.get("data") or {})
+    if secret:
+        try:
+            data = {k: base64.b64decode(v).decode() for k, v in data.items()}
+        except (ValueError, UnicodeDecodeError):
+            raise Refused(f"Secret {doc['metadata']['name']} has non-UTF-8 data")
+        data.update(doc.get("stringData") or {})
+    name = doc["metadata"]["name"]
+    return {"name": name, "uid": f"sptd-offline-{name}", "resourceVersion": "1",
+            "data": {k: str(v) for k, v in data.items()}}
+
+
+def a8_policy(settings, demo, profile, container):
+    """Per-demo template if present, else the generic one; contract and role ids filled in."""
+    for name in (demo, "generic"):
+        path = os.path.join(settings["policies"], f"{name}.json")
+        if os.path.isfile(path):
+            break
+    policy = json.load(open(path))
+    policy["metadata"]["contractId"] = f"sptd-demos/{profile}:application"
+    policy["role"] = {"kind": "application", "name": container["name"], "casRole": "scone/" + profile}
+    endpoints = None
+    path_endpoints = os.path.join(settings["policies"], f"{demo}.endpoints.json")
+    if os.path.isfile(path_endpoints):
+        endpoints = json.load(open(path_endpoints)).get(container["name"])
+    return policy, os.path.relpath(path, settings["policies"]), endpoints
+
+
+def write_json(path, value):
+    with open(path, "w") as f:
+        json.dump(value, f, indent=2, sort_keys=True)
+        f.write("\n")
+    return path
+
+
+def a8_diagnose(settings, request, cwork):
+    """onboard.py hides owner-tool errors. Re-run the stages up to the profile emitter with
+    their own fixed, value-free diagnostics, and return the first refusal."""
+    tools = settings["tools"]
+    diag = os.path.join(cwork, "diagnose")
+    if os.path.exists(diag):
+        shutil.rmtree(diag)
+    os.makedirs(diag, mode=0o700)
+
+    def stage(name, cmd, **kw):
+        result = subprocess.run([str(c) for c in cmd], capture_output=True, **kw)
+        if result.returncode:
+            text = (result.stderr or result.stdout).decode(errors="replace").strip().splitlines()
+            raise Refused(f"{name}: " + (text[-1] if text else f"rc={result.returncode}"))
+        return result.stdout
+
+    try:
+        cache = os.path.join(diag, "rootfs-cache")
+        with open(request["archive"], "rb") as stream:
+            built = json.loads(stage("rootfs build", [tools["rootfs_build"], "--offline", "--reproducible", "--stdin",
+                                     "--digest", request["archive_sha256"], "--platform", "linux/amd64",
+                                     "--limit", request["archive_limit"], "--cache", cache], stdin=stream))
+        artifact = built["digest"]
+        record = json.load(open(os.path.join(cache, "records", artifact.split(":", 1)[1] + ".json")))
+        stage("rootfs verify", [tools["rootfs_verify"], "--cache", cache, "--digest", artifact,
+                                "--root-hash", record["root_hash"]])
+        manifest = record["manifest"]["digest"]
+        facts = json.loads(stage("rootfs facts (executable)", [tools["emitter"], "rootfs-facts",
+                                 os.path.join(cache, "objects", manifest.split(":", 1)[1]), manifest,
+                                 request["executable"]]))
+        facts["artifactDigest"] = artifact
+        config = os.path.join(diag, "config.json")
+        open(config, "wb").write(archive_member(request["archive"], "blobs/sha256/" + facts["configDigest"].split(":", 1)[1]))
+        compiled = os.path.join(diag, "compiled")
+        os.makedirs(compiled, mode=0o700)
+        compile_request = dict(request.get("snapshots", {}), pod=request["pod"], policy=request["policy"],
+                               policySha256=request["policy_sha256"], config=config, facts=facts,
+                               workload=request["workload"], profileId=request["profile_id"])
+        if request.get("role_only"):
+            compile_request["roleOnly"] = True
+        stage("compiler", [tools["compiler"], write_json(os.path.join(diag, "compile.json"), compile_request), compiled])
+        authority = os.path.join(compiled, "authority.json")
+        args = [tools["emitter"], "emit-profile", request["pod"], authority, stream_digest(authority),
+                os.path.join(compiled, "contract.json"), facts["configDigest"], os.path.join(diag, "profile")]
+        if "endpoints" in request:
+            args += ["--endpoints", request["endpoints"]]
+        if request.get("role_only"):
+            args += ["--role-only"]
+        stage("profile emitter", args)
+        return "stages up to the profile emitter pass; the refusal is in sealing, signing or the registry"
+    except Refused as error:
+        return str(error)
+    finally:
+        shutil.rmtree(diag, ignore_errors=True)
+
+
+def a8_check_bundle(settings, bundle):
+    """Re-check a published bundle: every checksum, the signed profile against the root pin."""
+    report = json.load(open(os.path.join(bundle, "bundle.json")))
+    if report.get("runtimeReady") is not False or report.get("rootPin") != settings["pin"]:
+        raise Refused("bundle report is not a runtimeReady:false bundle for this root pin")
+    checksums = json.load(open(os.path.join(bundle, "checksums.json")))
+    for relative, expected in checksums.items():
+        if stream_digest(os.path.join(bundle, relative)) != expected:
+            raise Refused(f"bundle checksum mismatch: {relative}")
+    profile = os.path.join(bundle, "profile")
+    verified = subprocess.run([settings["tools"]["emitter"], "verify-profile", os.path.join(profile, "profile.cbor"),
+                               os.path.join(profile, "profile.sig"), os.path.join(profile, "root.spki.der"),
+                               settings["pin"], report["imageConfigDigest"]], capture_output=True)
+    if verified.returncode:
+        raise Refused("signed profile does not verify against SPTD_DEV_ROOT_PIN")
+    return report
+
+
+def a8_container(settings, demo, doc, container, image, target, objects, work, registry):
+    """Onboard one container. Returns (bundle dir, contract image reference, report)."""
+    name = f"{doc['metadata']['name']}-{container['name']}"
+    profile = dns_label(name if doc["metadata"]["name"] != container["name"] else container["name"])
+    cwork = os.path.join(work, "a8", demo, doc["metadata"]["name"], container["name"])
+    os.makedirs(cwork, mode=0o700, exist_ok=True)
+    os.chmod(cwork, 0o700)
+    repository = a8_repository(target)
+    archive, manifest_digest, config = source_archive(image, settings, cwork)
+    image_ref = f"{repository}@{manifest_digest}"
+    command = cmd_only_command(container, config)
+    if command:
+        log(f"{name}: Cmd-only image; using its Cmd as the explicit command {command}")
+    pod = a8_pod(doc, container, image_ref, command)
+    multi = len(pod["spec"].get("containers", [])) + len(pod["spec"].get("initContainers", [])) > 1
+    argv0 = effective_argv0(dict(container, command=command) if command else container, config)
+    if not argv0.startswith("/"):
+        raise Refused(f"argv[0] {argv0!r} is not an absolute path (set an absolute command)")
+    policy, policy_name, endpoints = a8_policy(settings, demo, profile, container)
+    configmaps, secrets = referenced_objects(container)
+    missing = sorted((configmaps - set(objects["ConfigMap"])) | (secrets - set(objects["Secret"])))
+    if missing:
+        raise Refused("env references objects that are not in the Apply files: " + ", ".join(missing))
+    request = {
+        "schema": "scone-dev-onboard-request-v1",
+        "archive": archive, "archive_sha256": stream_digest(archive),
+        "archive_limit": max(512 * 1024 ** 2, os.path.getsize(archive) + 1),
+        "pod": write_json(os.path.join(cwork, "pod.json"), pod),
+        "policy": write_json(os.path.join(cwork, "policy.json"), policy),
+        "executable": argv0, "profile_id": profile,
+        "workload": {"namespace": pod["metadata"]["namespace"], "podName": pod["metadata"]["name"],
+                     "podUid": f"sptd-offline-{profile}", "containerName": container["name"],
+                     "serviceAccountName": pod["spec"].get("serviceAccountName", "default")},
+        # The registry keys preload entries by (repository, tag); one tag per profile keeps
+        # several containers of one repository (network-policy client/server) apart.
+        "registry_entry": {"profile": profile, "repository": repository, "tag": f"{settings['tag']}-{profile}"[:128],
+                           "config_id": "scone/" + profile},
+        "signing_key": settings["key"], "root_pin": settings["pin"],
+        "tools": settings["tools"],
+        "snapshots": {"configMaps": [snapshot(objects["ConfigMap"][n], False) for n in sorted(configmaps)],
+                      "secrets": [snapshot(objects["Secret"][n], True) for n in sorted(secrets)],
+                      "payloads": []},
+    }
+    request["policy_sha256"] = stream_digest(request["policy"])
+    if settings["cargo_target"]:
+        request["cargo_target"] = os.path.abspath(settings["cargo_target"])
+    if endpoints:
+        request["endpoints"] = write_json(os.path.join(cwork, "endpoints.json"), endpoints)
+    if multi:
+        request["role_only"] = True
+        log(f"{name}: Pod has {len(pod['spec']['containers'])} containers; role-only bundle "
+            "(deployment needs a signed Pod plan, pod_plan.py)")
+    if registry:
+        request["registry"] = registry
+    request_path = write_json(os.path.join(cwork, "request.json"), request)
+    bundle = os.path.join(cwork, "bundle")
+    if os.path.exists(bundle):
+        shutil.rmtree(bundle)
+    log(f"{name}: onboarding {image} ({manifest_digest}) with policy {policy_name}, executable {argv0}")
+    result = subprocess.run([sys.executable, settings["onboard"], request_path, bundle],
+                            capture_output=True, text=True)
+    try:
+        if result.returncode:
+            refusal = (result.stderr or result.stdout).strip()
+            raise Refused(f"{refusal}; first stage refusal: {a8_diagnose(settings, request, cwork)}")
+        report = a8_check_bundle(settings, bundle)
+    finally:
+        os.unlink(archive)
+        # Keep the request for debugging, without the snapshot values (Secrets, generated values).
+        for kind in ("configMaps", "secrets"):
+            for item in request["snapshots"][kind]:
+                item["data"] = {k: "<redacted>" for k in item["data"]}
+        write_json(request_path, request)
+    contract = json.load(open(os.path.join(bundle, "contract.json")))
+    return bundle, contract["image"]["reference"], report
+
+
+def a8_rewrite(doc, container_name, bundle):
+    """Apply the bundle's KCT-023 rewritten container to the workload's Pod template.
+
+    The rewritten container starts /usr/local/bin/envcas-rs `activate` with the signed
+    contract/policy/role/profile IDs; env and envFrom are compiled into the sealed launcher
+    and removed. Its role annotations go onto the Pod template. A role-only bundle (several
+    containers in one Pod) has no rewritten workload: deployment needs a signed Pod plan.
+    """
+    rewritten = json.load(open(os.path.join(bundle, "profile", "workload.json")))
+    if rewritten.get("requiresSignedPodPlan"):
+        raise Refused("role-only bundle: the Pod has several containers and needs a signed Pod plan "
+                      "(scone-dev-onboard/pod_plan.py); no output manifest can be written")
+    spec = pod_spec(doc)
+    spec["automountServiceAccountToken"] = False
+    spec["enableServiceLinks"] = False
+    source = next(c for c in rewritten["spec"]["containers"] if c["name"] == container_name)
+    for index, item in enumerate(spec.get("containers", [])):
+        if item["name"] == container_name:
+            item = copy.deepcopy(source)
+            item["imagePullPolicy"] = "Never"  # preloaded from the bundle, never pulled
+            spec["containers"][index] = item
+    template = doc if doc["kind"] == "Pod" else (doc["spec"]["jobTemplate"]["spec"]["template"]
+                                                 if doc["kind"] == "CronJob" else doc["spec"]["template"])
+    annotations = template.setdefault("metadata", {}).setdefault("annotations", {})
+    annotations.update(rewritten.get("metadata", {}).get("annotations", {}))
+
+
+def demo_name(scone_yaml):
+    """Top-level demo directory of scone.yaml (the policy file name)."""
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    relative = os.path.relpath(os.path.abspath(scone_yaml), root)
+    return relative.split(os.sep, 1)[0] if os.sep in relative else "generic"
+
+
 def shape_for_node(doc):
     pod = pod_spec(doc)
     pod["runtimeClassName"] = os.environ.get("SPTD_RUNTIME_CLASS", "scone-dev")
@@ -234,31 +699,96 @@ def sptd_source_image(base, image):
     return f"docker-daemon:{tag}"
 
 
+def dev_lint(path, docs):
+    """Optional NON_RELEASE pre-flight lint (scone-sptd-build sptd-dev-lint, JSON scone-dev-lint-v1).
+
+    Exit 0 clean, 3 findings (stop and list them), 2 usage error, 1 internal error.
+    """
+    lint = os.environ.get("SPTD_DEV_LINT")
+    if not lint:
+        return
+    controllers = any(d.get("kind") in WORKLOAD_PODS and d.get("kind") != "Pod" for d in docs)
+    cmd = [lint, "--path", "offline" if controllers else "canonical", path]
+    log("+ " + " ".join(shlex.quote(c) for c in cmd))
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode == 0:
+        log(f"sptd-dev-lint: {os.path.basename(path)} clean")
+        return
+    if result.returncode == 3:
+        try:
+            report = json.loads(result.stdout)
+            findings = report.get("findings", report)
+        except json.JSONDecodeError:
+            findings = result.stdout.strip()
+        if isinstance(findings, list):
+            text = "\n".join("  - " + (json.dumps(f, sort_keys=True) if not isinstance(f, str) else f) for f in findings)
+        else:
+            text = "  " + (findings if isinstance(findings, str) else json.dumps(findings, sort_keys=True))
+        raise SystemExit(f"sptd-dev-lint found problems in {path}:\n{text}")
+    raise SystemExit(f"sptd-dev-lint failed on {path} (rc={result.returncode}): {result.stderr.strip()}")
+
+
+def apply_base(scone_yaml, applies):
+    """Directory the Apply file paths are relative to.
+
+    The READMEs run `scone-td-build apply -f manifests/scone.yaml` from the demo directory
+    with paths such as manifests/manifest.yaml, so paths are relative to the working
+    directory. Fall back to the scone.yaml directory when they do not resolve there.
+    """
+    files = [f for spec in applies for f in (spec["file"] if isinstance(spec["file"], list) else [spec["file"]])]
+    if all(os.path.isfile(f) for f in files):
+        return os.getcwd()
+    return os.path.dirname(os.path.abspath(scone_yaml))
+
+
 def apply(scone_yaml):
-    base = os.path.dirname(os.path.abspath(scone_yaml))
     docs = load_yaml_docs(scone_yaml)
     registers = [d["spec"] for d in docs if d.get("kind") == "Register"]
     applies = [d["spec"] for d in docs if d.get("kind") == "Apply"]
     if not applies:
         raise SystemExit(f"{scone_yaml}: no Apply document")
+    base = apply_base(scone_yaml, applies)
     images = {r["source-image"]: r.get("output-image") or r["source-image"] for r in registers}
-    tool = os.environ.get("SPTD_DEV_PREPARE") or shutil.which("sptd-dev-prepare")
-    if not tool:
-        raise SystemExit("sptd-dev-prepare not found (set SPTD_DEV_PREPARE)")
+    route = os.environ.get("SPTD_ROUTE", "a8")
+    if route == "a8":
+        settings, tool = a8_settings(), None
+        registry = os.path.abspath(settings["registry"]) if settings["registry"] else None
+        log("route a8: offline onboarding (onboard.py), preload bundles, runtimeReady false")
+    elif route == "dev-prepare":
+        tool = os.environ.get("SPTD_DEV_PREPARE") or shutil.which("sptd-dev-prepare")
+        if not tool:
+            raise SystemExit("sptd-dev-prepare not found (set SPTD_DEV_PREPARE)")
+    else:
+        raise SystemExit(f"SPTD_ROUTE must be a8 or dev-prepare, got {route!r}")
+    demo = demo_name(scone_yaml)
     work = os.path.abspath(os.environ.get("SPTD_WORK_DIR", ".sptd-work"))
     os.makedirs(work, exist_ok=True)
+    results, refused = [], 0
     for spec in applies:
         files = spec["file"] if isinstance(spec["file"], list) else [spec["file"]]
         files = [sptd_variant(base, f) for f in files]
+        for f in files:
+            dev_lint(os.path.join(base, f), load_yaml_docs(os.path.join(base, f)))
         inputs = [d for f in files for d in load_yaml_docs(os.path.join(base, f))]
         configmaps = {d["metadata"]["name"]: d for d in inputs if d.get("kind") == "ConfigMap"}
+        objects = {"ConfigMap": configmaps,
+                   "Secret": {d["metadata"]["name"]: d for d in inputs if d.get("kind") == "Secret"}}
+        scone_secrets = [d for d in inputs if d.get("kind") == "SconeSecret"]
         output = []
+        if route == "a8":
+            try:
+                objects["Secret"].update({d["metadata"]["name"]: scone_secret(d) for d in scone_secrets})
+            except Refused as error:
+                raise SystemExit(str(error))
+            # Consumed into the sealed launchers; there is no SconeSecret kind in the cluster.
+            inputs = [d for d in inputs if d.get("kind") != "SconeSecret"]
         for doc in inputs:
             if doc.get("kind") not in WORKLOAD_PODS:
                 output.append(doc)
                 continue
             current = os.path.join(work, f"{doc['kind'].lower()}-{doc['metadata']['name']}.json")
             json.dump(doc, open(current, "w"), indent=2, sort_keys=True)
+            result = json.load(open(current))
             prepared = 0
             for container in pod_spec(doc).get("containers", []):
                 if container["image"] not in images:
@@ -266,17 +796,50 @@ def apply(scone_yaml):
                         "is not registered in scone.yaml; left unchanged")
                     continue
                 source = sptd_source_image(base, container["image"])
-                current = prepare_container(tool, current, json.load(open(current)), container,
-                                            source, images[container["image"]], configmaps, work)
-                prepared += 1
-            result = json.load(open(current))
+                if route == "dev-prepare":
+                    current = prepare_container(tool, current, json.load(open(current)), container,
+                                                source, images[container["image"]], configmaps, work)
+                    result = json.load(open(current))
+                    prepared += 1
+                    continue
+                entry = {"demo": demo, "workload": f"{doc['kind']}/{doc['metadata']['name']}",
+                         "container": container["name"], "source": source}
+                try:
+                    bundle, image_ref, report = a8_container(settings, demo, doc, container, source,
+                                                             images[container["image"]], objects, work, registry)
+                    registry = os.path.join(bundle, "profile-registry.json")
+                    a8_rewrite(result, container["name"], bundle)
+                except Refused as error:
+                    refused += 1
+                    entry.update(result="REFUSED", refusal=str(error))
+                    log(f"{doc['metadata']['name']}/{container['name']}: REFUSED: {error}")
+                else:
+                    prepared += 1
+                    entry.update(result="PASS", bundle=bundle, image=image_ref, registry=registry,
+                                 roleOnly=report.get("requiresSignedPodPlan", False),
+                                 profileDigest=report["profileDigest"], contractDigest=report["contractDigest"],
+                                 artifactDigest=report["artifactDigest"],
+                                 launcherFeatures=report.get("launcherFeatures"),
+                                 providerAdmissionRefusal=report.get("providerAdmissionRefusal"))
+                    log(f"{doc['metadata']['name']}/{container['name']}: PASS: bundle {bundle} "
+                        "(offline preload bundle, runtimeReady false)")
+                results.append(entry)
             if prepared:
                 shape_for_node(result)
             output.append(result)
+        if route == "a8":
+            summary = write_json(os.path.join(work, "a8", f"{demo}.summary.json"),
+                                 {"demo": demo, "scone_yaml": os.path.abspath(scone_yaml), "results": results,
+                                  "registry": registry})
+            log(f"summary: {summary}")
+            if refused:
+                raise SystemExit(f"{refused} container(s) refused; {spec['output-manifest']} not written")
         target = os.path.join(base, spec["output-manifest"])
         with open(target, "w") as f:
             yaml.safe_dump_all(output, f, sort_keys=False)
-        log(f"wrote {spec['output-manifest']} (development only: CAS bypassed, public plaintext)")
+        log(f"wrote {spec['output-manifest']} (development only: CAS bypassed)")
+        if route == "a8":
+            log(f"preload every bundle and the signed registry {registry} on the node before applying it")
 
 
 def main():
