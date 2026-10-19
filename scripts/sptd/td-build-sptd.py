@@ -79,10 +79,12 @@ def file_digest(path):
 
 
 def pull_layout(image, layout):
+    """image: a registry reference, or docker-daemon:<ref> for a locally built image."""
     if os.path.exists(layout):
         shutil.rmtree(layout)
+    source = image if image.startswith("docker-daemon:") else f"docker://{image}"
     run(["skopeo", "copy", "--override-os", "linux", "--override-arch", "amd64",
-         f"docker://{image}", f"oci:{layout}:source"])
+         source, f"oci:{layout}:source"])
     index = json.load(open(os.path.join(layout, "index.json")))
     manifests = index.get("manifests", [])
     if len(manifests) != 1:
@@ -208,6 +210,30 @@ def sptd_variant(base, name):
     return rendered
 
 
+def sptd_source_image(base, image):
+    """Build <demo>/Dockerfile.sptd when a demo ships one, and use it as the sptd source.
+
+    Some demos need a different native image for sptd (for example a run stage without
+    VOLUME), while sgx/cvm keep the regular Dockerfile. The image stays local: it is
+    read from the Docker daemon, not pushed.
+    """
+    directory, root = base, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    root = os.path.dirname(root)  # repository root (scripts/sptd/.. /..)
+    while True:
+        dockerfile = os.path.join(directory, "Dockerfile.sptd")
+        if os.path.isfile(dockerfile):
+            break
+        parent = os.path.dirname(directory)
+        if directory == root or parent == directory:
+            return image
+        directory = parent
+    repo = image_repository(image)
+    tag = f"{repo}:sptd-source"
+    run(["docker", "build", "-f", dockerfile, "-t", tag, directory])
+    log(f"using {os.path.relpath(dockerfile, root)} for the sptd source of {image}")
+    return f"docker-daemon:{tag}"
+
+
 def apply(scone_yaml):
     base = os.path.dirname(os.path.abspath(scone_yaml))
     docs = load_yaml_docs(scone_yaml)
@@ -239,8 +265,9 @@ def apply(scone_yaml):
                     log(f"{doc['metadata']['name']}/{container['name']}: image {container['image']} "
                         "is not registered in scone.yaml; left unchanged")
                     continue
+                source = sptd_source_image(base, container["image"])
                 current = prepare_container(tool, current, json.load(open(current)), container,
-                                            container["image"], images[container["image"]], configmaps, work)
+                                            source, images[container["image"]], configmaps, work)
                 prepared += 1
             result = json.load(open(current))
             if prepared:
