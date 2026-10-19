@@ -17,9 +17,12 @@ SPTD_ROUTE=a8 (default): A8 offline onboarding (sptd-hello-container-dev
      signed profile, signed registry (appended across the containers of one run)
   4. a check of the bundle: checksums, signed profile, runtimeReady false
 
-  The output-manifest pins each container to the bundle's image reference with
-  RuntimeClass scone-dev. The bundle is an offline preload bundle: nothing is installed
-  or pushed, and the node must preload it before the Pod can start.
+  The output-manifest uses each bundle's rewritten container (envcas-rs activate, image
+  pinned to the bundle's reference) with RuntimeClass scone-dev. A multi-role workload or
+  one with a memory emptyDir gets role-only bundles, one signed Pod plan (pod_plan.py,
+  collected in $SPTD_WORK_DIR/a8/pod-plans/ with its unsigned request) and is written as a
+  bare Pod. Bundles are offline preload bundles: nothing is installed or pushed, and the
+  node must preload them (and the plans) before the Pods can start.
 
 SPTD_ROUTE=dev-prepare: scone-sptd-build `sptd-dev-prepare` (built with
 --features rfa-development):
@@ -526,8 +529,8 @@ def a8_check_bundle(settings, bundle):
     return report
 
 
-def a8_container(settings, demo, doc, container, image, target, objects, work, registry):
-    """Onboard one container. Returns (bundle dir, contract image reference, report)."""
+def a8_container(settings, demo, doc, container, image, target, objects, work, registry, role_only=False):
+    """Onboard one container. Returns (bundle dir, contract image reference, report, explicit command)."""
     name = f"{doc['metadata']['name']}-{container['name']}"
     profile = dns_label(name if doc["metadata"]["name"] != container["name"] else container["name"])
     cwork = os.path.join(work, "a8", demo, doc["metadata"]["name"], container["name"])
@@ -540,7 +543,6 @@ def a8_container(settings, demo, doc, container, image, target, objects, work, r
     if command:
         log(f"{name}: Cmd-only image; using its Cmd as the explicit command {command}")
     pod = a8_pod(doc, container, image_ref, command)
-    multi = len(pod["spec"].get("containers", [])) + len(pod["spec"].get("initContainers", [])) > 1
     argv0 = effective_argv0(dict(container, command=command) if command else container, config)
     if not argv0.startswith("/"):
         raise Refused(f"argv[0] {argv0!r} is not an absolute path (set an absolute command)")
@@ -574,10 +576,9 @@ def a8_container(settings, demo, doc, container, image, target, objects, work, r
         request["cargo_target"] = os.path.abspath(settings["cargo_target"])
     if endpoints:
         request["endpoints"] = write_json(os.path.join(cwork, "endpoints.json"), endpoints)
-    if multi:
+    if role_only:
         request["role_only"] = True
-        log(f"{name}: Pod has {len(pod['spec']['containers'])} containers; role-only bundle "
-            "(deployment needs a signed Pod plan, pod_plan.py)")
+        log(f"{name}: role-only bundle for a signed Pod plan")
     if registry:
         request["registry"] = registry
     request_path = write_json(os.path.join(cwork, "request.json"), request)
@@ -600,7 +601,7 @@ def a8_container(settings, demo, doc, container, image, target, objects, work, r
                 item["data"] = {k: "<redacted>" for k in item["data"]}
         write_json(request_path, request)
     contract = json.load(open(os.path.join(bundle, "contract.json")))
-    return bundle, contract["image"]["reference"], report
+    return bundle, contract["image"]["reference"], report, command
 
 
 def a8_rewrite(doc, container_name, bundle):
@@ -628,6 +629,126 @@ def a8_rewrite(doc, container_name, bundle):
                                                  if doc["kind"] == "CronJob" else doc["spec"]["template"])
     annotations = template.setdefault("metadata", {}).setdefault("annotations", {})
     annotations.update(rewritten.get("metadata", {}).get("annotations", {}))
+
+
+def needs_pod_plan(doc):
+    """A signed Pod plan (pod_plan.py) is needed for a multi-role Pod (init containers plus
+    applications, or more than one container) or a memory emptyDir. Single-container Pods
+    run with the signed registry alone and stay Jobs/Deployments."""
+    spec = pod_spec(doc)
+    roles = len(spec.get("containers", [])) + len(spec.get("initContainers", []))
+    memory = any((v.get("emptyDir") or {}).get("medium") == "Memory" for v in spec.get("volumes", []))
+    reasons = (["multi-role Pod"] if roles > 1 else []) + (["memory emptyDir"] if memory else [])
+    return reasons
+
+
+def a8_plan_pod(settings, demo, doc, bundles, work):
+    """Build and sign the Pod plan; return the bare Pod (kind Pod, fixed name) to apply.
+
+    The plan binds namespace, pod_name and the canonical Pod spec, so the node shaping
+    (RuntimeClass, hostNetwork, nodeName, toleration) goes into the source Pod and the
+    plan's projected spec is written unchanged.
+    """
+    pod = a8_pod(doc, {"name": None}, None)  # labels kept, so Services still select the Pod
+    spec = pod["spec"]
+    spec.setdefault("restartPolicy", "Always")
+    for item in spec.get("initContainers", []) + spec.get("containers", []):
+        bundle, image_ref, command = bundles[item["name"]]
+        item["image"] = image_ref
+        item["imagePullPolicy"] = "Never"
+        if command:
+            item["command"] = command
+    shape_for_node(pod)
+    pwork = os.path.join(work, "a8", demo, doc["metadata"]["name"], ".pod-plan")
+    if os.path.exists(pwork):
+        shutil.rmtree(pwork)
+    os.makedirs(pwork, mode=0o700)
+    source = write_json(os.path.join(pwork, "pod.json"), pod)
+    roles = [{"name": item["name"], "bundle": bundles[item["name"]][0],
+              "checksums_sha256": stream_digest(os.path.join(bundles[item["name"]][0], "checksums.json"))}
+             for item in spec.get("initContainers", []) + spec.get("containers", [])]
+    request = write_json(os.path.join(pwork, "request.json"), {
+        "schema": "scone-dev-pod-plan-request-v1", "pod": source, "pod_sha256": stream_digest(source),
+        "profile_id": dns_label(doc["metadata"]["name"]), "roles": roles,
+        "emitter": settings["tools"]["emitter"], "signing_key": settings["key"], "root_pin": settings["pin"]})
+    plan_dir = os.path.join(pwork, "plan")
+    tool = os.path.join(os.path.dirname(settings["onboard"]), "pod_plan.py")
+    result = subprocess.run([sys.executable, tool, request, plan_dir], capture_output=True, text=True)
+    if result.returncode:
+        raise Refused("pod_plan.py: " + ((result.stderr or result.stdout).strip().splitlines() or ["refused"])[-1])
+    workload = json.load(open(os.path.join(plan_dir, "workload.json")))
+    # Collect the plans of a run in one directory (the node reads 1-64 signed plans), one plan
+    # per bare Pod, plus the request without key and pin so it can be re-signed elsewhere.
+    # The role bundles are signed with the same key: re-signing for another root means
+    # onboarding the roles again with that root.
+    plans = os.path.join(work, "a8", "pod-plans")
+    os.makedirs(plans, exist_ok=True)
+    stem = f"{pod['metadata']['namespace']}_{pod['metadata']['name']}"
+    for suffix in ("", ".sig", ".root.pem"):
+        shutil.copyfile(os.path.join(plan_dir, "pod-plan.json" + suffix), os.path.join(plans, f"{stem}.pod-plan.json{suffix}"))
+    unsigned = json.load(open(request))
+    unsigned.update(signing_key="<dev root signing key path>", root_pin="<sha256: root pin of that key>")
+    write_json(os.path.join(plans, f"{stem}.pod-plan-request.unsigned.json"), unsigned)
+    log(f"{doc['metadata']['name']}: signed Pod plan {plans}/{stem}.pod-plan.json")
+    return {"apiVersion": "v1", "kind": "Pod", "metadata": workload["metadata"], "spec": workload["spec"]}, plan_dir
+
+
+def a8_workload(settings, demo, doc, images, base, objects, work, registry):
+    """Onboard every registered role of one workload. Returns (output doc, entries, refused, registry)."""
+    plan = needs_pod_plan(doc)
+    spec = pod_spec(doc)
+    result = copy.deepcopy(doc)
+    entries, refused, bundles = [], 0, {}
+    if plan:
+        log(f"{doc['metadata']['name']}: {', '.join(plan)}: role-only bundles and a signed Pod plan; "
+            "the output is a bare Pod")
+    for container in spec.get("initContainers", []) + spec.get("containers", []):
+        if container["image"] not in images:
+            log(f"{doc['metadata']['name']}/{container['name']}: image {container['image']} "
+                "is not registered in scone.yaml; left unchanged")
+            if plan:
+                refused += 1
+                entries.append({"demo": demo, "workload": f"{doc['kind']}/{doc['metadata']['name']}",
+                                "container": container["name"], "result": "REFUSED",
+                                "refusal": "a Pod plan needs every role onboarded; this image is not registered"})
+            continue
+        source = sptd_source_image(base, container["image"])
+        entry = {"demo": demo, "workload": f"{doc['kind']}/{doc['metadata']['name']}",
+                 "container": container["name"], "source": source, "podPlan": plan or None}
+        try:
+            bundle, image_ref, report, command = a8_container(settings, demo, doc, container, source,
+                                                              images[container["image"]], objects, work,
+                                                              registry, role_only=bool(plan))
+            registry = os.path.join(bundle, "profile-registry.json")
+            if not plan:
+                a8_rewrite(result, container["name"], bundle)
+        except Refused as error:
+            refused += 1
+            entry.update(result="REFUSED", refusal=str(error))
+            log(f"{doc['metadata']['name']}/{container['name']}: REFUSED: {error}")
+        else:
+            bundles[container["name"]] = (bundle, image_ref, command)
+            entry.update(result="PASS", bundle=bundle, image=image_ref, registry=registry,
+                         roleOnly=report.get("requiresSignedPodPlan", False),
+                         profileDigest=report["profileDigest"], contractDigest=report["contractDigest"],
+                         artifactDigest=report["artifactDigest"], launcherFeatures=report.get("launcherFeatures"),
+                         providerAdmissionRefusal=report.get("providerAdmissionRefusal"))
+            log(f"{doc['metadata']['name']}/{container['name']}: PASS: bundle {bundle} "
+                "(offline preload bundle, runtimeReady false)")
+        entries.append(entry)
+    if plan and not refused and bundles:
+        try:
+            result, plan_dir = a8_plan_pod(settings, demo, doc, bundles, work)
+            for entry in entries:
+                entry["podPlan"] = os.path.join(plan_dir, "pod-plan.json")
+        except Refused as error:
+            refused += 1
+            entries.append({"demo": demo, "workload": f"{doc['kind']}/{doc['metadata']['name']}",
+                            "container": "(Pod plan)", "result": "REFUSED", "refusal": str(error)})
+            log(f"{doc['metadata']['name']}: Pod plan REFUSED: {error}")
+    elif bundles:
+        shape_for_node(result)
+    return result, entries, refused, registry
 
 
 def demo_name(scone_yaml):
@@ -786,9 +907,15 @@ def apply(scone_yaml):
             if doc.get("kind") not in WORKLOAD_PODS:
                 output.append(doc)
                 continue
+            if route == "a8":
+                result, entries, count, registry = a8_workload(settings, demo, doc, images, base, objects,
+                                                               work, registry)
+                results += entries
+                refused += count
+                output.append(result)
+                continue
             current = os.path.join(work, f"{doc['kind'].lower()}-{doc['metadata']['name']}.json")
             json.dump(doc, open(current, "w"), indent=2, sort_keys=True)
-            result = json.load(open(current))
             prepared = 0
             for container in pod_spec(doc).get("containers", []):
                 if container["image"] not in images:
@@ -796,34 +923,10 @@ def apply(scone_yaml):
                         "is not registered in scone.yaml; left unchanged")
                     continue
                 source = sptd_source_image(base, container["image"])
-                if route == "dev-prepare":
-                    current = prepare_container(tool, current, json.load(open(current)), container,
-                                                source, images[container["image"]], configmaps, work)
-                    result = json.load(open(current))
-                    prepared += 1
-                    continue
-                entry = {"demo": demo, "workload": f"{doc['kind']}/{doc['metadata']['name']}",
-                         "container": container["name"], "source": source}
-                try:
-                    bundle, image_ref, report = a8_container(settings, demo, doc, container, source,
-                                                             images[container["image"]], objects, work, registry)
-                    registry = os.path.join(bundle, "profile-registry.json")
-                    a8_rewrite(result, container["name"], bundle)
-                except Refused as error:
-                    refused += 1
-                    entry.update(result="REFUSED", refusal=str(error))
-                    log(f"{doc['metadata']['name']}/{container['name']}: REFUSED: {error}")
-                else:
-                    prepared += 1
-                    entry.update(result="PASS", bundle=bundle, image=image_ref, registry=registry,
-                                 roleOnly=report.get("requiresSignedPodPlan", False),
-                                 profileDigest=report["profileDigest"], contractDigest=report["contractDigest"],
-                                 artifactDigest=report["artifactDigest"],
-                                 launcherFeatures=report.get("launcherFeatures"),
-                                 providerAdmissionRefusal=report.get("providerAdmissionRefusal"))
-                    log(f"{doc['metadata']['name']}/{container['name']}: PASS: bundle {bundle} "
-                        "(offline preload bundle, runtimeReady false)")
-                results.append(entry)
+                current = prepare_container(tool, current, json.load(open(current)), container,
+                                            source, images[container["image"]], configmaps, work)
+                prepared += 1
+            result = json.load(open(current))
             if prepared:
                 shape_for_node(result)
             output.append(result)
