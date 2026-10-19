@@ -3,7 +3,8 @@
 # the demo's Dockerfile. Build context: pet-clinic/ (unused; sources are cloned).
 ARG PETCLINIC_REF=51045d1648dad955df586150c1a1a6e22ef400c2
 
-FROM ghcr.io/graalvm/native-image-community:21 AS build
+# The pinned commit uses Spring Boot 4.1 / native-maven-plugin 1.1, which need GraalVM 25.
+FROM ghcr.io/graalvm/native-image-community:25 AS build
 ARG PETCLINIC_REF
 RUN microdnf install -y git findutils && microdnf clean all
 WORKDIR /src

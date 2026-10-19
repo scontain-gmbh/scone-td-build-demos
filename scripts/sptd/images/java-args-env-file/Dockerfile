@@ -6,9 +6,9 @@
 FROM ghcr.io/graalvm/native-image-community:21 AS build
 WORKDIR /src
 COPY Main.java .
-RUN javac Main.java \
+RUN mkdir -p /out/config \
+    && javac Main.java \
     && native-image --no-fallback -cp . Main -o /out/java-args-env-file \
-    && mkdir -p /out/config \
     && ln -s /dev/fd/100 /out/config/configs.yaml \
     && ln -s /dev/fd/101 /out/config/secrets
 

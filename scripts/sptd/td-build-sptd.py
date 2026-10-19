@@ -983,7 +983,16 @@ def sptd_source_image(base, image):
     Some demos need a different native image for sptd (for example a run stage without
     VOLUME), while sgx/cvm keep the regular Dockerfile. The image stays local: it is
     read from the Docker daemon, not pushed.
+
+    Never builds when the source image is already supplied as a layout
+    (SPTD_SOURCE_LAYOUTS) or when SPTD_A8_OFFLINE=true: offline runs must not start
+    docker builds or touch registry credentials.
     """
+    if os.environ.get("SPTD_SOURCE_LAYOUTS"):
+        if image in json.load(open(os.environ["SPTD_SOURCE_LAYOUTS"])):
+            return image
+    if os.environ.get("SPTD_A8_OFFLINE") == "true":
+        return image
     directory, root = base, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     root = os.path.dirname(root)  # repository root (scripts/sptd/.. /..)
     # sptd-mode images kept outside the demo directories, built with the demo as context:
