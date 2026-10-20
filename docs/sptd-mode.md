@@ -84,6 +84,13 @@ numbering before onboarding and refuses a bundle whose `baked-volumes.json` diff
   mounts the ConfigMap and Secret as whole volumes outside `/config` instead of `subPath`
   mounts (java-args-env-file also runs the native-image binary). The sptd source image links
   `/config/configs.yaml` to `/proc/self/fd/100` and `/config/secrets` to `/proc/self/fd/101`.
+- configmap: the Job runs two readers of one image with different ConfigMap items at `/config`.
+  A signed Pod plan can't carry two roles of one image, so sptd mode builds one source image per
+  reader (`scripts/sptd/images/configmap`, `--build-arg READER=1|2`) and uses
+  `manifests/manifest.sptd.template.yaml` and `manifests/scone.sptd.template.yaml` (one Register
+  per image; set `CONFIGMAP_READER_1_IMAGE` and `CONFIGMAP_READER_2_IMAGE`). Each image ships
+  `/config` as a directory of symlinks to that reader's descriptors, so `folder-reader` still
+  lists and reads the folder.
 - web-server: the `game-demo` ConfigMap at `/config` is baked; the sptd source image links each
   `/config/<key>` to its descriptor, and the dispatcher checks the links (`imageLinks` in the
   overrides). `MY_POD_IP` is left out in sptd mode: the server listens on `0.0.0.0` and only

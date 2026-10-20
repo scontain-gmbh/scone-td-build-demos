@@ -1122,6 +1122,9 @@ def apply_base(scone_yaml, applies):
 
 
 def apply(scone_yaml):
+    # A demo may ship an sptd-only scone variant too, for example one Register per image.
+    directory = os.path.dirname(scone_yaml) or "."
+    scone_yaml = os.path.join(directory, sptd_variant(directory, os.path.basename(scone_yaml)))
     docs = load_yaml_docs(scone_yaml)
     registers = [d["spec"] for d in docs if d.get("kind") == "Register"]
     applies = [d["spec"] for d in docs if d.get("kind") == "Apply"]
