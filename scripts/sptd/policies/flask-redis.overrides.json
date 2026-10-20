@@ -1,7 +1,7 @@
 {
   "schema": "sptd-demo-overrides-v1",
   "nonRelease": true,
-  "comment": "sptd mode only. The redis server's ConfigMap and TLS Secret are baked into its sealed launcher as descriptor files (opened as /proc/self/fd/N) (rust-envcas nonrelease-dev-baked-volumes); its redis.conf is rewritten to those descriptors and /data becomes a memory emptyDir, so redis is one bare Pod with one signed Pod plan. Values are fixed at build time; no rotation. The demo's redis.conf and the sgx/cvm modes are unchanged. flask-api is a measured CPython script target (python-script.json: /usr/local/bin/python3.11 -I -B, with the absolute script /app/app.py as its command; the image's relative `python app.py` is refused). Its flask-tls Secret volume at /tls stays a plain Secret volume for now: app.py opens /tls/... by path, so flask-api also needs that volume baked and an sptd source image that links /tls/<key> to /proc/self/fd/N before it can onboard.",
+  "comment": "sptd mode only. The redis server's ConfigMap and TLS Secret are baked into its sealed launcher as descriptor files (opened as /proc/self/fd/N) (rust-envcas nonrelease-dev-baked-volumes); its redis.conf is rewritten to those descriptors. sptd mode uses flask-redis/k8s/manifest.sptd.template.yaml, whose redis.conf turns persistence off (save \"\", appendonly no), so redis writes nothing to /data and stays a single-container Deployment with no Pod plan. Values are fixed at build time; no rotation. The demo's redis.conf and the sgx/cvm modes are unchanged. flask-redis/scone.sptd.template.yaml registers only redis for now. flask-api is a measured CPython script target (python-script.json: /usr/local/bin/python3.11 -I -B, with the absolute script /app/app.py as its command; the image's relative `python app.py` is refused). Its flask-tls Secret volume at /tls stays a plain Secret volume for now: app.py opens /tls/... by path, so flask-api also needs that volume baked and an sptd source image that links /tls/<key> to /proc/self/fd/N before it can onboard.",
   "workloads": {
     "flask-api": {
       "containers": {
@@ -19,11 +19,7 @@
             {"configMap": "redis-config", "key": "redis.conf",
              "directives": ["tls-cert-file", "tls-key-file", "tls-ca-cert-file"]}
           ],
-          "command": ["/usr/local/bin/redis-server", {"descriptor": "/etc/redis/redis.conf"}],
-          "memoryEmptyDirs": [
-            {"name": "redis-data", "mountPath": "/data", "sizeLimit": "1Gi", "owner": {"uid": 65532, "gid": 65532}}
-          ],
-          "resources": {"limits": {"memory": "1280Mi"}}
+          "command": ["/usr/local/bin/redis-server", {"descriptor": "/etc/redis/redis.conf"}]
         }
       }
     }
