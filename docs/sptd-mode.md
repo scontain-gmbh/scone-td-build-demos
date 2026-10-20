@@ -84,6 +84,9 @@ numbering before onboarding and refuses a bundle whose `baked-volumes.json` diff
   mounts the ConfigMap and Secret as whole volumes outside `/config` instead of `subPath`
   mounts (java-args-env-file also runs the native-image binary). The sptd source image links
   `/config/configs.yaml` to `/proc/self/fd/100` and `/config/secrets` to `/proc/self/fd/101`.
+- hello-world, image-signing and network-policy build small sptd source images from
+  `scripts/sptd/images/` (static or distroless, uid 65532). hello-world and image-signing share
+  one Dockerfile; `--build-arg DEMO=` gives them different config digests.
 - configmap: the Job runs two readers of one image with different ConfigMap items at `/config`.
   A signed Pod plan can't carry two roles of one image, so sptd mode builds one source image per
   reader (`scripts/sptd/images/configmap`, `--build-arg READER=1|2`) and uses
