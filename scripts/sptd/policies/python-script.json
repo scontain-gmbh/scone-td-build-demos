@@ -1,0 +1,135 @@
+{
+  "apiVersion": "process-td.scone.cloud/v1",
+  "kind": "ProcessTDLaunchContract",
+  "requiredFeatures": [
+    "binary-payload-references",
+    "canonical-cbor",
+    "contract-process-launch",
+    "controlled-exec"
+  ],
+  "metadata": {
+    "contractId": "sptd-demos/python-script:application",
+    "generation": 1
+  },
+  "compatibility": {
+    "kubernetesVersion": "v1.36.2",
+    "profile": "strict"
+  },
+  "image": {
+    "reference": "sptd-dev/placeholder@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "manifestDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "configDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "platform": {
+      "os": "linux",
+      "architecture": "amd64"
+    }
+  },
+  "role": {
+    "kind": "application",
+    "name": "python-script",
+    "casRole": "scone/python-script"
+  },
+  "rootFS": {
+    "baseDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "instanceId": "sptd-demos-rootfs",
+    "generation": 1,
+    "generationDigest": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+  },
+  "transformationReceipt": {
+    "objectId": "receipt/sptd-demos-template",
+    "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "signerKeyId": "td-build/signing-key-01"
+  },
+  "process": {
+    "argv": [
+      "/app/placeholder.py"
+    ],
+    "environment": [],
+    "workingDirectory": "/",
+    "identity": {
+      "uid": 65532,
+      "gid": 65532,
+      "supplementaryGroups": []
+    },
+    "expectedExecutable": {
+      "path": "/app/placeholder.py",
+      "digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "executable": {
+        "type": "script",
+        "interpreterPath": "/usr/local/bin/python3.11",
+        "interpreterDigest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+        "interpreterArgs": [
+          "-I",
+          "-B"
+        ],
+        "interpreterAliases": [
+          "/usr/local/bin/python",
+          "/usr/local/bin/python3"
+        ],
+        "deniedEnvironmentPrefixes": [
+          "LD_",
+          "GCONV_PATH",
+          "OPENSSL_",
+          "GLIBC_TUNABLES",
+          "PYTHONPATH",
+          "PYTHONHOME",
+          "PYTHONSTARTUP",
+          "PYTHONUSERBASE",
+          "PYTHONINSPECT",
+          "PYTHONEXECUTABLE",
+          "PYTHONSAFEPATH",
+          "PYTHONPLATLIBDIR",
+          "PYTHONWARNINGS",
+          "PYTHONBREAKPOINT",
+          "LOCPATH",
+          "SSL_CERT_",
+          "REQUESTS_CA_BUNDLE",
+          "CURL_CA_BUNDLE",
+          "TZDIR",
+          "HOSTALIASES",
+          "RES_OPTIONS",
+          "LOCALDOMAIN",
+          "TMPDIR"
+        ]
+      }
+    },
+    "execPolicy": {
+      "processExecution": {
+        "mode": "verified-code-only"
+      },
+      "noNewPrivileges": true,
+      "requireExecveat": true,
+      "dumpable": false,
+      "inheritedFileDescriptors": [
+        0,
+        1,
+        2,
+        255
+      ],
+      "capabilityBoundingSet": [],
+      "umask": 63,
+      "resourceLimits": {
+        "coreDumpBytes": 0,
+        "openFiles": 1024,
+        "processCount": 256
+      }
+    }
+  },
+  "files": {
+    "updateMode": "restart-bound",
+    "conflictMode": "reject",
+    "entries": []
+  },
+  "limits": {
+    "maxContractBytes": 65536,
+    "maxFiles": 16,
+    "maxPayloadObjects": 16,
+    "maxTotalPayloadBytes": 1048576,
+    "maxSinglePayloadBytes": 524288,
+    "maxArgvEntries": 32,
+    "maxArgvBytes": 8192,
+    "maxEnvironmentEntries": 64,
+    "maxEnvironmentBytes": 65536,
+    "maxPathBytes": 4096
+  }
+}
