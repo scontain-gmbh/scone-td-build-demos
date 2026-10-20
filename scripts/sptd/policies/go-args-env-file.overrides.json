@@ -1,0 +1,21 @@
+{
+  "schema": "sptd-demo-overrides-v1",
+  "nonRelease": true,
+  "comment": "sptd mode only, temporary until CAS delivers these files. Expects go-args-env-file/manifests/manifest.sptd.template.yaml (plain read-only volumes config-volume and secrets-volume at /etc/sptd-baked/app-config and /etc/sptd-baked/app-secrets, no fieldRef env). Both volumes are baked into the sealed launcher as descriptor files (opened as /proc/self/fd/N) (config-volume first: configs.yaml 100, secrets 101); the program reads /config/configs.yaml and /config/secrets, which the sptd source image (scripts/sptd/images/go-args-env-file) links to those descriptors. The dispatcher checks the links.",
+  "workloads": {
+    "go-args-env-file": {
+      "containers": {
+        "go-args-env-file": {
+          "bakedVolumes": [
+            {"name": "config-volume", "content_pin": true},
+            {"name": "secrets-volume", "content_pin": true}
+          ],
+          "imageLinks": {
+            "/config/configs.yaml": "/etc/sptd-baked/app-config/configs.yaml",
+            "/config/secrets": "/etc/sptd-baked/app-secrets/secrets"
+          }
+        }
+      }
+    }
+  }
+}
