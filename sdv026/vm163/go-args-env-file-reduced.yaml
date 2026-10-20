@@ -1,0 +1,45 @@
+# SDV-026 DRAFT for the single-node cluster on VM 163 (node sptd-k8s-163 is a placeholder).
+# Source: go-args-env-file/manifests/manifest.reduced.pinned.yaml (go-args-env-file). NOT DEPLOYABLE AS IS: images are SYNTHETIC prepared-image
+# digests under registry.example/sdv026-synthetic, and SCONE_CAS_ADDR/SCONE_CONFIG_ID are
+# SYNTHETIC selectors. Replace them with the real prepared images and CAS session ids.
+# Pod shape from the harness vm163 variant: hostNetwork, dnsPolicy ClusterFirstWithHostNet,
+# nodeName, not-ready toleration, RuntimeClass scone-process-td.
+---
+# Job/go-args-env-file: sanitized output of generation main-vm163-go-args-env-file-reduced-go-args-env-file
+# (scone-sptd-build main, build + verify --exact PASS; receipt main-vm163-go-args-env-file-reduced-go-args-env-file.receipt.json).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app: go-args-env-file
+  name: go-args-env-file
+  namespace: sdv-demos
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: go-args-env-file
+    spec:
+      containers:
+      - command:
+        - /bin/envcas
+        env:
+        - name: SCONE_CAS_ADDR
+          value: cas.default:18765
+        - name: SCONE_CONFIG_ID
+          value: sdv026/w9909218cb7c4
+        image: registry.example/sdv026-synthetic/prepared@sha256:c6ec47bc94620fcb2922825c40f3758082a77cde1c7aa3dcf46f7c2009611475
+        imagePullPolicy: Always
+        name: go-args-env-file
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      imagePullSecrets:
+      - name: sconeapps
+      nodeName: sptd-k8s-163
+      restartPolicy: Never
+      runtimeClassName: scone-process-td
+      tolerations:
+      - effect: NoSchedule
+        key: node.kubernetes.io/not-ready
+        operator: Exists

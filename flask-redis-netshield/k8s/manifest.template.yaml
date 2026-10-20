@@ -103,8 +103,11 @@ spec:
           ports:
             - containerPort: 4996
           env:
+            # Fully qualified: the bare value "redis" also occurs in public names
+            # (image flask-redis, Deployment redis), so scone-sptd-build's canary
+            # scan refuses it as a protected value leaking into the output.
             - name: REDIS_HOST
-              value: "redis"
+              value: "redis.${NAMESPACE}.svc.cluster.local"
             - name: REDIS_PORT
               value: "6379"
           resources:

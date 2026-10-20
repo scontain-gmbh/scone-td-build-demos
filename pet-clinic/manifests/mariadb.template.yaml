@@ -57,7 +57,8 @@ spec:
               cpu: "1"
       volumes:
         - name: db-data
-          emptyDir: {}
+          emptyDir:
+            sizeLimit: 1Gi
 ---
 apiVersion: v1
 kind: Service

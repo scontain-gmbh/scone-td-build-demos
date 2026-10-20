@@ -1,0 +1,97 @@
+# SDV-026 DRAFT for VM 163: pet-clinic's MariaDB, NATIVE (not compiled by scone-sptd-build;
+# pet-clinic/manifests/mariadb.template.yaml says it runs natively). Image pinned to the anonymously resolved public digest.
+# No RuntimeClass. The Secret holds the demo's own non-secret DB values from pet-clinic/Values.yaml;
+# the confidential petclinic receives the same values through CAS, not through this Secret.
+# emptyDir keeps the demo's behaviour (data lost with the Pod).
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: petclinic-db
+  namespace: sdv-demos
+  labels:
+    app: petclinic-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: petclinic-db
+  template:
+    metadata:
+      labels:
+        app: petclinic-db
+    spec:
+      containers:
+      - name: petclinic-db
+        image: docker.io/library/mariadb@sha256:33a6653ab666774f48818120045f9367a81cd4c54c027412fe294a7d1274e2dc
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: MARIADB_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: petclinic-db
+              key: database
+        - name: MARIADB_USER
+          valueFrom:
+            secretKeyRef:
+              name: petclinic-db
+              key: username
+        - name: MARIADB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: petclinic-db
+              key: password
+        - name: MARIADB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: petclinic-db
+              key: root-password
+        ports:
+        - containerPort: 3306
+        volumeMounts:
+        - name: db-data
+          mountPath: /var/lib/mysql
+        resources:
+          requests:
+            memory: 512Mi
+            cpu: 250m
+          limits:
+            memory: 2Gi
+            cpu: '1'
+      volumes:
+      - name: db-data
+        emptyDir: {}
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      nodeName: sptd-k8s-163
+      tolerations:
+      - key: node.kubernetes.io/not-ready
+        operator: Exists
+        effect: NoSchedule
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: petclinic-db
+  namespace: sdv-demos
+  labels:
+    app: petclinic-db
+spec:
+  selector:
+    app: petclinic-db
+  ports:
+  - port: 3306
+    targetPort: 3306
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: petclinic-db
+  namespace: sdv-demos
+type: Opaque
+stringData:
+  database: petclinic_store
+  username: petclinic_app
+  password: petclinic-demo-pw
+  root-password: rootpass
