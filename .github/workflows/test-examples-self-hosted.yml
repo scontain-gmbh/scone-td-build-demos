@@ -15,7 +15,8 @@ jobs:
   run-all-examples:
     name: Run all examples in SGX and CVM mode
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: self-hosted
+    # Only runners whose CPU exposes what SCONE needs (RDRAND, SGX) carry scone-sgx.
+    runs-on: [self-hosted, scone-sgx]
     container:
       # Pinned: 6.0.8 ships scone-td-build 0.4.0, tplenv and retry-spinner; the
       # unpinned image later dropped them.
