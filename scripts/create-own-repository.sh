@@ -57,9 +57,9 @@ fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/.." && pwd)"
-workflow_dir="${repo_root}/creating-own-repository"
+workflow_dir="${repo_root}/docs/create-own-repository"
 values_file="${workflow_dir}/Values.yaml"
-variables_file="${workflow_dir}/environment-variables.md"
+variables_file="${workflow_dir}/create-own-repository-env-variables.md"
 required_package_scopes="read:packages,write:packages,delete:packages"
 
 require_command() {

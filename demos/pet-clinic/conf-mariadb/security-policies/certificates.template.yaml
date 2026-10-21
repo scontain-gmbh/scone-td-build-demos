@@ -1,0 +1,180 @@
+# This policy manages MariaDB certificates, in a way that
+## allows multiple instances to have the same set of certificates.
+name: {{certificates}}
+version: "0.3.10"
+
+access_policy:
+  read:
+    - ANY
+  update:
+    - ANY
+
+
+## Create certificates for MariaDB's CA, server and client.
+## Each certificate is then exported to the appropriate sessions that can
+## consume them.
+secrets:
+  - name: MYSQL_ROOT_PASSWORD
+    kind: ascii
+    value: "098098"
+    # size: 20
+    export:
+      - session: {{primary}}
+      - session: {{replica}}
+      - session: {{backup}}
+      - session: {{dba-policy}}
+      - session: {{maxscale}}
+      ## If there is another security policy that should have access
+      ## to the mariadb root password, add it to this list.
+      # - session: some-other-session
+      ##------------------------------------------##
+      ## EXPORT CA FOR SYSBENCH TESTS             ##
+      ## DO NOT ENABLE THIS IN PRODUCTION!!!      ##
+      ##------------------------------------------##
+
+  - name: METRICS_EXPORTER_PASSWORD
+    kind: binary
+    size: 20
+    export:
+      - session: {{primary}}
+      - session: {{replica}}
+
+  - name: REPLICATION_USER_PASSWORD
+    kind: binary
+    size: 20
+    export:
+      - session: {{primary}}
+      - session: {{replica}}
+      - session: {{maxscale}}
+
+  - name: MAXSCALE_SCONE_INJECTED_ADMIN_PASSWORD
+    kind: binary
+    size: 20
+    export:
+      - session: {{maxscale}}
+
+  ## Randomly generate a private key for MariaDB's CA.
+  - name: MARIADB_CA_KEY
+    kind: private-key
+    migrate: true
+    export:
+      - session: {{primary}}
+      - session: {{replica}}
+
+  ## Randomly generate a CA for MariaDB.
+  - name: MARIADB_CA_CERT
+    kind: x509-ca
+    common_name: MariaDB_CA
+    private_key: MARIADB_CA_KEY
+    export:
+      - session: {{maxscale}}
+      - session: {{primary}}
+      - session: {{replica}}
+      - session: {{backup}}
+      - session: {{dba-policy}}
+      ##------------------------------------------##
+      ## EXPORT CA FOR SYSBENCH TESTS             ##
+      ## DO NOT ENABLE THIS IN PRODUCTION!!!      ##
+      ##------------------------------------------##
+
+  - name: maxscale-frontend-key
+    kind: private-key
+    migrate: true
+    export:
+      - session: {{maxscale}}
+
+  - name: maxscale-frontend-cert
+    kind: x509
+    private_key: maxscale-frontend-key
+    issuer: MARIADB_CA_CERT
+    common_name: maxscale
+    dns:
+      - maxscale
+      - mariadb
+      - maxscale.default
+    export:
+      - session: {{maxscale}}
+
+  - name: maxscale-internal-key
+    kind: private-key
+    migrate: true
+    export:
+      - session: {{maxscale}}
+
+  - name: maxscale-internal-cert
+    kind: x509
+    private_key: maxscale-internal-key
+    issuer: MARIADB_CA_CERT
+    common_name: maxscale
+    dns:
+      - maxscale-internal
+    export:
+      - session: {{maxscale}}
+
+  ## Randomly generate a private key for MariaDB's server certificate.
+  - name: mariadb-key
+    kind: private-key
+    migrate: true
+    export:
+      - session: {{primary}}
+      - session: {{replica}}
+
+  ## Randomly generate the server certificates for MariaDB.
+  ## Note that this certificate is issued by MariaDB's CA.
+  - name: mariadb
+    private_key: mariadb-key
+    issuer: MARIADB_CA_CERT
+    kind: x509
+    common_name: mysqld
+    dns:
+      - mysqld
+      - mariadb-primary # we use primary.service.nameOverride, introduced in mariadb-spr v0.2
+      - mariadb-replica # we use replica.service.nameOverride, introduced in mariadb-spr v0.2
+      - localhost # for metrics exporter
+    export:
+      - session: {{primary}}
+      - session: {{replica}}
+
+  - name: backup-key
+    kind: private-key
+    migrate: true
+    export:
+      - session: {{backup}}
+
+  - name: backup-cert
+    private_key: backup-key
+    issuer: MARIADB_CA_CERT
+    kind: x509
+    common_name: mariadb-backup
+    dns:
+      - mariadb-backup
+    export:
+      - session: {{backup}}
+
+   ## Randomly generate a private key for MariaDB's bootstrap setup (client side).
+  - name: setupClientKey
+    kind: private-key
+    migrate: true
+    export:
+      - session: {{primary}}
+      - session: {{replica}}
+      - session: {{dba-policy}}
+
+  ## Randomly generate the client certificate for MariaDB's bootstrap setup (client side).
+  ## Note that this certificate is issued by MariaDB's CA.
+  - name: setupClientCert
+    private_key: setupClientKey
+    issuer: MARIADB_CA_CERT
+    common_name: setup-client
+    dns:
+      - setup-client
+    kind: x509
+    export:
+      - session: {{primary}}
+      - session: {{replica}}
+      - session: {{dba-policy}}
+
+  ##------------------------------------------##
+  ## GENERATE KEY AND CERT FOR SYSBENCH TESTS ##
+  ## DO NOT ENABLE THIS IN PRODUCTION!!!      ##
+  ##------------------------------------------##
