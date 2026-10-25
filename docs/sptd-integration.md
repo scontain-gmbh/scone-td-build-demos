@@ -35,6 +35,7 @@ All files are in `scripts/sptd/integration/`:
 | `artifact_manifest.py` | `validate` and `hash` of an artifact-set manifest |
 | `provision_dev_node.py` | idempotent dev-node provisioning, `--dry-run` |
 | `deploy_demo.py` | deploy-only demo run from an artifact set, `--dry-run` |
+| `kubeconfig_guard.py` | refuses a missing, symlinked or group/world-readable runner kubeconfig; never prints it |
 | `sptdinteg.py` | shared helpers (JSON Schema subset, canonical hash, catalog, facts) |
 | `tests/` | unit tests (`tests/sptd-integration.test.sh`, part of `make test`) |
 
@@ -95,7 +96,7 @@ this order but gives a different registry and hash than the full run.
 ```bash
 # 1. Plan (anywhere; signs nothing, runs nothing)
 python3 scripts/sptd/integration/reonboard_all.py plan --facts FACTS.json \
-  --out PLAN_DIR --namespace sptd-dev --node-name NODE [--demos a,b] [--include-pending]
+  --out PLAN_DIR --namespace sptd-integration --node-name NODE [--demos a,b] [--include-pending]
 python3 scripts/sptd/integration/reonboard_all.py plan --facts FACTS.json --dry-run [...]   # print only
 
 # 2. On the devvm, under a typed line (exports below), from a copy of PLAN_DIR:
@@ -235,10 +236,22 @@ Installed on the owner's decision of 2026-10-25 (it was a `.proposed` file befor
 run anywhere yet:
 
 - trigger: `workflow_dispatch` only, with the inputs `artifact_set_sha256`, `node`,
-  `image_digest` and `demos` (subset; empty = all); no push, pull_request or schedule;
-- runner: `runs-on: [self-hosted, sptd-integration]`. No runner has that label today, so
-  dispatched runs wait in the queue and never land on the `scone-sgx` runners. An owner adds
-  the label to a runner that can reach the dev node's API;
+  `image_digest`, `demos` (subset; empty = all) and `namespace` (default `sptd-integration`);
+  no push, pull_request or schedule;
+- runner: `runs-on: [self-hosted, sptd-integration]`. The runner will be on VM 163 itself
+  (owner decision 2026-10-25; set `sptd-vm163-runner-v3`, user `ghsptd`). Until it is
+  registered no runner has that label, so dispatched runs wait in the queue and never land on
+  the `scone-sgx` runners;
+- kubeconfig: no kubeconfig is stored in GitHub. The jobs read the namespace-scoped token
+  kubeconfig on the runner host at `$SPTD_INTEGRATION_HOME/kubeconfigs/sptd-integration`
+  (`SPTD_INTEGRATION_HOME=/srv/sptd-integration`, workflow env; written 0600 for `ghsptd` by
+  `make-kubeconfig.sh`, scoped to namespace `sptd-integration`). `kubeconfig_guard.py` runs in
+  every job before it is used and refuses a missing file, a symlink (the file or
+  `kubeconfigs/`), anything but a regular file, any group/other mode bit, and a file not
+  owned by the job user; the integration home itself may be a symlink (on VM 163 it links to
+  the state disk). It exports `KUBECONFIG` to the job and never reads or prints the file, and
+  the workflow never copies or removes it. The token expires; renew it with
+  `make-kubeconfig.sh` on the node before a run;
 - `permissions: contents: read`, concurrency group `test-examples-sptd-<node>` (no
   cancel-in-progress), every action pinned by full commit SHA (checkout v4.4.0,
   upload-artifact v4.6.2, download-artifact v4.3.0), a timeout on every job.
@@ -253,11 +266,12 @@ Jobs:
   demo checks, delete), confidential Pod Ready (support manifests + output manifest; every Pod
   Ready, or Succeeded for Jobs and bare Pods), the demo check (logs regex, or HTTP through
   `kubectl port-forward`, which also reaches a hostNetwork Pod), cleanup (always, also after
-  a failure). The report is uploaded per demo; the kubeconfig file is removed at the end.
+  a failure). The report is uploaded per demo.
 
-It deploys only: no onboarding, no signing, no key, no docker. Secrets are named
-placeholders the owner creates: `PLACEHOLDER_SPTD_KUBECONFIG_B64` (namespaced kubeconfig) and
-`PLACEHOLDER_SPTD_ARTIFACT_SET_SOURCE` (where the devvm publishes the set).
+It deploys only: no onboarding, no signing, no key, no docker. The only secret is the named
+placeholder `PLACEHOLDER_SPTD_ARTIFACT_SET_SOURCE` (where the devvm publishes the set). The
+set must be onboarded with `--namespace sptd-integration` and VM 163's node name, since Pod
+plans bind both; `deploy_demo.py` refuses another namespace when the set has Pod plans.
 
 ## Tests
 
@@ -278,7 +292,10 @@ registry chain, refused roles, facts mismatches, completeness, the Go root and t
 launcher, the four node states of the provisioning dry run plus its refusals, the deploy dry
 run order and refusals, a stub-kubectl deploy run including cleanup after a failed check, and
 the installed workflow (dispatch-only trigger, inputs, the unused `sptd-integration` label,
-read-only permissions, concurrency, SHA-pinned actions, placeholder-only secrets).
+read-only permissions, concurrency, SHA-pinned actions, placeholder-only secrets, the host
+kubeconfig path, the guard before every deploy, no copy, print or removal of the kubeconfig),
+and `kubeconfig_guard.py` (missing file, symlinked file or directory, modes 0640/0604/0644/0660,
+not a regular file, symlinked home allowed, content never printed).
 
 ## Open points and owner decisions
 
@@ -293,8 +310,9 @@ read-only permissions, concurrency, SHA-pinned actions, placeholder-only secrets
 - **Publishing the set.** Where the devvm puts the signed set for CI (OCI artifact in a dev
   registry, a release asset, a file share), and whether CI gets the deploy view only
   (no rootfs payload).
-- **Runner and access.** Which runner gets the `sptd-integration` label (it must reach the dev
-  node's API), the namespaced kubeconfig secret, and a trusted route to the node (the Proxmox CA pin is still open).
+- **Runner and access.** The runner on VM 163 (`sptd-vm163-runner-v3`, steps R1-R5 with typed
+  lines) and its kubeconfig (R4) are prepared but not installed; its admission rules are
+  unvalidated until R4 runs. Kubeconfig renewal is manual (no timer).
 - **Native images.** The native run pulls the native images named in the rendered manifests;
   the node needs pull access (or the images preloaded) and possibly a pull secret.
 - **Demo checks.** The checks in `demos.json` follow the READMEs; regexes of `.` only prove

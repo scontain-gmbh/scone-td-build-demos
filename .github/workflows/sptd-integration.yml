@@ -6,7 +6,11 @@
 # hold the artifact set (scripts/sptd/integration/provision_dev_node.py, a root step on the
 # node under a typed line). Per demo: native run -> confidential Pod Ready -> demo check ->
 # cleanup, one demo at a time (hostNetwork Pods share the node's ports).
-# Secrets are named placeholders (PLACEHOLDER_*) until the owner creates them.
+# Kubeconfig: no kubeconfig is stored in GitHub. The runner on VM 163 holds a namespace-scoped
+# token kubeconfig at $SPTD_INTEGRATION_HOME/kubeconfigs/sptd-integration (0600, user ghsptd,
+# written by make-kubeconfig.sh of sptd-vm163-runner-v3). Jobs refuse a missing, symlinked or
+# group/world-readable file and never print it. The only secret is a named placeholder
+# (PLACEHOLDER_SPTD_ARTIFACT_SET_SOURCE) until the owner decides where the set comes from.
 name: Test Examples (sptd, deploy only)
 
 on:
@@ -29,6 +33,11 @@ on:
         required: false
         default: ""
         type: string
+      namespace:
+        description: "Namespace the scoped kubeconfig may write and the set was onboarded for"
+        required: false
+        default: sptd-integration
+        type: string
 
 permissions:
   contents: read
@@ -42,6 +51,9 @@ env:
   SPTD_NODE: ${{ inputs.node }}
   SPTD_IMAGE_DIGEST: ${{ inputs.image_digest }}
   SPTD_DEMOS: ${{ inputs.demos }}
+  SPTD_NAMESPACE: ${{ inputs.namespace }}
+  # Owner-provisioned directory on the runner host (a symlink to the state disk on VM 163).
+  SPTD_INTEGRATION_HOME: /srv/sptd-integration
 
 jobs:
   prepare:
@@ -59,6 +71,12 @@ jobs:
           [[ "$SPTD_IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "bad image_digest"; exit 1; }
           [[ "$SPTD_NODE" =~ ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$ ]] || { echo "bad node"; exit 1; }
           [[ -z "$SPTD_DEMOS" || "$SPTD_DEMOS" =~ ^[a-z0-9,-]+$ ]] || { echo "bad demos"; exit 1; }
+          [[ "$SPTD_NAMESPACE" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]] || { echo "bad namespace"; exit 1; }
+
+      - name: Host kubeconfig present and private
+        run: |
+          python3 scripts/sptd/integration/kubeconfig_guard.py \
+            "$SPTD_INTEGRATION_HOME/kubeconfigs/sptd-integration"
 
       - name: Fetch the artifact set (PLACEHOLDER source)
         env:
@@ -113,19 +131,16 @@ jobs:
           name: sptd-artifact-set
           path: ${{ runner.temp }}/artifact-set
 
-      - name: Kubeconfig (namespaced, PLACEHOLDER secret)
-        env:
-          KUBECONFIG_B64: ${{ secrets.PLACEHOLDER_SPTD_KUBECONFIG_B64 }}
+      - name: Host kubeconfig (namespace-scoped; checked, never printed)
         run: |
-          umask 077
-          printf '%s' "$KUBECONFIG_B64" | base64 -d > "$RUNNER_TEMP/kubeconfig"
-          echo "KUBECONFIG=$RUNNER_TEMP/kubeconfig" >> "$GITHUB_ENV"
+          python3 scripts/sptd/integration/kubeconfig_guard.py \
+            "$SPTD_INTEGRATION_HOME/kubeconfigs/sptd-integration" --github-env "$GITHUB_ENV"
 
       - name: Native run, confidential Pod Ready, demo check, cleanup
         run: |
           python3 scripts/sptd/integration/deploy_demo.py \
             --set "$RUNNER_TEMP/artifact-set" --expect-hash "$ARTIFACT_SET_SHA256" \
-            --node "$SPTD_NODE" --image-digest "$SPTD_IMAGE_DIGEST" \
+            --node "$SPTD_NODE" --image-digest "$SPTD_IMAGE_DIGEST" --namespace "$SPTD_NAMESPACE" \
             --demos "${{ matrix.demo }}" --report "$RUNNER_TEMP/report-${{ matrix.demo }}.json"
 
       - name: Report
@@ -135,7 +150,3 @@ jobs:
           name: sptd-report-${{ matrix.demo }}
           path: ${{ runner.temp }}/report-${{ matrix.demo }}.json
           if-no-files-found: ignore
-
-      - name: Remove the kubeconfig
-        if: always()
-        run: rm -f "$RUNNER_TEMP/kubeconfig"

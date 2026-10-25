@@ -26,6 +26,7 @@ import artifact_manifest  # noqa: E402
 import provision_dev_node  # noqa: E402
 import deploy_demo  # noqa: E402
 import fakerun  # noqa: E402
+import kubeconfig_guard  # noqa: E402
 
 REPO = si.REPO_ROOT
 STANDIN = os.path.join(INTEG, "facts.standin-envcas-main-20261025.json")
@@ -497,8 +498,23 @@ class Workflow(unittest.TestCase):
         for trigger in ("pull_request", "push:", "schedule", "workflow_run", "pull_request_target",
                         "repository_dispatch", "workflow_call"):
             self.assertNotIn(trigger, self.text)
-        for name in ("artifact_set_sha256", "node", "image_digest", "demos"):
+        for name in ("artifact_set_sha256", "node", "image_digest", "demos", "namespace"):
             self.assertIn(f"      {name}:", self.head)
+        namespace = self.head.split("      namespace:", 1)[1].split("\n      type:", 1)[0]
+        self.assertIn("default: sptd-integration", namespace)
+
+    def test_host_kubeconfig(self):
+        self.assertIn("\n  SPTD_INTEGRATION_HOME: /srv/sptd-integration\n", self.head)
+        self.assertNotIn("KUBECONFIG_B64", self.text)
+        self.assertNotIn("base64", self.text)
+        guard = 'kubeconfig_guard.py \\\n            "$SPTD_INTEGRATION_HOME/kubeconfigs/sptd-integration"'
+        self.assertEqual(self.text.count(guard), 2)  # prepare and every demo job
+        demo = self.text.split("\n  demo:\n", 1)[1]
+        self.assertLess(demo.index("kubeconfig_guard.py"), demo.index("deploy_demo.py"))
+        self.assertIn('--github-env "$GITHUB_ENV"', demo)
+        self.assertIn('--namespace "$SPTD_NAMESPACE"', demo)
+        for leak in ("cat ", "rm ", "echo \"$KUBECONFIG", "KUBECONFIG=$", "printf '%s' \"$KUBECONFIG"):
+            self.assertNotIn(leak, self.text)
 
     def test_runner_label_permissions_concurrency(self):
         runs_on = [line.strip() for line in self.text.splitlines() if line.strip().startswith("runs-on:")]
@@ -534,6 +550,64 @@ class Workflow(unittest.TestCase):
         for job in workflow["jobs"].values():
             self.assertEqual(job["runs-on"], ["self-hosted", "sptd-integration"])
             self.assertIn("timeout-minutes", job)
+
+
+class KubeconfigGuard(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.home = os.path.join(self.tmp, "integration")
+        os.makedirs(os.path.join(self.home, "kubeconfigs"))
+        self.path = os.path.join(self.home, "kubeconfigs", "sptd-integration")
+        write(self.path, "apiVersion: v1\nusers: [{name: TEST-TOKEN-SECRET}]\n")
+        os.chmod(self.path, 0o600)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp)
+
+    def guard(self, path, *extra):
+        return quiet(kubeconfig_guard.main, [path, *extra])
+
+    def test_ok_sets_env_and_never_prints(self):
+        env = os.path.join(self.tmp, "github_env")
+        rc, out, err = self.guard(self.path, "--github-env", env)
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(read(env), f"KUBECONFIG={self.path}\n")
+        self.assertNotIn("TEST-TOKEN", out + err)
+        # The integration home itself may be a symlink (VM 163: /srv/sptd-integration -> state disk).
+        link = os.path.join(self.tmp, "srv-link")
+        os.symlink(self.home, link)
+        rc, _, err = self.guard(os.path.join(link, "kubeconfigs", "sptd-integration"))
+        self.assertEqual(rc, 0, err)
+
+    def test_refusals(self):
+        env = os.path.join(self.tmp, "github_env")
+        rc, _, err = self.guard(os.path.join(self.home, "kubeconfigs", "missing"), "--github-env", env)
+        self.assertEqual(rc, 1)
+        self.assertIn("does not exist", err)
+        self.assertFalse(os.path.exists(env))
+        for mode in (0o640, 0o604, 0o644, 0o660):
+            os.chmod(self.path, mode)
+            rc, out, err = self.guard(self.path)
+            self.assertEqual(rc, 1, oct(mode))
+            self.assertIn("group- or world-accessible", err)
+            self.assertNotIn("TEST-TOKEN", out + err)
+        os.chmod(self.path, 0o600)
+        link = os.path.join(self.home, "kubeconfigs", "linked")
+        os.symlink(self.path, link)
+        rc, _, err = self.guard(link)
+        self.assertEqual(rc, 1)
+        self.assertIn("is a symlink", err)
+        moved = os.path.join(self.tmp, "real-kubeconfigs")
+        os.rename(os.path.join(self.home, "kubeconfigs"), moved)
+        os.symlink(moved, os.path.join(self.home, "kubeconfigs"))
+        rc, _, err = self.guard(self.path)
+        self.assertEqual(rc, 1)
+        self.assertIn("kubeconfigs is a symlink", err)
+        rc, _, err = self.guard(moved)
+        self.assertEqual(rc, 1)
+        self.assertIn("not a regular file", err)
+        rc, _, err = self.guard("relative/path")
+        self.assertEqual(rc, 1)
 
 
 if __name__ == "__main__":
