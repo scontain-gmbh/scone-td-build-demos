@@ -1,0 +1,152 @@
+# sptd integration run, deploy only (docs/sptd-integration.md). NON_RELEASE dev path.
+#
+# workflow_dispatch only. It runs on runners labelled `sptd-integration`, which no runner has
+# today: nothing runs until an owner gives that label to a runner that can reach the dev
+# node's API. It onboards nothing, signs nothing and holds no key. The node must already
+# hold the artifact set (scripts/sptd/integration/provision_dev_node.py, a root step on the
+# node under a typed line). Per demo: native run -> confidential Pod Ready -> demo check ->
+# cleanup, one demo at a time (hostNetwork Pods share the node's ports).
+# Kubeconfig: no kubeconfig is stored in GitHub. The runner on VM 163 holds a namespace-scoped
+# token kubeconfig at $SPTD_INTEGRATION_HOME/kubeconfigs/sptd-integration (0600, user ghsptd,
+# written by make-kubeconfig.sh of sptd-vm163-runner-v3). Jobs refuse a missing, symlinked or
+# group/world-readable file and never print it. The only secret is a named placeholder
+# (PLACEHOLDER_SPTD_ARTIFACT_SET_SOURCE) until the owner decides where the set comes from.
+name: Test Examples (sptd, deploy only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      artifact_set_sha256:
+        description: "Artifact-set hash (sha256:<64 hex>) from the devvm re-onboarding run"
+        required: true
+        type: string
+      node:
+        description: "Kubernetes node name the set was onboarded for"
+        required: true
+        type: string
+      image_digest:
+        description: "Node image digest (sha256:<64 hex>) the set was onboarded for"
+        required: true
+        type: string
+      demos:
+        description: "Comma-separated demo subset; empty = every demo in the set"
+        required: false
+        default: ""
+        type: string
+      namespace:
+        description: "Namespace the scoped kubeconfig may write and the set was onboarded for"
+        required: false
+        default: sptd-integration
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-examples-sptd-${{ inputs.node }}
+  cancel-in-progress: false
+
+env:
+  ARTIFACT_SET_SHA256: ${{ inputs.artifact_set_sha256 }}
+  SPTD_NODE: ${{ inputs.node }}
+  SPTD_IMAGE_DIGEST: ${{ inputs.image_digest }}
+  SPTD_DEMOS: ${{ inputs.demos }}
+  SPTD_NAMESPACE: ${{ inputs.namespace }}
+  # Owner-provisioned directory on the runner host (a symlink to the state disk on VM 163).
+  SPTD_INTEGRATION_HOME: /srv/sptd-integration
+
+jobs:
+  prepare:
+    name: Fetch and validate the artifact set
+    runs-on: [self-hosted, sptd-integration]
+    timeout-minutes: 20
+    outputs:
+      demos: ${{ steps.demos.outputs.list }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Check the inputs
+        run: |
+          [[ "$ARTIFACT_SET_SHA256" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "bad artifact_set_sha256"; exit 1; }
+          [[ "$SPTD_IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "bad image_digest"; exit 1; }
+          [[ "$SPTD_NODE" =~ ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$ ]] || { echo "bad node"; exit 1; }
+          [[ -z "$SPTD_DEMOS" || "$SPTD_DEMOS" =~ ^[a-z0-9,-]+$ ]] || { echo "bad demos"; exit 1; }
+          [[ "$SPTD_NAMESPACE" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]] || { echo "bad namespace"; exit 1; }
+
+      - name: Host kubeconfig present and private
+        run: |
+          python3 scripts/sptd/integration/kubeconfig_guard.py \
+            "$SPTD_INTEGRATION_HOME/kubeconfigs/sptd-integration"
+
+      - name: Fetch the artifact set (PLACEHOLDER source)
+        env:
+          ARTIFACT_SET_SOURCE: ${{ secrets.PLACEHOLDER_SPTD_ARTIFACT_SET_SOURCE }}
+        run: |
+          # Owner decision: where the devvm publishes the set (deploy view: manifest.json,
+          # node-set/, steps/, bundles/*/{bundle,checksums}.json; no rootfs payload, no key).
+          # Example shape only:
+          #   oras pull "$ARTIFACT_SET_SOURCE@$ARTIFACT_SET_SHA256" -o "$RUNNER_TEMP/artifact-set"
+          echo "artifact-set fetch is a placeholder" >&2
+          exit 1
+
+      - name: Validate the pinned set
+        run: |
+          python3 scripts/sptd/integration/artifact_manifest.py validate \
+            "$RUNNER_TEMP/artifact-set/manifest.json" --expect-hash "$ARTIFACT_SET_SHA256"
+
+      - name: Demo list
+        id: demos
+        run: |
+          python3 - "$RUNNER_TEMP/artifact-set/manifest.json" "$SPTD_DEMOS" <<'PY' >> "$GITHUB_OUTPUT"
+          import json, sys
+          present = [d["demo"] for d in json.load(open(sys.argv[1]))["demos"]]
+          wanted = [d for d in sys.argv[2].split(",") if d]
+          missing = sorted(set(wanted) - set(present))
+          if missing:
+              sys.exit("demos not in the set: " + ", ".join(missing))
+          print("list=" + json.dumps([d for d in present if not wanted or d in wanted]))
+          PY
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sptd-artifact-set
+          path: ${{ runner.temp }}/artifact-set
+          retention-days: 3
+
+  demo:
+    name: sptd ${{ matrix.demo }}
+    needs: prepare
+    runs-on: [self-hosted, sptd-integration]
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        demo: ${{ fromJSON(needs.prepare.outputs.demos) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: sptd-artifact-set
+          path: ${{ runner.temp }}/artifact-set
+
+      - name: Host kubeconfig (namespace-scoped; checked, never printed)
+        run: |
+          python3 scripts/sptd/integration/kubeconfig_guard.py \
+            "$SPTD_INTEGRATION_HOME/kubeconfigs/sptd-integration" --github-env "$GITHUB_ENV"
+
+      - name: Native run, confidential Pod Ready, demo check, cleanup
+        run: |
+          python3 scripts/sptd/integration/deploy_demo.py \
+            --set "$RUNNER_TEMP/artifact-set" --expect-hash "$ARTIFACT_SET_SHA256" \
+            --node "$SPTD_NODE" --image-digest "$SPTD_IMAGE_DIGEST" --namespace "$SPTD_NAMESPACE" \
+            --demos "${{ matrix.demo }}" --report "$RUNNER_TEMP/report-${{ matrix.demo }}.json"
+
+      - name: Report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sptd-report-${{ matrix.demo }}
+          path: ${{ runner.temp }}/report-${{ matrix.demo }}.json
+          if-no-files-found: ignore

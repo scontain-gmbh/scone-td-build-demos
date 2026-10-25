@@ -1,0 +1,279 @@
+{
+  "schema": "sptd-demo-catalog-v1",
+  "nonRelease": true,
+  "comment": "Pinned re-onboarding order and per-demo deploy checks for sptd mode (docs/sptd-integration.md). The profile registry is append-only: the base phase starts a fresh registry, every later step appends to the registry of the step before it. Changing the order changes every registry digest and the artifact-set hash.",
+  "phases": [
+    {
+      "name": "base",
+      "registryMode": "fresh",
+      "comment": "The block-4 set (go-args, configmap reader-1/2, java-args, web-server, petclinic). Go first: the kernel team registers the Go root first."
+    },
+    {
+      "name": "append-static",
+      "registryMode": "append",
+      "comment": "Static sptd source images outside block 4; on a node that already holds the base set this is the provision-dev-registry --append path."
+    },
+    {
+      "name": "append-script",
+      "registryMode": "append",
+      "comment": "Python demos as measured CPython script targets (envcas Script profile #49) and redis."
+    }
+  ],
+  "steps": [
+    {
+      "id": "go-args-env-file",
+      "demo": "go-args-env-file",
+      "phase": "base",
+      "status": "ready",
+      "variantSource": "scone-td-build-demos #60",
+      "dir": "go-args-env-file",
+      "render": [
+        ["tplenv", "--file", "manifests/manifest.template.yaml", "--create-values-file", "--output", "manifests/manifest.yaml", "--indent"],
+        ["tplenv", "--file", "manifests/scone.template.yaml", "--create-values-file", "--output", "manifests/scone.yaml", "--indent"]
+      ],
+      "scone": "manifests/scone.yaml",
+      "outputManifest": "manifests/manifest.prod.sanitized.yaml",
+      "nativeManifests": ["manifests/manifest.yaml"],
+      "compilerFeatures": ["nonrelease-dev-baked-volumes"],
+      "goRoot": true,
+      "deploy": {
+        "wait": [{"selector": "app=go-args-env-file", "for": "completed"}],
+        "checks": [{"type": "logs", "selector": "app=go-args-env-file", "regex": "."}]
+      }
+    },
+    {
+      "id": "configmap",
+      "demo": "configmap",
+      "phase": "base",
+      "status": "ready",
+      "variantSource": "scone-td-build-demos #60",
+      "dir": "configmap",
+      "render": [
+        ["tplenv", "--file", "manifest.template.yaml", "--create-values-file", "--output", "manifests/manifest.yaml", "--indent"],
+        ["tplenv", "--file", "scone.template.yaml", "--create-values-file", "--output", "manifests/scone.yaml", "--indent"]
+      ],
+      "scone": "manifests/scone.yaml",
+      "outputManifest": "manifests/manifest.prod.sanitized.yaml",
+      "nativeManifests": ["manifests/manifest.yaml"],
+      "requiredEnv": ["CONFIGMAP_READER_1_IMAGE", "CONFIGMAP_READER_2_IMAGE"],
+      "compilerFeatures": ["nonrelease-dev-baked-volumes"],
+      "deploy": {
+        "wait": [{"selector": "app=my-rust-app", "for": "completed"}],
+        "checks": [
+          {"type": "logs", "selector": "app=my-rust-app", "container": "reader-1", "regex": "."},
+          {"type": "logs", "selector": "app=my-rust-app", "container": "reader-2", "regex": "."}
+        ]
+      }
+    },
+    {
+      "id": "java-args-env-file",
+      "demo": "java-args-env-file",
+      "phase": "base",
+      "status": "ready",
+      "variantSource": "scone-td-build-demos #60",
+      "dir": "java-args-env-file",
+      "render": [
+        ["tplenv", "--file", "manifests/manifest.template.yaml", "--create-values-file", "--output", "manifests/manifest.yaml", "--indent"],
+        ["tplenv", "--file", "manifests/scone.template.yaml", "--create-values-file", "--output", "manifests/scone.yaml", "--indent"]
+      ],
+      "scone": "manifests/scone.yaml",
+      "outputManifest": "manifests/manifest.prod.sanitized.yaml",
+      "nativeManifests": ["manifests/manifest.yaml"],
+      "compilerFeatures": ["nonrelease-dev-baked-volumes"],
+      "deploy": {
+        "wait": [{"selector": "app=java-args-env-file", "for": "ready"}],
+        "checks": [{"type": "logs", "selector": "app=java-args-env-file", "regex": "."}]
+      }
+    },
+    {
+      "id": "web-server",
+      "demo": "web-server",
+      "phase": "base",
+      "status": "ready",
+      "variantSource": "scone-td-build-demos #60",
+      "dir": "web-server",
+      "render": [
+        ["tplenv", "--file", "manifest.template.yaml", "--create-values-file", "--output", "manifest.yaml"],
+        ["tplenv", "--file", "scone.template.yaml", "--create-values-file", "--output", "scone.yaml", "--indent"]
+      ],
+      "scone": "scone.yaml",
+      "outputManifest": "manifest.sanitized.yaml",
+      "nativeManifests": ["manifest.yaml"],
+      "compilerFeatures": ["nonrelease-dev-baked-volumes"],
+      "deploy": {
+        "wait": [{"selector": "app=web-server", "for": "ready"}],
+        "checks": [
+          {"type": "http", "port": 8000, "path": "/path"},
+          {"type": "http", "port": 8000, "path": "/gen"}
+        ]
+      }
+    },
+    {
+      "id": "pet-clinic",
+      "demo": "pet-clinic",
+      "phase": "base",
+      "status": "ready",
+      "variantSource": "scone-td-build-demos #60",
+      "dir": "pet-clinic",
+      "render": [
+        ["tplenv", "--file", "manifests/secret.template.yaml", "--create-values-file", "--output", "manifests/secret.yaml"],
+        ["tplenv", "--file", "manifests/mariadb.template.yaml", "--create-values-file", "--output", "manifests/mariadb.yaml"],
+        ["tplenv", "--file", "manifests/petclinic.template.yaml", "--create-values-file", "--output", "manifests/petclinic.yaml"],
+        ["tplenv", "--file", "manifests/scone.template.yaml", "--create-values-file", "--output", "manifests/scone.yaml", "--indent"]
+      ],
+      "scone": "manifests/scone.yaml",
+      "outputManifest": "manifests/manifest.prod.sanitized.yaml",
+      "nativeManifests": ["manifests/secret.yaml", "manifests/mariadb.yaml", "manifests/petclinic.yaml"],
+      "supportManifests": ["manifests/secret.yaml", "manifests/mariadb.yaml"],
+      "comment": "MariaDB stays native until memory emptyDir and DEV-PVC run live (item 95); the confidential run deploys the native MariaDB next to the confidential petclinic, as the README does.",
+      "deploy": {
+        "wait": [{"selector": "app=petclinic", "for": "ready"}],
+        "checks": [{"type": "http", "port": 18080, "path": "/"}]
+      }
+    },
+    {
+      "id": "hello-world",
+      "demo": "hello-world",
+      "phase": "append-static",
+      "status": "ready",
+      "variantSource": "scone-td-build-demos #60",
+      "dir": "hello-world",
+      "render": [
+        ["tplenv", "--file", "manifest.job.template.yaml", "--create-values-file", "--output", "manifest.job.yaml"],
+        ["tplenv", "--file", "scone.template.yaml", "--create-values-file", "--output", "scone.yaml", "--indent"]
+      ],
+      "scone": "scone.yaml",
+      "outputManifest": "manifest.job.sanitized.yaml",
+      "nativeManifests": ["manifest.job.yaml"],
+      "deploy": {
+        "wait": [{"selector": "app=hello-world", "for": "completed"}],
+        "checks": [{"type": "logs", "selector": "app=hello-world", "regex": "."}]
+      }
+    },
+    {
+      "id": "image-signing",
+      "demo": "image-signing",
+      "phase": "append-static",
+      "status": "ready",
+      "variantSource": "scone-td-build-demos #60",
+      "dir": "image-signing",
+      "render": [
+        ["tplenv", "--file", "manifest.job.template.yaml", "--create-values-file", "--output", "manifest.job.yaml"],
+        ["tplenv", "--values-file", "/dev/null", "--file", "manifests/scone.template.yaml", "--output", "manifests/scone.yaml", "--indent"]
+      ],
+      "scone": "manifests/scone.yaml",
+      "outputManifest": "manifest.job.sanitized.yaml",
+      "nativeManifests": ["manifest.job.yaml"],
+      "comment": "The kbs/keyprovider variant (#59) is not covered.",
+      "deploy": {
+        "wait": [{"selector": "app=image-signing", "for": "completed"}],
+        "checks": [{"type": "logs", "selector": "app=image-signing", "regex": "."}]
+      }
+    },
+    {
+      "id": "network-policy",
+      "demo": "network-policy",
+      "phase": "append-static",
+      "status": "ready",
+      "variantSource": "scone-td-build-demos #60",
+      "dir": "network-policy",
+      "render": [
+        ["tplenv", "--file", "./manifest.template.yaml", "--output", "./manifest.yaml"],
+        ["tplenv", "--file", "./scone.template.yaml", "--output", "./scone.yaml", "--indent"]
+      ],
+      "scone": "scone.yaml",
+      "outputManifest": "manifest.prod.sanitized.yaml",
+      "nativeManifests": ["manifest.yaml"],
+      "requiredEnv": ["SCRIPT_DIR"],
+      "comment": "Confidential Pods use hostNetwork until in-TD Pod networking exists, so the client reaches the server on the node address, not the Service name.",
+      "deploy": {
+        "wait": [{"selector": "app=server", "for": "ready"}, {"selector": "app=client", "for": "ready"}],
+        "checks": [{"type": "http", "port": 3000, "path": "/db-query"}]
+      }
+    },
+    {
+      "id": "software-updates-v1",
+      "demo": "software-updates",
+      "phase": "append-script",
+      "status": "ready",
+      "variantSource": "scone-td-build-demos #62",
+      "dir": "software-updates",
+      "render": [
+        ["tplenv", "--file", "scone.v1.template.yaml", "--create-values-file", "--output", "scone.v1.yaml", "--indent"],
+        ["tplenv", "--file", "k8s/manifest.v1.template.yaml", "--create-values-file", "--output", "k8s/manifest.v1.yaml", "--indent"]
+      ],
+      "scone": "scone.v1.yaml",
+      "outputManifest": "manifest.prod.sanitized.yaml",
+      "nativeManifests": ["k8s/manifest.v1.yaml"],
+      "needs": ["script-profile"],
+      "deploy": {
+        "wait": [{"selector": "app=python-hello-user", "for": "ready"}],
+        "checks": [{"type": "logs", "selector": "app=python-hello-user", "regex": "checksum of the original API_PASSWORD"}]
+      }
+    },
+    {
+      "id": "software-updates-v2",
+      "demo": "software-updates",
+      "phase": "append-script",
+      "status": "ready",
+      "variantSource": "scone-td-build-demos #62",
+      "dir": "software-updates",
+      "render": [
+        ["tplenv", "--file", "scone.v2.template.yaml", "--create-values-file", "--output", "scone.v2.yaml", "--indent"],
+        ["tplenv", "--file", "k8s/manifest.v2.template.yaml", "--create-values-file", "--output", "k8s/manifest.v2.yaml", "--indent"]
+      ],
+      "scone": "scone.v2.yaml",
+      "outputManifest": "manifest.prod.sanitized.yaml",
+      "nativeManifests": ["k8s/manifest.v2.yaml"],
+      "needs": ["script-profile"],
+      "comment": "v1 and v2 write the same output-manifest name; the plan copies each into its own step directory.",
+      "deploy": {
+        "wait": [{"selector": "app=python-hello-user", "for": "ready"}],
+        "checks": [{"type": "logs", "selector": "app=python-hello-user", "regex": "Running Version 2\\."}]
+      }
+    },
+    {
+      "id": "flask-redis-netshield",
+      "demo": "flask-redis-netshield",
+      "phase": "append-script",
+      "status": "ready",
+      "variantSource": "scone-td-build-demos #62 (flask-api); redis role on local agent/sptd-mode-netshield-redis 3bb54bfb, not pushed",
+      "dir": "flask-redis-netshield",
+      "render": [
+        ["tplenv", "--file", "k8s/manifest.template.yaml", "--create-values-file", "--output", "k8s/manifest.yaml"],
+        ["tplenv", "--file", "scone.template.yaml", "--create-values-file", "--output", "scone.yaml", "--indent"]
+      ],
+      "scone": "scone.yaml",
+      "outputManifest": "manifest.prod.sanitized.yaml",
+      "nativeManifests": ["k8s/manifest.yaml"],
+      "needs": ["script-profile"],
+      "deploy": {
+        "wait": [{"selector": "app=redis", "for": "ready"}, {"selector": "app=flask-api", "for": "ready"}],
+        "checks": [{"type": "http", "port": 14996, "path": "/keys"}]
+      }
+    },
+    {
+      "id": "flask-redis",
+      "demo": "flask-redis",
+      "phase": "append-script",
+      "status": "pending",
+      "pendingReason": "flask-api image build (item 99) and its onboarding line are open; flask-api sptd variant is on local agent/sptd-mode-flask-redis a8c03eb (not pushed); #63's SGX failure is not analysed",
+      "variantSource": "scone-td-build-demos #63 (redis only)",
+      "dir": "flask-redis",
+      "render": [
+        ["tplenv", "--file", "k8s/manifest.template.yaml", "--create-values-file", "--output", "k8s/manifest.yaml"],
+        ["tplenv", "--file", "scone.template.yaml", "--create-values-file", "--output", "scone.yaml", "--indent"]
+      ],
+      "scone": "scone.yaml",
+      "outputManifest": "manifest.prod.sanitized.yaml",
+      "nativeManifests": ["k8s/manifest.yaml"],
+      "generatedAtDeploy": ["k8s/secret-redis-tls.yaml (test TLS key and certificates; generated where the demo runs, never part of the artifact set)"],
+      "compilerFeatures": ["nonrelease-dev-baked-volumes"],
+      "needs": ["script-profile"],
+      "deploy": {
+        "wait": [{"selector": "app=redis", "for": "ready"}, {"selector": "app=flask-api", "for": "ready"}],
+        "checks": [{"type": "http", "port": 14996, "path": "/keys", "scheme": "https", "insecure": true}]
+      }
+    }
+  ]
+}

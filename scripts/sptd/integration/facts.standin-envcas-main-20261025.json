@@ -1,0 +1,45 @@
+{
+  "schema": "sptd-landed-image-facts-v1",
+  "nonRelease": true,
+  "standIn": true,
+  "recordedAt": "2026-10-25",
+  "comment": "Stand-in for dry runs only. envcas is rust-envcas main as of 2026-10-25 (bake #47, Cmd-only #46 and Script profile #49 merged). The node image, manager id, Go root and generic launcher are not landed yet: zero digests and a STAND-IN id. demos = PR #63 head (it carries #60 and the Python commits); onboard = sptd-hello-container-dev #101 head (measured script targets).",
+  "nodeImage": {
+    "name": "STAND-IN dev-rbn-9-k8s V7 plan-set image",
+    "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "contract": "V7"
+  },
+  "managerId": "STAND-IN-fresh-manager-id",
+  "goRoot": {
+    "artifactDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "envcas": {
+    "repository": "scontain-gmbh/rust-envcas",
+    "commit": "f69a0a61914d8ff53fb168c9b800c8e65a2c5c5b",
+    "mergedPullRequests": {
+      "46": "315a5e8ebfa7b6d70aac0ec70e496a358e94d558",
+      "47": "a5975cea06b7ad0592fcd3b365007c975b1ded2c",
+      "49": "a2616162ea40f6b92ba6577ad5517f6802682c87"
+    }
+  },
+  "launcher": {
+    "route": "sealed-per-bundle",
+    "sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "onboard": {
+    "repository": "scontain-gmbh/sptd-hello-container-dev",
+    "commit": "e0fc21085682b7a0e0136c37a22014a03098abb1",
+    "ref": "agent/onboard-script-profile-20261020 (#101, draft)"
+  },
+  "demos": {
+    "repository": "scontain-gmbh/scone-td-build-demos",
+    "commit": "b63f4bb649b3b292e2ea3fea835fa0f76f6016f3",
+    "ref": "agent/sptd-mode-redis (#63, draft)"
+  },
+  "devRegistry": {
+    "rootPin": "7e3b7ec7e5735616c0c319e38284f0ff6c6c803bffd429160648f5dfe82554f4",
+    "runtimeHandler": "scone-dev",
+    "installedOnImage": null
+  },
+  "imageRegistry": "STAND-IN.registry.invalid/sptd-dev"
+}
