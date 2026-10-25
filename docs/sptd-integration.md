@@ -38,7 +38,7 @@ All files are in `scripts/sptd/integration/`:
 | `sptdinteg.py` | shared helpers (JSON Schema subset, canonical hash, catalog, facts) |
 | `tests/` | unit tests (`tests/sptd-integration.test.sh`, part of `make test`) |
 
-The proposed workflow is [sptd-integration.workflow.yml.proposed](sptd-integration.workflow.yml.proposed).
+The workflow is [.github/workflows/sptd-integration.yml](../.github/workflows/sptd-integration.yml).
 Everything is standard-library Python 3 and bash; no PyYAML, jsonschema or cluster is needed
 to run or test it.
 
@@ -229,25 +229,35 @@ nothing:
 `--dry-run` executes nothing and prints every host and kubectl action and query, answering
 the queries from `--assume-state`. On the real node this runs as root under a typed line.
 
-## (4) Proposed workflow
+## (4) Workflow: `.github/workflows/sptd-integration.yml`
 
-[sptd-integration.workflow.yml.proposed](sptd-integration.workflow.yml.proposed) is not in
-`.github/workflows/` (workflow changes are the owner's). It is `workflow_dispatch` only, with
-the inputs `artifact_set_sha256`, `node`, `image_digest` and `demos` (subset; empty = all):
+Installed on the owner's decision of 2026-10-25 (it was a `.proposed` file before). It cannot
+run anywhere yet:
 
-- `prepare`: checks the inputs, fetches the set (placeholder), validates it against the
-  pinned hash, computes the demo list and uploads the set as a run artifact;
+- trigger: `workflow_dispatch` only, with the inputs `artifact_set_sha256`, `node`,
+  `image_digest` and `demos` (subset; empty = all); no push, pull_request or schedule;
+- runner: `runs-on: [self-hosted, sptd-integration]`. No runner has that label today, so
+  dispatched runs wait in the queue and never land on the `scone-sgx` runners. An owner adds
+  the label to a runner that can reach the dev node's API;
+- `permissions: contents: read`, concurrency group `test-examples-sptd-<node>` (no
+  cancel-in-progress), every action pinned by full commit SHA (checkout v4.4.0,
+  upload-artifact v4.6.2, download-artifact v4.3.0), a timeout on every job.
+
+Jobs:
+
+- `prepare`: checks the inputs, fetches the set (placeholder step that fails until the source
+  is decided), validates it against the pinned hash, computes the demo list and uploads the
+  set as a run artifact;
 - `demo` (matrix, `max-parallel: 1`, `fail-fast: false`; hostNetwork Pods share the node's
   ports): `deploy_demo.py` per demo: native run (apply the rendered native manifests, wait,
   demo checks, delete), confidential Pod Ready (support manifests + output manifest; every Pod
   Ready, or Succeeded for Jobs and bare Pods), the demo check (logs regex, or HTTP through
   `kubectl port-forward`, which also reaches a hostNetwork Pod), cleanup (always, also after
-  a failure). The report is uploaded per demo.
+  a failure). The report is uploaded per demo; the kubeconfig file is removed at the end.
 
-It deploys only: no onboarding, no signing, no key. Placeholders: the runner label
-`RUNNER-LABEL-PLACEHOLDER`, `secrets.PLACEHOLDER_SPTD_KUBECONFIG_B64` (namespaced kubeconfig)
-and `secrets.PLACEHOLDER_SPTD_ARTIFACT_SET_SOURCE` (where the devvm publishes the set; the
-fetch step fails until it is decided).
+It deploys only: no onboarding, no signing, no key, no docker. Secrets are named
+placeholders the owner creates: `PLACEHOLDER_SPTD_KUBECONFIG_B64` (namespaced kubeconfig) and
+`PLACEHOLDER_SPTD_ARTIFACT_SET_SOURCE` (where the devvm publishes the set).
 
 ## Tests
 
@@ -267,7 +277,8 @@ manifest, hash, bundle file with `--deep`), private keys, unpinned node-set file
 registry chain, refused roles, facts mismatches, completeness, the Go root and the generic
 launcher, the four node states of the provisioning dry run plus its refusals, the deploy dry
 run order and refusals, a stub-kubectl deploy run including cleanup after a failed check, and
-the proposed workflow's triggers, inputs and placeholders.
+the installed workflow (dispatch-only trigger, inputs, the unused `sptd-integration` label,
+read-only permissions, concurrency, SHA-pinned actions, placeholder-only secrets).
 
 ## Open points and owner decisions
 
@@ -282,8 +293,8 @@ the proposed workflow's triggers, inputs and placeholders.
 - **Publishing the set.** Where the devvm puts the signed set for CI (OCI artifact in a dev
   registry, a release asset, a file share), and whether CI gets the deploy view only
   (no rootfs payload).
-- **Runner and access.** The runner label that can reach the dev node's API, the namespaced
-  kubeconfig secret, and a trusted route to the node (the Proxmox CA pin is still open).
+- **Runner and access.** Which runner gets the `sptd-integration` label (it must reach the dev
+  node's API), the namespaced kubeconfig secret, and a trusted route to the node (the Proxmox CA pin is still open).
 - **Native images.** The native run pulls the native images named in the rendered manifests;
   the node needs pull access (or the images preloaded) and possibly a pull secret.
 - **Demo checks.** The checks in `demos.json` follow the READMEs; regexes of `.` only prove

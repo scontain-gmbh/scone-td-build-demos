@@ -1,11 +1,12 @@
-# PROPOSED, not active: copy to .github/workflows/test-examples-sptd.yml only after the owner
-# decides the runner label, the secrets and where the artifact set is fetched from
-# (docs/sptd-integration.md, "Workflow"). NON_RELEASE dev path.
+# sptd integration run, deploy only (docs/sptd-integration.md). NON_RELEASE dev path.
 #
-# Deploy only: it onboards nothing, signs nothing and holds no key. The node must already
+# workflow_dispatch only. It runs on runners labelled `sptd-integration`, which no runner has
+# today: nothing runs until an owner gives that label to a runner that can reach the dev
+# node's API. It onboards nothing, signs nothing and holds no key. The node must already
 # hold the artifact set (scripts/sptd/integration/provision_dev_node.py, a root step on the
 # node under a typed line). Per demo: native run -> confidential Pod Ready -> demo check ->
 # cleanup, one demo at a time (hostNetwork Pods share the node's ports).
+# Secrets are named placeholders (PLACEHOLDER_*) until the owner creates them.
 name: Test Examples (sptd, deploy only)
 
 on:
@@ -45,12 +46,12 @@ env:
 jobs:
   prepare:
     name: Fetch and validate the artifact set
-    runs-on: [self-hosted, RUNNER-LABEL-PLACEHOLDER]
+    runs-on: [self-hosted, sptd-integration]
     timeout-minutes: 20
     outputs:
       demos: ${{ steps.demos.outputs.list }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Check the inputs
         run: |
@@ -88,7 +89,7 @@ jobs:
           print("list=" + json.dumps([d for d in present if not wanted or d in wanted]))
           PY
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: sptd-artifact-set
           path: ${{ runner.temp }}/artifact-set
@@ -97,7 +98,7 @@ jobs:
   demo:
     name: sptd ${{ matrix.demo }}
     needs: prepare
-    runs-on: [self-hosted, RUNNER-LABEL-PLACEHOLDER]
+    runs-on: [self-hosted, sptd-integration]
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -105,9 +106,9 @@ jobs:
       matrix:
         demo: ${{ fromJSON(needs.prepare.outputs.demos) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: sptd-artifact-set
           path: ${{ runner.temp }}/artifact-set
@@ -129,7 +130,7 @@ jobs:
 
       - name: Report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: sptd-report-${{ matrix.demo }}
           path: ${{ runner.temp }}/report-${{ matrix.demo }}.json

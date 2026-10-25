@@ -29,7 +29,7 @@ import fakerun  # noqa: E402
 
 REPO = si.REPO_ROOT
 STANDIN = os.path.join(INTEG, "facts.standin-envcas-main-20261025.json")
-WORKFLOW = os.path.join(REPO, "docs", "sptd-integration.workflow.yml.proposed")
+WORKFLOW = os.path.join(REPO, ".github", "workflows", "sptd-integration.yml")
 ENVCAS_MAIN = "f69a0a61914d8ff53fb168c9b800c8e65a2c5c5b"
 
 
@@ -485,28 +485,55 @@ class Deploy(StandInSet):
 
 
 class Workflow(unittest.TestCase):
-    def test_proposed_workflow(self):
+    """The installed .github/workflows/sptd-integration.yml: dispatch only, unused label, read-only."""
+
+    def setUp(self):
         with open(WORKFLOW) as handle:
-            text = handle.read()
-        head = text.split("\njobs:", 1)[0]
-        self.assertIn("workflow_dispatch:", head)
-        for trigger in ("pull_request", "push:", "schedule", "workflow_run", "pull_request_target"):
-            self.assertNotIn(trigger, head)
+            self.text = handle.read()
+        self.head = self.text.split("\njobs:", 1)[0]
+
+    def test_trigger_and_inputs(self):
+        self.assertIn("\non:\n  workflow_dispatch:\n", self.head)
+        for trigger in ("pull_request", "push:", "schedule", "workflow_run", "pull_request_target",
+                        "repository_dispatch", "workflow_call"):
+            self.assertNotIn(trigger, self.text)
         for name in ("artifact_set_sha256", "node", "image_digest", "demos"):
-            self.assertIn(f"      {name}:", head)
-        self.assertIn("RUNNER-LABEL-PLACEHOLDER", text)
-        for secret in [s.split("}}")[0].strip() for s in text.split("secrets.")[1:]]:
+            self.assertIn(f"      {name}:", self.head)
+
+    def test_runner_label_permissions_concurrency(self):
+        runs_on = [line.strip() for line in self.text.splitlines() if line.strip().startswith("runs-on:")]
+        self.assertTrue(runs_on)
+        self.assertEqual(set(runs_on), {"runs-on: [self-hosted, sptd-integration]"})
+        self.assertNotIn("scone-sgx", self.text)
+        self.assertIn("\npermissions:\n  contents: read\n", self.head)
+        self.assertNotIn("write", self.text.split("permissions:", 1)[1].split("\n\n", 1)[0])
+        self.assertIn("\nconcurrency:\n  group: ", self.head)
+
+    def test_actions_pinned_and_no_keys(self):
+        uses = [line.split("uses:", 1)[1].split("#")[0].strip() for line in self.text.splitlines()
+                if "uses:" in line]
+        self.assertTrue(uses)
+        for ref in uses:
+            self.assertRegex(ref, r"^[a-z-]+/[a-z-]+@[0-9a-f]{40}$")
+        for secret in [s.split("}}")[0].strip() for s in self.text.split("secrets.")[1:]]:
             self.assertTrue(secret.startswith("PLACEHOLDER_"), secret)
-        self.assertNotIn("SIGNING_KEY", text)
-        self.assertNotIn("reonboard_all.py plan", text)
-        self.assertIn("deploy_demo.py", text)
+        self.assertNotIn("SIGNING_KEY", self.text)
+        self.assertNotIn("reonboard_all.py", self.text)
+        self.assertNotIn("docker", self.text)
+        self.assertIn("deploy_demo.py", self.text)
+
+    def test_yaml_shape(self):
         try:
             import yaml
         except ImportError:
-            return
-        workflow = yaml.safe_load(text)
+            self.skipTest("PyYAML not installed")
+        workflow = yaml.safe_load(self.text)
         triggers = workflow.get("on", workflow.get(True))
         self.assertEqual(list(triggers), ["workflow_dispatch"])
+        self.assertEqual(workflow["permissions"], {"contents": "read"})
+        for job in workflow["jobs"].values():
+            self.assertEqual(job["runs-on"], ["self-hosted", "sptd-integration"])
+            self.assertIn("timeout-minutes", job)
 
 
 if __name__ == "__main__":
