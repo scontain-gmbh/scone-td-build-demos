@@ -68,6 +68,21 @@ intent in `scripts/sptd/policies/<demo>.endpoints.json`, and per-workload overri
 The node's envcas reads the root pin as bare hex (`SCONE_SPTD_N3_ROOT_PIN`), without the
 `sha256:` prefix. The script writes no node configuration.
 
+## Pinned rust-envcas revision
+
+sptd mode is pinned to rust-envcas `main` at `f69a0a61914d8ff53fb168c9b800c8e65a2c5c5b`.
+Build the `compiler` and `envcas_source` entries of `SPTD_A8_TOOLS` from that commit. It
+contains:
+
+- `scone-td-dev-compile` running Cmd for Cmd-only images (rust-envcas #46);
+- the NON_RELEASE baked ConfigMap/Secret volumes behind the default-off
+  `nonrelease-dev-baked-volumes` feature (rust-envcas #47; list it in
+  `SPTD_A8_COMPILER_FEATURES` when the compiler is built with it);
+- measured script executables for CPython (rust-envcas #49).
+
+Bundles onboarded with an earlier envcas build bind that build's digests and must be onboarded
+and signed again.
+
 ## Temporary: baked ConfigMap and Secret files
 
 Until CAS delivers configuration files to a TD, some demos bake their ConfigMap and Secret
@@ -111,8 +126,10 @@ removed once CAS delivers the files.
   `python-script-stdlib.json` (`-I -B -S`) pins the real interpreter
   `/usr/local/bin/python3.11` with `python` and `python3` as aliases and denies the
   loader, OpenSSL, glibc and `PYTHON*` environment prefixes; the overrides make the absolute
-  script (`/app/app.py`, `/app/print_env.py`) the command. They need a `scone-td-dev-compile`
-  and a profile emitter that accept `script` executables, which are not released yet.
+  script (`/app/app.py`, `/app/print_env.py`) the command. `scone-td-dev-compile` from the
+  pinned rust-envcas main accepts `script` executables (rust-envcas #49); the profile emitter
+  of `scone-dev-onboard` does so only with sptd-hello-container-dev #101, which is not merged
+  yet.
   flask-redis's flask-api also needs its `/tls` Secret baked. nfs-shared-volume is not covered.
 - Java demos (java-args-env-file, pet-clinic) run as GraalVM native-image binaries in sptd
   mode, built from `scripts/sptd/images/`; no JVM runs in a TD.
