@@ -1,0 +1,26 @@
+{
+  "schema": "sptd-demo-overrides-v1",
+  "nonRelease": true,
+  "comment": "sptd mode only. The redis server's ConfigMap and TLS Secret are baked into its sealed launcher as descriptor files (opened as /proc/self/fd/N) (rust-envcas nonrelease-dev-baked-volumes); its redis.conf is rewritten to those descriptors and /data becomes a memory emptyDir, so redis is one bare Pod with one signed Pod plan. Values are fixed at build time; no rotation. The demo's redis.conf and the sgx/cvm modes are unchanged.",
+  "workloads": {
+    "redis": {
+      "containers": {
+        "redis": {
+          "bakedVolumes": [
+            {"name": "redis-config", "content_pin": true},
+            {"name": "redis-tls", "content_pin": true}
+          ],
+          "configRewrites": [
+            {"configMap": "redis-config", "key": "redis.conf",
+             "directives": ["tls-cert-file", "tls-key-file", "tls-ca-cert-file"]}
+          ],
+          "command": ["/usr/local/bin/redis-server", {"descriptor": "/etc/redis/redis.conf"}],
+          "memoryEmptyDirs": [
+            {"name": "redis-data", "mountPath": "/data", "sizeLimit": "1Gi", "owner": {"uid": 65532, "gid": 65532}}
+          ],
+          "resources": {"limits": {"memory": "1280Mi"}}
+        }
+      }
+    }
+  }
+}

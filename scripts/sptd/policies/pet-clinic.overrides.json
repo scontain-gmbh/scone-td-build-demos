@@ -1,0 +1,14 @@
+{
+  "schema": "sptd-demo-overrides-v1",
+  "nonRelease": true,
+  "comment": "sptd mode only. The sptd source image (scripts/sptd/images/pet-clinic) is a GraalVM native-image, so the command is its absolute /app/petclinic instead of the JVM and its heap flags; no JVM runs in a TD. The demo's manifest and the sgx/cvm modes are unchanged.",
+  "workloads": {
+    "petclinic": {
+      "containers": {
+        "petclinic": {
+          "command": ["/app/petclinic"]
+        }
+      }
+    }
+  }
+}
