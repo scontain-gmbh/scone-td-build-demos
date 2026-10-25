@@ -514,10 +514,12 @@ def effective_argv0(container, config):
 def cmd_only_command(container, config):
     """Cmd of a Cmd-only image when the Pod sets neither command nor args, else None.
 
-    Kubernetes runs such a container as exactly Cmd, the same as `command: <Cmd>`. The
-    pinned owner compiler (rust-envcas c61cf4e scone-td-dev-compile) passes only the
-    Entrypoint part as the command to the environment compiler, which refuses it as an
-    "empty effective command". Making Cmd the explicit command keeps argv unchanged.
+    Kubernetes runs such a container as exactly Cmd, the same as `command: <Cmd>`.
+    rust-envcas scone-td-dev-compile before #46 (for example c61cf4e) passed only the
+    Entrypoint part as the command to the environment compiler, which refused it as an
+    "empty effective command". The pinned rust-envcas main (f69a0a61, see
+    docs/sptd-mode.md) runs Cmd itself; the explicit command stays so that the
+    onboarding request and argv are the same with either compiler.
     """
     image = config.get("config", {})
     if container.get("command") or container.get("args") or image.get("Entrypoint") or not image.get("Cmd"):
