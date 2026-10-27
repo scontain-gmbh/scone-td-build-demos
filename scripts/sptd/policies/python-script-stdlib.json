@@ -104,7 +104,8 @@
       "inheritedFileDescriptors": [
         0,
         1,
-        2
+        2,
+        255
       ],
       "capabilityBoundingSet": [],
       "umask": 63,
