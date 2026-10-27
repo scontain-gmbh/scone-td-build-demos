@@ -36,7 +36,7 @@ SPTD_ROUTE=dev-prepare: scone-sptd-build `sptd-dev-prepare` (built with
 
 Both routes then write the Apply output-manifest: every non-workload document unchanged,
 every prepared workload reshaped for the single-node demo cluster until S7 (hostNetwork,
-nodeName, not-ready toleration).
+hostPID, hostIPC, nodeName, not-ready toleration).
 
 Development only: CAS is bypassed, envcas attestation is disabled. Never use it with real
 secrets or a real signing key.
@@ -1063,6 +1063,12 @@ def shape_for_node(doc):
     pod["runtimeClassName"] = os.environ.get("SPTD_RUNTIME_CLASS", "scone-dev")
     if os.environ.get("SPTD_HOST_NETWORK", "true") != "false":
         pod["hostNetwork"] = True
+        # The scone-dev handler admits only Pods whose network, PID and IPC namespaces are all node mode
+        # (sptd-hello-container-dev containerd internal/cri/server/container_create_scone_linux.go
+        # isHostNamespaceOptions); with hostNetwork alone CreateContainer fails with "unsupported scone-dev
+        # security projection: namespaces".
+        pod["hostPID"] = True
+        pod["hostIPC"] = True
         pod["dnsPolicy"] = "ClusterFirstWithHostNet"
         tolerations = pod.setdefault("tolerations", [])
         toleration = {"key": "node.kubernetes.io/not-ready", "operator": "Exists", "effect": "NoSchedule"}

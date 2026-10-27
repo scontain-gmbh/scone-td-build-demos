@@ -39,7 +39,8 @@ documents, it:
    launch contract, a sealed launcher, a signed per-image profile and a signed profile
    registry;
 4. writes the `output-manifest` with the onboarded image, RuntimeClass `scone-dev`,
-   `hostNetwork: true`, `nodeName` (`SPTD_NODE_NAME`) and a `node.kubernetes.io/not-ready`
+   `hostNetwork: true`, `hostPID: true`, `hostIPC: true` (the scone-dev handler requires all three node
+   namespaces), `nodeName` (`SPTD_NODE_NAME`) and a `node.kubernetes.io/not-ready`
    toleration.
 
 Single-container workloads stay Jobs or Deployments and need only the signed registry on the
