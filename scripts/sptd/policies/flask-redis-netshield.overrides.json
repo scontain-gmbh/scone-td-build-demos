@@ -1,0 +1,17 @@
+{
+  "schema": "sptd-demo-overrides-v1",
+  "nonRelease": true,
+  "comment": "sptd mode only. flask-api runs as a measured CPython script target (python-script.json: the real interpreter /usr/local/bin/python3.11 with -I -B, python and python3 as aliases). The command is the absolute script /app/app.py; the image's own command is not one of the two forms a script contract accepts. The Flask app needs site-packages, so -S is not set. The demo's manifests and the sgx/cvm modes are unchanged.",
+  "workloads": {
+    "flask-api": {
+      "containers": {
+        "flask-api": {
+          "policy": "python-script",
+          "command": [
+            "/app/app.py"
+          ]
+        }
+      }
+    }
+  }
+}

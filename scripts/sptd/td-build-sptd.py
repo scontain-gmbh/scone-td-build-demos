@@ -83,6 +83,16 @@ named workloads only, never the demo's own manifests or the sgx/cvm modes. Per c
                    must equal the policy identity); the workload becomes a bare Pod with a plan
   resources        merged into the container's resources (a memory tmpfs counts against the
                    memory limit)
+  policy           launch-contract template name in <policies> for this container instead of
+                   <demo>.json/generic.json, for example python-script
+A template whose expectedExecutable.executable is {"type": "script", ...} (rust-envcas measured
+script executables, CPython only) makes the container a measured script target: the command
+must be the absolute script (set "command", e.g. ["/app/app.py"]) or the interpreter or an
+alias, exactly the template's interpreterArgs, then the absolute script. The dispatcher checks
+that interpreterPath is the real interpreter file in the image (not a link), that every alias
+exists, and that no image or Pod env name has a denied prefix, then asks onboard.py for the
+script target (request field script.interpreter). python-script.json pins -I -B for apps with
+site-packages (Flask); python-script-stdlib.json adds -S for standard-library-only apps.
 Descriptor numbers follow the compiler's documented order: from 100 by volume name, then
 projected path. They are computed before onboarding and checked against the bundle's
 baked-volumes.json afterwards.
@@ -597,12 +607,20 @@ def snapshot(doc, secret):
             "data": {k: str(v) for k, v in data.items()}}
 
 
-def a8_policy(settings, demo, profile, container):
-    """Per-demo template if present, else the generic one; contract and role ids filled in."""
-    for name in (demo, "generic"):
-        path = os.path.join(settings["policies"], f"{name}.json")
-        if os.path.isfile(path):
-            break
+def a8_policy(settings, demo, profile, container, template=None):
+    """Override template, else per-demo template if present, else the generic one; contract and
+    role ids filled in."""
+    if template is not None:
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", template):
+            raise Refused(f"override policy {template!r} is not a template name")
+        path = os.path.join(settings["policies"], f"{template}.json")
+        if not os.path.isfile(path):
+            raise Refused(f"override policy {template}.json is not in the policy directory")
+    else:
+        for name in (demo, "generic"):
+            path = os.path.join(settings["policies"], f"{name}.json")
+            if os.path.isfile(path):
+                break
     policy = json.load(open(path))
     policy["metadata"]["contractId"] = f"sptd-demos/{profile}:application"
     policy["role"] = {"kind": "application", "name": container["name"], "casRole": "scone/" + profile}
@@ -611,6 +629,39 @@ def a8_policy(settings, demo, profile, container):
     if os.path.isfile(path_endpoints):
         endpoints = json.load(open(path_endpoints)).get(container["name"])
     return policy, os.path.relpath(path, settings["policies"]), endpoints
+
+
+def script_target(policy, archive, config, container):
+    """onboard.py's `script` request field for a script template, else None.
+
+    Fails early with a readable refusal where the owner tools would refuse with a fixed one:
+    interpreterPath must be the real interpreter file in the image (the launcher opens it
+    without following links), every alias must exist in the image, and no image or Pod env name
+    may start with a denied prefix (the compiler refuses the whole contract).
+    """
+    executable = policy["process"]["expectedExecutable"]["executable"]
+    if executable.get("type") != "script":
+        return None
+    interpreter = executable["interpreterPath"]
+    aliases = executable.get("interpreterAliases", [])
+    found = image_symlinks(archive, [interpreter] + aliases)
+    if found[interpreter] != "<not a symlink>":
+        raise Refused(f"script interpreter {interpreter} is {found[interpreter]!r} in the image; the "
+                      "template must name the real interpreter file")
+    missing = [alias for alias in aliases if found[alias] is None]
+    if missing:
+        raise Refused("script interpreter aliases missing from the image: " + ", ".join(missing))
+    denied = executable["deniedEnvironmentPrefixes"]
+    names = [item.split("=", 1)[0] for item in (config.get("config", {}).get("Env") or [])]
+    names += [item["name"] for item in container.get("env", [])]
+    blocked = sorted({name for name in names if any(name.startswith(prefix) for prefix in denied)})
+    if blocked:
+        raise Refused("env names with a denied script prefix (image or Pod): " + ", ".join(blocked))
+    if container.get("envFrom"):
+        raise Refused("envFrom is not checked against the denied script prefixes; list env explicitly")
+    log(f"script target: interpreter {interpreter} {' '.join(executable['interpreterArgs'])}, "
+        f"aliases {', '.join(aliases) or 'none'}, {len(set(names))} env names clear of {len(denied)} denied prefixes")
+    return {"interpreter": interpreter}
 
 
 def write_json(path, value):
@@ -647,9 +698,11 @@ def a8_diagnose(settings, request, cwork):
         stage("rootfs verify", [tools["rootfs_verify"], "--cache", cache, "--digest", artifact,
                                 "--root-hash", record["root_hash"]])
         manifest = record["manifest"]["digest"]
-        facts = json.loads(stage("rootfs facts (executable)", [tools["emitter"], "rootfs-facts",
-                                 os.path.join(cache, "objects", manifest.split(":", 1)[1]), manifest,
-                                 request["executable"]]))
+        facts_args = [tools["emitter"], "rootfs-facts", os.path.join(cache, "objects", manifest.split(":", 1)[1]),
+                      manifest, request["executable"]]
+        if "script" in request:
+            facts_args += ["--script-interpreter", request["script"]["interpreter"]]
+        facts = json.loads(stage("rootfs facts (executable)", facts_args))
         facts["artifactDigest"] = artifact
         config = os.path.join(diag, "config.json")
         open(config, "wb").write(archive_member(request["archive"], "blobs/sha256/" + facts["configDigest"].split(":", 1)[1]))
@@ -747,7 +800,8 @@ def a8_container(settings, demo, doc, container, image, target, objects, work, r
     argv0 = effective_argv0(dict(container, command=command) if command else container, config)
     if not argv0.startswith("/"):
         raise Refused(f"argv[0] {argv0!r} is not an absolute path (set an absolute command)")
-    policy, policy_name, endpoints = a8_policy(settings, demo, profile, container)
+    policy, policy_name, endpoints = a8_policy(settings, demo, profile, container, override.get("policy"))
+    script = script_target(policy, archive, config, container)
     configmaps, secrets = referenced_objects(container)
     missing = sorted((configmaps - set(objects["ConfigMap"])) | (secrets - set(objects["Secret"])))
     if missing:
@@ -793,6 +847,8 @@ def a8_container(settings, demo, doc, container, image, target, objects, work, r
         request["memory_empty_dir_assembly"] = settings["memory_assembly"]
         request["memory_empty_dir_assembly_sha256"] = stream_digest(settings["memory_assembly"])
         log(f"{name}: memory emptyDir {', '.join(v['name'] for v in memory)} (NON_RELEASE receipt, key 4)")
+    if script:
+        request["script"] = script
     request["policy_sha256"] = stream_digest(request["policy"])
     if settings["cargo_target"]:
         request["cargo_target"] = os.path.abspath(settings["cargo_target"])

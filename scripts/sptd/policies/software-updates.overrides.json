@@ -1,0 +1,20 @@
+{
+  "schema": "sptd-demo-overrides-v1",
+  "nonRelease": true,
+  "comment": "sptd mode only. python-hello-user runs as a measured CPython script target (python-script-stdlib.json: the real interpreter /usr/local/bin/python3.11 with -I -B -S, python and python3 as aliases). The command is the absolute script /app/print_env.py; the image's own command is not one of the two forms a script contract accepts. print_env.py uses only the standard library, so -S (no site-packages) is set; v1 and v2 share this override. The demo's manifests and the sgx/cvm modes are unchanged. API_PASSWORD (from the api-credentials SconeSecret) is removed in sptd mode: offline onboarding has no CAS to generate it, and the sptd scone variants leave the SconeSecret out.",
+  "workloads": {
+    "python-hello-user": {
+      "containers": {
+        "python-hello-user": {
+          "policy": "python-script-stdlib",
+          "command": [
+            "/app/print_env.py"
+          ],
+          "removeEnv": [
+            "API_PASSWORD"
+          ]
+        }
+      }
+    }
+  }
+}

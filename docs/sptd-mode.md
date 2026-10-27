@@ -119,8 +119,16 @@ removed once CAS delivers the files.
 
 ## Current limits
 
-- Interpreted demos (Python: flask-redis, flask-redis-netshield, software-updates,
-  nfs-shared-volume) don't pass yet; they wait for a measured script profile.
+- Python demos (flask-redis and flask-redis-netshield flask-api, software-updates v1/v2) are
+  set up as measured CPython script targets: `policies/python-script.json` (`-I -B`) or
+  `python-script-stdlib.json` (`-I -B -S`) pins the real interpreter
+  `/usr/local/bin/python3.11` with `python` and `python3` as aliases and denies the
+  loader, OpenSSL, glibc and `PYTHON*` environment prefixes; the overrides make the absolute
+  script (`/app/app.py`, `/app/print_env.py`) the command. `scone-td-dev-compile` from the
+  pinned rust-envcas main accepts `script` executables (rust-envcas #49); the profile emitter
+  of `scone-dev-onboard` does so only with sptd-hello-container-dev #101, which is not merged
+  yet.
+  flask-redis's flask-api also needs its `/tls` Secret baked. nfs-shared-volume is not covered.
 - Java demos (java-args-env-file, pet-clinic) run as GraalVM native-image binaries in sptd
   mode, built from `scripts/sptd/images/`; no JVM runs in a TD.
 - ConfigMap and Secret volume mounts are refused unless baked (above). PVCs and the Downward
