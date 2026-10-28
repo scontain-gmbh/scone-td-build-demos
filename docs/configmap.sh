@@ -353,6 +353,18 @@ kubectl apply -f manifests/manifest.yaml -n ${NAMESPACE}
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
+# Wait for the job to complete; the pod can stay in ContainerCreating for a while
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+# (image pull), longer than a fixed number of log retries.
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+kubectl wait --for=condition=complete job/my-rust-app -n ${NAMESPACE} --timeout=300s
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Retry the wrapped command until it succeeds or reaches the retry limit.
 EOF
 pe "${PE_CMD%$'\n'}"
