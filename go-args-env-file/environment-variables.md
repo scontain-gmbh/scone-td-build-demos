@@ -19,5 +19,6 @@ This file defines the environment variables used to configure the `go-args-env-f
 10. The Kubernetes namespace where the demo manifests are deployed is stored in `${NAMESPACE}`.
     The default value is `default`.
 11. The enclave heap of each SCONE-protected container is stored in `${ENCLAVE_HEAP}`.
-   The default is `512M`. With EDMM disabled, SGX commits the whole heap when the enclave starts,
+   The default is `2G`: the Go runtime reserves about 512 MiB when it starts, and it does not
+   start with 1G or less. With EDMM disabled, SGX commits the whole heap when the enclave starts,
    so keep it small on nodes with little memory; larger heaps get the pod OOM-killed.

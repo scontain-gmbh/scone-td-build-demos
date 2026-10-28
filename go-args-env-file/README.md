@@ -62,7 +62,7 @@ Default values are stored in `Values.yaml`. `tplenv` asks whether to keep the de
 - `$TEE_TYPE` — Set to `cvm` for CVM mode or `sgx` for SGX
 - `$SCONE_ENCLAVE` - In CVM mode, set to `true` for confidential nodes, or `false` for Kata Pods
 - `$NAMESPACE` — Kubernetes namespace where the demo runs (default: `default`)
-- `$ENCLAVE_HEAP` — Enclave heap of each SCONE-protected container (default: `512M`)
+- `$ENCLAVE_HEAP` — Enclave heap of each SCONE-protected container (default: `2G`)
 
 Set `SIGNER` for policy signing:
 
@@ -89,7 +89,7 @@ kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -
 
 ## 4. Build and Push the Native Docker Image
 
-The Dockerfile uses a two-stage build: a `golang:1.22-alpine` builder stage compiles a fully static binary, which is then copied into a minimal `scratch` runtime image.
+The Dockerfile uses a two-stage build: the `ghcr.io/scontain/golang` builder stage compiles a binary that SCONE can sconify, and the runtime stage copies only that binary into `alpine`, so the native image carries neither the toolchain nor the SCONE runtime.
 
 ```bash
 # Build the container image.
