@@ -1,7 +1,9 @@
 # sptd-mode variant of scone.template.yaml, read only by the sptd dispatcher. Only the redis server
 # is registered: flask-api, a measured CPython script target, also needs its /tls Secret baked and
-# stays as it is in sptd mode for now. The Apply files leave out k8s/secret-flask-tls.yaml, which
-# only flask-api mounts; k8s/secret-redis-tls.yaml (README step 4) is baked into redis's launcher.
+# stays as it is in sptd mode for now. k8s/secret-redis-tls.yaml (README step 4) is baked into redis's
+# launcher. k8s/secret-flask-tls.yaml, which only flask-api mounts, is applied as a plain Secret (not
+# baked): the README deletes both TLS Secrets before the confidential deployment, so the sanitized
+# manifest must bring flask-tls back (tests/sptd-apply-secrets.test.sh).
 apiVersion: scone.cloud/v1
 kind: Register
 metadata:
@@ -27,6 +29,7 @@ metadata:
 spec:
   file:
     - "k8s/manifest.yaml"
+    - "k8s/secret-flask-tls.yaml"
     - "k8s/secret-redis-tls.yaml"
   output-manifest: "manifest.prod.sanitized.yaml"
   output-session: "manifest.prod.session.yaml"
