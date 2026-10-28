@@ -115,6 +115,9 @@ fi
 ```bash
 # Apply the Kubernetes manifest.
 kubectl apply -f manifests/manifest.yaml -n ${NAMESPACE}
+# Wait for the job to complete; the pod can stay in ContainerCreating for a while
+# (image pull), longer than a fixed number of log retries.
+kubectl wait --for=condition=complete job/my-rust-app -n ${NAMESPACE} --timeout=300s
 # Retry the wrapped command until it succeeds or reaches the retry limit.
 retry-spinner --retries 30 --wait 5 -- kubectl logs job/my-rust-app -n ${NAMESPACE} -c reader-1
 # Retry the wrapped command until it succeeds or reaches the retry limit.

@@ -39,7 +39,8 @@ documents, it:
    launch contract, a sealed launcher, a signed per-image profile and a signed profile
    registry;
 4. writes the `output-manifest` with the onboarded image, RuntimeClass `scone-dev`,
-   `hostNetwork: true`, `nodeName` (`SPTD_NODE_NAME`) and a `node.kubernetes.io/not-ready`
+   `hostNetwork: true`, `hostPID: true`, `hostIPC: true` (the scone-dev handler requires all three node
+   namespaces), `nodeName` (`SPTD_NODE_NAME`) and a `node.kubernetes.io/not-ready`
    toleration.
 
 Single-container workloads stay Jobs or Deployments and need only the signed registry on the
@@ -93,8 +94,10 @@ descriptors 100, 101, … numbered by volume name, then path, and opened as
 numbering before onboarding and refuses a bundle whose `baked-volumes.json` differs.
 
 - flask-redis (redis): `redis.conf` is descriptor 100, the TLS files 101-103; the baked
-  `redis.conf` points at them, and redis starts as `redis-server /proc/self/fd/100`. `/data`
-  is a memory emptyDir.
+  `redis.conf` points at them, and redis starts as `redis-server /proc/self/fd/100`.
+  `k8s/manifest.sptd.template.yaml` turns persistence off (`save ""`, `appendonly no`), so
+  redis keeps its data in memory only and writes nothing to `/data`.
+  `scone.sptd.template.yaml` registers only redis for now (flask-api, below).
 - go-args-env-file, java-args-env-file: each ships a `manifest.sptd.template.yaml` that
   mounts the ConfigMap and Secret as whole volumes outside `/config` instead of `subPath`
   mounts (java-args-env-file also runs the native-image binary). The sptd source image links
