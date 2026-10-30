@@ -527,7 +527,7 @@ def cmd_only_command(container, config):
     Kubernetes runs such a container as exactly Cmd, the same as `command: <Cmd>`.
     rust-envcas scone-td-dev-compile before #46 (for example c61cf4e) passed only the
     Entrypoint part as the command to the environment compiler, which refused it as an
-    "empty effective command". The pinned rust-envcas main (f69a0a61, see
+    "empty effective command". The pinned rust-envcas main (bafa9f4f, see
     docs/sptd-mode.md) runs Cmd itself; the explicit command stays so that the
     onboarding request and argv are the same with either compiler.
     """

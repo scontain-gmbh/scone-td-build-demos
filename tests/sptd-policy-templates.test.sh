@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# The sptd policy templates must pass rust-envcas f69a0a61's launch-contract validation before scone-td-dev-compile
+# The sptd policy templates must pass rust-envcas bafa9f4f's launch-contract validation before scone-td-dev-compile
 # adds anything (scone-td-dev-compile.rs: ProcessTdLaunchContractV1::from_json_str on the raw template). This checks
 # the rules that template edits can break, mirroring envcas-model validation.rs:
 #   - inheritedFileDescriptors is exactly 0, 1, 2 plus the declared descriptor files plus, for a script executable,
 #     the script descriptor: the highest free number in 3..=255 other than the init-control descriptor 18 (model.rs
 #     script_descriptor_number); with no descriptor files that is 255;
 #   - a script interpreter is CPython, pins -I, uses only allowlisted options, and denies LD_, GCONV_PATH, OPENSSL_
-#     and GLIBC_TUNABLES (at most 32 prefixes of letters, digits and '_').
+#     and GLIBC_TUNABLES (at most 32 prefixes of letters, digits and '_');
+#   - no process environment entry uses a name reserved for the runtime bootstrap (runtime_bootstrap.rs
+#     is_reserved_name: SCONE_CAS_ADDR, SCONE_CONFIG_ID, SCONE_MODE, SCONE_ENVCAS_CORRELATION_ID,
+#     SCONE_CVM_PROCESS_TD) or SCONE_RUNTIME_ROLE_BOUND_REQUEST_HEX.
 set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 python3 -I - "$repo_root/scripts/sptd/policies" <<'PY'
@@ -18,6 +21,8 @@ ALLOWED_ARGS = {"-I", "-B", "-S", "-E", "-s", "-P", "-u", "-O", "-OO", "-q", "-b
 REQUIRED_DENIED = {"LD_", "GCONV_PATH", "OPENSSL_", "GLIBC_TUNABLES"}
 CPYTHON = re.compile(r"python(3(\.[0-9]+)?)?")
 INIT_CONTROL = 18
+RESERVED_ENV = {"SCONE_CAS_ADDR", "SCONE_CONFIG_ID", "SCONE_MODE", "SCONE_ENVCAS_CORRELATION_ID", "SCONE_CVM_PROCESS_TD",
+                "SCONE_RUNTIME_ROLE_BOUND_REQUEST_HEX"}
 failures, checked = [], 0
 for path in sorted(glob.glob(os.path.join(sys.argv[1], "*.json"))):
     doc = json.load(open(path))
@@ -41,6 +46,9 @@ for path in sorted(glob.glob(os.path.join(sys.argv[1], "*.json"))):
         denied = executable.get("deniedEnvironmentPrefixes", [])
         if not REQUIRED_DENIED <= set(denied) or len(denied) > 32 or not all(re.fullmatch(r"[A-Za-z0-9_]{1,64}", p) for p in denied):
             failures.append(f"{name}: deniedEnvironmentPrefixes must include {sorted(REQUIRED_DENIED)} (at most 32 valid prefixes)")
+    reserved = sorted({e.get("name") for e in process.get("environment") or [] if isinstance(e, dict)} & RESERVED_ENV)
+    if reserved:
+        failures.append(f"{name}: process.environment uses runtime-bootstrap names {reserved}")
     got = sorted(process["execPolicy"]["inheritedFileDescriptors"])
     if got != sorted(want):
         failures.append(f"{name}: inheritedFileDescriptors {got} must be {sorted(want)}")
@@ -48,5 +56,5 @@ if failures or not checked:
     print("FAIL - sptd policy templates the envcas validation refuses:", file=sys.stderr)
     print("\n".join(failures or ["no launch-contract templates found"]), file=sys.stderr)
     sys.exit(1)
-print(f"ok - {checked} sptd policy templates pass the envcas descriptor and script rules")
+print(f"ok - {checked} sptd policy templates pass the envcas descriptor, script and reserved-environment rules")
 PY
