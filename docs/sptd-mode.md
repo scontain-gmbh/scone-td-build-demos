@@ -71,15 +71,19 @@ The node's envcas reads the root pin as bare hex (`SCONE_SPTD_N3_ROOT_PIN`), wit
 
 ## Pinned rust-envcas revision
 
-sptd mode is pinned to rust-envcas `main` at `f69a0a61914d8ff53fb168c9b800c8e65a2c5c5b`.
-Build the `compiler` and `envcas_source` entries of `SPTD_A8_TOOLS` from that commit. It
-contains:
+sptd mode is pinned to rust-envcas `main` at `bafa9f4fb8a34d57f64aea9e274e453c7480cb9b`
+(2026-10-25; scone-sptd-build pins the same commit). Build the `compiler` and `envcas_source`
+entries of `SPTD_A8_TOOLS` from that commit. It contains:
 
 - `scone-td-dev-compile` running Cmd for Cmd-only images (rust-envcas #46);
 - the NON_RELEASE baked ConfigMap/Secret volumes behind the default-off
   `nonrelease-dev-baked-volumes` feature (rust-envcas #47; list it in
   `SPTD_A8_COMPILER_FEATURES` when the compiler is built with it);
-- measured script executables for CPython (rust-envcas #49).
+- measured script executables for CPython (rust-envcas #49);
+- runtime bootstrap v2 (rust-envcas #52/#53): `SCONE_CAS_ADDR`, `SCONE_CONFIG_ID`,
+  `SCONE_MODE`, `SCONE_ENVCAS_CORRELATION_ID` and `SCONE_CVM_PROCESS_TD` are reserved for the
+  runtime bootstrap and may not appear in a policy's process environment (none of the sptd
+  policies here sets them).
 
 Bundles onboarded with an earlier envcas build bind that build's digests and must be onboarded
 and signed again.
