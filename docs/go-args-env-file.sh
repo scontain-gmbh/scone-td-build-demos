@@ -182,7 +182,7 @@ printf '%s\n' '- `$CAS_ENDPOINT` - Address the manifest targets; keep it in sync
 printf '%s\n' '- `$TEE_TYPE` — Set to `cvm` for CVM mode or `sgx` for SGX'
 printf '%s\n' '- `$SCONE_ENCLAVE` - In CVM mode, set to `true` for confidential nodes, or `false` for Kata Pods'
 printf '%s\n' '- `$NAMESPACE` — Kubernetes namespace where the demo runs (default: `default`)'
-printf '%s\n' '- `$ENCLAVE_HEAP` — Enclave heap of each SCONE-protected container (default: `512M`)'
+printf '%s\n' '- `$ENCLAVE_HEAP` — Enclave heap of each SCONE-protected container (default and minimum: `2G`)'
 printf '%s\n' ''
 printf '%s\n' 'Set `SIGNER` for policy signing:'
 printf '%s\n' ''
@@ -233,7 +233,7 @@ printf '%s\n' '---'
 printf '%s\n' ''
 printf '%s\n' '## 4. Build and Push the Native Docker Image'
 printf '%s\n' ''
-printf '%s\n' 'The Dockerfile uses a two-stage build: a `golang:1.22-alpine` builder stage compiles a fully static binary, which is then copied into a minimal `scratch` runtime image.'
+printf '%s\n' 'The Dockerfile uses a two-stage build: the `ghcr.io/scontain/golang` builder stage compiles a binary that SCONE can sconify, and the runtime stage copies only that binary into `alpine`, so the native image carries neither the toolchain nor the SCONE runtime.'
 printf '%s\n' ''
 printf "%b" "$RESET"
 
@@ -256,7 +256,7 @@ pe "${PE_CMD%$'\n'}"
 
 printf "%b" "$LILAC"
 printf '%s\n' ''
-printf '%s\n' 'Alternatively, use the Makefile for a local build:'
+printf '%s\n' 'The Makefile builds the app with your local Go, to run it on your machine outside SCONE. That build is static, so it cannot be sconified: the image always comes from the Dockerfile.'
 printf '%s\n' ''
 printf '%s\n' '# Native build (outputs to bin/go-args-env-file)'
 printf '%s\n' 'make build'
