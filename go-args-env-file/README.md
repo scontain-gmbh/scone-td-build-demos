@@ -62,7 +62,7 @@ Default values are stored in `Values.yaml`. `tplenv` asks whether to keep the de
 - `$TEE_TYPE` — Set to `cvm` for CVM mode or `sgx` for SGX
 - `$SCONE_ENCLAVE` - In CVM mode, set to `true` for confidential nodes, or `false` for Kata Pods
 - `$NAMESPACE` — Kubernetes namespace where the demo runs (default: `default`)
-- `$ENCLAVE_HEAP` — Enclave heap of each SCONE-protected container (default: `2G`)
+- `$ENCLAVE_HEAP` — Enclave heap of each SCONE-protected container (default and minimum: `2G`)
 
 Set `SIGNER` for policy signing:
 
@@ -98,7 +98,7 @@ docker build -t ${DEMO_IMAGE} .
 docker push ${DEMO_IMAGE}
 ```
 
-Alternatively, use the Makefile for a local build:
+The Makefile builds the app with your local Go, to run it on your machine outside SCONE. That build is static, so it cannot be sconified: the image always comes from the Dockerfile.
 
 ```
 # Native build (outputs to bin/go-args-env-file)

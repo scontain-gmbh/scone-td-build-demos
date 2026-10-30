@@ -125,7 +125,9 @@ jobs:
         env:
           REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
           REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
-        run: ./scripts/run-all-scripts.sh --continue-on-failure
+        # The log is kept for "Check that no demo skipped sconification". The shell is
+        # bash -eo pipefail, so a failure of the script still fails the step.
+        run: ./scripts/run-all-scripts.sh --continue-on-failure 2>&1 | tee "${RUNNER_TEMP:-/tmp}/examples-sgx.log"
 
       - name: Prepare CVM values and cluster secrets
         if: always()
@@ -143,7 +145,7 @@ jobs:
         env:
           REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
           REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
-        run: ./scripts/run-all-scripts.sh --continue-on-failure
+        run: ./scripts/run-all-scripts.sh --continue-on-failure 2>&1 | tee "${RUNNER_TEMP:-/tmp}/examples-cvm.log"
 
       # Why CVM Jobs never complete: show where their pods were scheduled.
       - name: Show CVM pod placement
@@ -155,6 +157,27 @@ jobs:
           for pod in $(kubectl get pods -n "$ns" -o name | head -3); do
             kubectl describe -n "$ns" "$pod" | sed -n '/^Node-Selectors/,/^Events/p;/^Events/,$p' | head -40 || true
           done
+
+      # scone-td-build skips an image that already carries the SCONE runtime and keeps
+      # the native image: the demo then runs unprotected, and its script stays green.
+      # No demo may do that. SGX gates the job; CVM only warns, like its other results.
+      - name: Check that no demo skipped sconification
+        if: always()
+        run: |
+          failed=false
+          for mode in sgx cvm; do
+            log="${RUNNER_TEMP:-/tmp}/examples-${mode}.log"
+            [[ -f "$log" ]] || continue
+            if grep -aF -- 'skipping sconification' "$log"; then
+              if [[ "$mode" == sgx ]]; then
+                echo "::error::scone-td-build skipped sconification in the SGX run (lines above): the demo ran unprotected"
+                failed=true
+              else
+                echo "::warning::scone-td-build skipped sconification in the CVM run (lines above)"
+              fi
+            fi
+          done
+          [[ "$failed" == false ]]
 
       # SGX gates the job. CVM keeps running and reporting, but is
       # non-blocking until the test cluster's CVM node runs the demos.
