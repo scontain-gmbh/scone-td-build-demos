@@ -56,6 +56,7 @@ files=(
   "pet-clinic/README.md scripts/pet-clinic.sh"
   "image-signing/README.md scripts/image-signing.sh"
   "nfs-shared-volume/README.md scripts/nfs-shared-volume.sh"
+  "memos/README.md scripts/memos.sh"
 )
 
 generated_scripts=()
@@ -247,10 +248,22 @@ run_all_script="scripts/run-all-scripts.sh"
   echo "  scone-td-build apply --help 2>/dev/null | grep -q -- '--unattested-shared-server'"
   echo '}'
   echo
+  echo '# The memos demo needs encrypted-volume support, which adds no command-line'
+  echo '# flag to probe for. Releases without it drop the claim, so memos would lose'
+  echo '# its notes on restart. Look for the annotation it reads instead.'
+  echo 'supports_encrypted_volumes() {'
+  echo "  grep -aq 'scone.cloud/encrypted-volume' \"\$(command -v scone-td-build)\" 2>/dev/null"
+  echo '}'
+  echo
   echo 'for ((i = 0; i < ${#scripts[@]}; i++)); do'
   echo '  script_name="${scripts[i]}"'
   echo '  if [[ "$script_name" == "nfs-shared-volume.sh" ]] && ! supports_shared_volumes; then'
   echo '    printf "==> Skipping %s: this scone-td-build has no shared-volume support\\n" "$script_name"'
+  echo '    skipped_scripts+=("$script_name")'
+  echo '    continue'
+  echo '  fi'
+  echo '  if [[ "$script_name" == "memos.sh" ]] && ! supports_encrypted_volumes; then'
+  echo '    printf "==> Skipping %s: this scone-td-build has no encrypted-volume support\\n" "$script_name"'
   echo '    skipped_scripts+=("$script_name")'
   echo '    continue'
   echo '  fi'

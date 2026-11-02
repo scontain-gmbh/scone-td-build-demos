@@ -175,6 +175,7 @@ all_values_files=(
   "${repo_root}/pet-clinic/Values.yaml"
   "${repo_root}/image-signing/Values.yaml"
   "${repo_root}/nfs-shared-volume/Values.yaml"
+  "${repo_root}/memos/Values.yaml"
 )
 
 if [[ "$mode" == "sgx" ]]; then
@@ -225,10 +226,19 @@ supports_shared_volumes() {
   scone-td-build apply --help 2>/dev/null | grep -q -- '--unattested-shared-server'
 }
 
+# Same probe as run-all-scripts.sh: encrypted volumes add no flag to look for.
+supports_encrypted_volumes() {
+  grep -aq 'scone.cloud/encrypted-volume' "$(command -v scone-td-build)" 2>/dev/null
+}
+
 declare -A skipped_values_files=()
 if ! supports_shared_volumes; then
   skipped_values_files["${repo_root}/nfs-shared-volume/Values.yaml"]=1
   printf 'Skipping nfs-shared-volume: this scone-td-build has no shared-volume support\n'
+fi
+if ! supports_encrypted_volumes; then
+  skipped_values_files["${repo_root}/memos/Values.yaml"]=1
+  printf 'Skipping memos: this scone-td-build has no encrypted-volume support\n'
 fi
 
 for values_file in "${all_values_files[@]}"; do

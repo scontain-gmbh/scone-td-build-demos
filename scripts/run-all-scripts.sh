@@ -140,6 +140,7 @@ scripts=(
   "pet-clinic.sh"
   "image-signing.sh"
   "nfs-shared-volume.sh"
+  "memos.sh"
 )
 
 # The NFS demo needs shared-volume support in the binary under test, which
@@ -152,10 +153,22 @@ supports_shared_volumes() {
   scone-td-build apply --help 2>/dev/null | grep -q -- '--unattested-shared-server'
 }
 
+# The memos demo needs encrypted-volume support, which adds no command-line
+# flag to probe for. Releases without it drop the claim, so memos would lose
+# its notes on restart. Look for the annotation it reads instead.
+supports_encrypted_volumes() {
+  grep -aq 'scone.cloud/encrypted-volume' "$(command -v scone-td-build)" 2>/dev/null
+}
+
 for ((i = 0; i < ${#scripts[@]}; i++)); do
   script_name="${scripts[i]}"
   if [[ "$script_name" == "nfs-shared-volume.sh" ]] && ! supports_shared_volumes; then
     printf "==> Skipping %s: this scone-td-build has no shared-volume support\\n" "$script_name"
+    skipped_scripts+=("$script_name")
+    continue
+  fi
+  if [[ "$script_name" == "memos.sh" ]] && ! supports_encrypted_volumes; then
+    printf "==> Skipping %s: this scone-td-build has no encrypted-volume support\\n" "$script_name"
     skipped_scripts+=("$script_name")
     continue
   fi
