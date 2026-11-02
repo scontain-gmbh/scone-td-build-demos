@@ -1,0 +1,38 @@
+apiVersion: scone.cloud/v1
+kind: Register
+metadata:
+  name: memos
+spec:
+  source-image: ${IMAGE_NAME}
+  reference-image: ${IMAGE_NAME}
+  output-image: ${DESTINATION_IMAGE_NAME}
+  push-image: true
+  protected-binaries: ["/usr/local/bin/memos"]
+  scone-version: ${SCONE_RUNTIME_VERSION}
+  tee-type: ${TEE_TYPE}
+---
+apiVersion: scone.cloud/v1
+kind: Apply
+metadata:
+  name: memos
+  # The key of the encrypted volume lives in this CAS namespace, so it must stay the same
+  # for as long as the data should stay readable.
+  namespace: ${NAMESPACE}
+spec:
+  file:
+    - "manifest.yaml"
+  output-manifest: "manifest.sanitized.yaml"
+  cas-endpoint:
+    address: ${CAS_ENDPOINT}
+  cas-policy-env:
+    - {name: SCONE_VERSION, value: "1"}
+  container-env:
+    - {name: SCONE_VERSION, value: "1"}
+    - {name: SCONE_SYSLIBS, value: "1"}
+    - {name: SCONE_PRODUCTION, value: "0"}
+    - {name: SCONE_HEAP, value: "${ENCLAVE_HEAP}"}
+  permissive: true
+  encrypted-cas-policy: false
+  tee-type: ${TEE_TYPE}
+  scone-enclave: ${SCONE_ENCLAVE}
+  scone-version: ${SCONE_RUNTIME_VERSION}

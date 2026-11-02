@@ -1,0 +1,22 @@
+This file defines the environment variables used to configure this `memos` example. The variables below are set with the help of `tplenv`:
+
+1. The native `memos` image, built from the `Dockerfile` in this directory, is stored in `${IMAGE_NAME}`.
+2. The URL of the generated confidential container image is stored in `${DESTINATION_IMAGE_NAME}`.
+3. The name of the pull secret for both the native and confidential container images is stored in `${IMAGE_PULL_SECRET_NAME}`.
+4. The SCONE version is stored in `${SCONE_RUNTIME_VERSION}`.
+   The current value is `6.0.8`.
+5. The CAS runs in Kubernetes namespace `${CAS_NAMESPACE}`.
+   `${CAS_NAME}` and `${CAS_NAMESPACE}` address the in-cluster CAS for `kubectl` calls.
+6. The CAS name is stored in `${CAS_NAME}`.
+   The manifests use `${CAS_ENDPOINT}` instead, which defaults to `cas.default`. Point it at
+   a public CAS to run against one, for example `CAS_ENDPOINT=edge.scone-cas.cf`.
+7. Set `${TEE_TYPE}` to `cvm` for CVM mode or `sgx` for SGX.
+8. In CVM mode, you can run on confidential Kubernetes nodes or Kata Pods.
+   We recommend using confidential nodes and setting `${SCONE_ENCLAVE}` to `true`.
+9. The Kubernetes namespace where the demo runs is stored in `${NAMESPACE}`.
+   The default value is `memos-demo`. It is also the CAS namespace that holds the key of the
+   encrypted volume, so use a new one to install the demo again from scratch.
+10. The enclave heap of the memos container is stored in `${ENCLAVE_HEAP}`.
+   This demo needs at least `2G`, which is also the default: the Go runtime reserves about
+   512 MiB of address space when it starts. With EDMM disabled, SGX commits the whole heap when
+   the enclave starts, so the node needs 2G of memory for the pod.

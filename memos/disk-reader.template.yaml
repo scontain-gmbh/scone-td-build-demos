@@ -1,0 +1,29 @@
+# Mounts the memos claim in a pod without SCONE and looks for the memo text in the files,
+# the way anyone with access to the storage could.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: disk-reader
+spec:
+  restartPolicy: Never
+  containers:
+    - name: reader
+      image: ${IMAGE_NAME}
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          cd /var/opt/memos
+          ls -l
+          for f in memos_prod.db*; do echo "$f: $(grep -a -c 'safe code' "$f") matches"; done
+          echo "first bytes of memos_prod.db:"
+          head -c 32 memos_prod.db | od -c | head -2
+      volumeMounts:
+        - name: data
+          mountPath: /var/opt/memos
+          readOnly: true
+  imagePullSecrets:
+    - name: ${IMAGE_PULL_SECRET_NAME}
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: memos-data
