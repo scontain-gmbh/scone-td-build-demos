@@ -155,9 +155,9 @@ supports_shared_volumes() {
 
 # The memos demo needs encrypted-volume support, which adds no command-line
 # flag to probe for. Releases without it drop the claim, so memos would lose
-# its notes on restart. Look for the annotation it reads instead.
+# its notes on restart. Look for a field of its Apply settings instead.
 supports_encrypted_volumes() {
-  grep -aq 'scone.cloud/encrypted-volume' "$(command -v scone-td-build)" 2>/dev/null
+  grep -aq 'rollback-protection' "$(command -v scone-td-build)" 2>/dev/null
 }
 
 for ((i = 0; i < ${#scripts[@]}; i++)); do

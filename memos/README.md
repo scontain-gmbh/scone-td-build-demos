@@ -313,12 +313,18 @@ CAS keeps the volume's sessions in the CAS namespace `${NAMESPACE}`, and with th
 
 ## What You Can Change
 
-These annotations on the `PersistentVolumeClaim` change how it is protected:
+How the claim is protected is set in the `Apply` of `scone.template.yaml`, under `volumes`; `manifest.template.yaml` stays as it is. Without an entry, the claim is encrypted with rollback protection. For example:
 
-| Annotation | Effect |
+```yaml
+  volumes:
+    - claim: memos-data
+      rollback-protection: false
+```
+
+| Field | Effect |
 |---|---|
-| `scone.cloud/encrypted-volume: "false"` | The claim is mounted unencrypted, as the manifest declares it. |
-| `scone.cloud/rollback-protection: "false"` | The enclave accepts an older copy of the volume, or an empty one, for claims restored from snapshots. |
-| `scone.cloud/volume-generation: "<n>"` | Starts over with a new, empty volume and a new key. The old data cannot be read again. |
+| `encrypted: false` | The claim is mounted unencrypted, as the manifest declares it. |
+| `rollback-protection: false` | The enclave accepts an older copy of the volume, or an empty one, for claims restored from snapshots. |
+| `generation: <n>` | Raising it starts over with a new, empty volume and a new key. The old data cannot be read again. |
 
 An encrypted volume has a single writer: keep `replicas: 1`. See [Encrypted volumes](https://github.com/scontain/scone-td-build/blob/main/docs/public/apply-manifest.md#encrypted-volumes) for the details.

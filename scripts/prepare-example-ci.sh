@@ -228,7 +228,7 @@ supports_shared_volumes() {
 
 # Same probe as run-all-scripts.sh: encrypted volumes add no flag to look for.
 supports_encrypted_volumes() {
-  grep -aq 'scone.cloud/encrypted-volume' "$(command -v scone-td-build)" 2>/dev/null
+  grep -aq 'rollback-protection' "$(command -v scone-td-build)" 2>/dev/null
 }
 
 declare -A skipped_values_files=()
