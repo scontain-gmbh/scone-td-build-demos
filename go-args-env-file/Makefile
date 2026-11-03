@@ -1,7 +1,7 @@
 # Makefile for the Go app
 
 # ---- Config (override on the CLI: e.g., make build BIN=myapp) ----
-BIN        ?= java-args-env-file
+BIN        ?= go-args-env-file
 BUILD_DIR  ?= bin
 GO         ?= go
 GOFLAGS    ?=
