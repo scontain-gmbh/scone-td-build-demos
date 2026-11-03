@@ -1,0 +1,43 @@
+# SDV-026 DRAFT for the single-node cluster on VM 163 (node sptd-k8s-163 is a placeholder).
+# Source: hello-world/manifest.job.pinned.yaml (hello-world). NOT DEPLOYABLE AS IS: images are SYNTHETIC prepared-image
+# digests under registry.example/sdv026-synthetic, and SCONE_CAS_ADDR/SCONE_CONFIG_ID are
+# SYNTHETIC selectors. Replace them with the real prepared images and CAS session ids.
+# Pod shape from the harness vm163 variant: hostNetwork, dnsPolicy ClusterFirstWithHostNet,
+# nodeName, not-ready toleration, RuntimeClass scone-process-td.
+---
+# Job/hello-world: sanitized output of generation main-vm163-hello-world-hello-world
+# (scone-sptd-build main, build + verify --exact PASS; receipt main-vm163-hello-world-hello-world.receipt.json).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hello-world
+  namespace: sdv-demos
+spec:
+  backoffLimit: 4
+  template:
+    metadata:
+      labels:
+        app: hello-world
+    spec:
+      containers:
+      - command:
+        - /bin/envcas
+        env:
+        - name: SCONE_CAS_ADDR
+          value: cas.default:18765
+        - name: SCONE_CONFIG_ID
+          value: sdv026/wbc8ce2dcc826
+        image: registry.example/sdv026-synthetic/prepared@sha256:b927dc2e793af6b2777998b87aeb50f1cb58c9f471ecb3130318f06b5a43b75e
+        imagePullPolicy: Always
+        name: hello-world
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      imagePullSecrets:
+      - name: sconeapps
+      nodeName: sptd-k8s-163
+      restartPolicy: OnFailure
+      runtimeClassName: scone-process-td
+      tolerations:
+      - effect: NoSchedule
+        key: node.kubernetes.io/not-ready
+        operator: Exists

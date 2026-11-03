@@ -1,0 +1,126 @@
+# SDV-026 DRAFT for the single-node cluster on VM 163 (node sptd-k8s-163 is a placeholder).
+# Source: network-policy/manifest.template.yaml (network-policy). NOT DEPLOYABLE AS IS: images are SYNTHETIC prepared-image
+# digests under registry.example/sdv026-synthetic, and SCONE_CAS_ADDR/SCONE_CONFIG_ID are
+# SYNTHETIC selectors. Replace them with the real prepared images and CAS session ids.
+# Pod shape from the harness vm163 variant: hostNetwork, dnsPolicy ClusterFirstWithHostNet,
+# nodeName, not-ready toleration, RuntimeClass scone-process-td.
+---
+# Deployment/client: sanitized output of generation main-vm163-network-policy-client
+# (scone-sptd-build main, build + verify --exact PASS; receipt main-vm163-network-policy-client.receipt.json).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: client
+  name: client
+  namespace: sdv-demos
+spec:
+  selector:
+    matchLabels:
+      app: client
+  template:
+    metadata:
+      labels:
+        app: client
+    spec:
+      containers:
+      - command:
+        - /bin/envcas
+        env:
+        - name: SCONE_CAS_ADDR
+          value: cas.default:18765
+        - name: SCONE_CONFIG_ID
+          value: sdv026/wf56423fdb660
+        image: registry.example/sdv026-synthetic/prepared@sha256:f2402771a680e5ee8594f965136986d1b682271bd6fbea68849d232c887ce276
+        imagePullPolicy: Always
+        name: client
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      imagePullSecrets:
+      - name: sconeapps
+      nodeName: sptd-k8s-163
+      runtimeClassName: scone-process-td
+      tolerations:
+      - effect: NoSchedule
+        key: node.kubernetes.io/not-ready
+        operator: Exists
+---
+# Deployment/server: sanitized output of generation main-vm163-network-policy-server
+# (scone-sptd-build main, build + verify --exact PASS; receipt main-vm163-network-policy-server.receipt.json).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: server
+  name: server
+  namespace: sdv-demos
+spec:
+  selector:
+    matchLabels:
+      app: server
+  template:
+    metadata:
+      labels:
+        app: server
+    spec:
+      containers:
+      - command:
+        - /bin/envcas
+        env:
+        - name: SCONE_CAS_ADDR
+          value: cas.default:18765
+        - name: SCONE_CONFIG_ID
+          value: sdv026/wae8bdac36c25
+        image: registry.example/sdv026-synthetic/prepared@sha256:cf40f2242a1b92d2e1e3c41be5b52ac013ffb8ae3bfa906803e8f090e8ce1597
+        imagePullPolicy: Always
+        name: server
+        ports:
+        - containerPort: 9000
+          name: http
+          protocol: TCP
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      imagePullSecrets:
+      - name: sconeapps
+      nodeName: sptd-k8s-163
+      runtimeClassName: scone-process-td
+      tolerations:
+      - effect: NoSchedule
+        key: node.kubernetes.io/not-ready
+        operator: Exists
+---
+# Service/barad-dur: copied from network-policy/manifest.template.yaml, namespace set to sdv-demos.
+apiVersion: v1
+kind: Service
+metadata:
+  name: barad-dur
+  labels:
+    app: client
+  annotations:
+    sconev1.networkshield/unprotected_ports: '3000'
+  namespace: sdv-demos
+spec:
+  selector:
+    app: client
+  ports:
+  - name: main-port
+    protocol: TCP
+    port: 3000
+    targetPort: 3000
+---
+# Service/orthanc: copied from network-policy/manifest.template.yaml, namespace set to sdv-demos.
+apiVersion: v1
+kind: Service
+metadata:
+  name: orthanc
+  labels:
+    app: server
+  namespace: sdv-demos
+spec:
+  selector:
+    app: server
+  ports:
+  - name: main-port
+    protocol: TCP
+    port: 9000
+    targetPort: 9000

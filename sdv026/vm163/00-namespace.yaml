@@ -1,0 +1,5 @@
+# SDV-026 demo namespace on VM 163.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sdv-demos

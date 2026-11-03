@@ -13,7 +13,9 @@ environment:
   SCONE_ENCLAVE: 'false'
   NAMESPACE: pet-clinic
   ENCLAVE_HEAP: 4G
-  DB_NAME: petclinic
-  DB_USER: petclinic
-  DB_PASSWORD: petclinic
+  # DB values differ from the public names (petclinic, petclinic-db): scone-sptd-build
+  # refuses a Secret value that occurs in its public output.
+  DB_NAME: petclinic_store
+  DB_USER: petclinic_app
+  DB_PASSWORD: petclinic-demo-pw
   DB_ROOT_PASSWORD: rootpass

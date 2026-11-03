@@ -121,15 +121,6 @@ printf '%s\n' '# Create a self-signed certificate.'
 printf '%s\n' 'openssl req -x509 -new -nodes -key certs/redis-ca.key -sha256 -days 3650 \'
 printf '%s\n' '  -out certs/redis-ca.crt -subj "/CN=redis-ca"'
 printf '%s\n' ''
-printf '%s\n' '# Redis server cert'
-printf '%s\n' '# Generate the Redis server private key.'
-printf '%s\n' 'openssl genrsa -out certs/redis.key 2048'
-printf '%s\n' '# Create a certificate signing request.'
-printf '%s\n' 'openssl req -new -key certs/redis.key -out certs/redis.csr -subj "/CN=redis"'
-printf '%s\n' '# Sign the certificate with the certificate authority.'
-printf '%s\n' 'openssl x509 -req -in certs/redis.csr -CA certs/redis-ca.crt -CAkey certs/redis-ca.key \'
-printf '%s\n' '  -CAcreateserial -out certs/redis.crt -days 365 -sha256'
-printf '%s\n' ''
 printf '%s\n' '# Flask server cert'
 printf '%s\n' '# Generate the Flask server private key.'
 printf '%s\n' 'openssl genrsa -out certs/flask.key 2048'
@@ -160,15 +151,6 @@ openssl genrsa -out certs/redis-ca.key 4096
 # Create a self-signed certificate.
 openssl req -x509 -new -nodes -key certs/redis-ca.key -sha256 -days 3650 \
   -out certs/redis-ca.crt -subj "/CN=redis-ca"
-
-# Redis server cert
-# Generate the Redis server private key.
-openssl genrsa -out certs/redis.key 2048
-# Create a certificate signing request.
-openssl req -new -key certs/redis.key -out certs/redis.csr -subj "/CN=redis"
-# Sign the certificate with the certificate authority.
-openssl x509 -req -in certs/redis.csr -CA certs/redis-ca.crt -CAkey certs/redis-ca.key \
-  -CAcreateserial -out certs/redis.crt -days 365 -sha256
 
 # Flask server cert
 # Generate the Flask server private key.
@@ -226,6 +208,41 @@ printf "${RESET}"
 
 # Load environment variables from the tplenv definition file.
 eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+
+printf "${VIOLET}"
+printf '%s\n' ''
+printf '%s\n' 'Then issue the Redis server certificate. The Flask API connects to Redis by its fully'
+printf '%s\n' 'qualified Service name (`REDIS_HOST=redis.${NAMESPACE}.svc.cluster.local`), and the Redis'
+printf '%s\n' 'client checks the server hostname, so the certificate names both that name and the short'
+printf '%s\n' 'name `redis`. It is issued here because it needs `NAMESPACE`:'
+printf '%s\n' ''
+printf "${RESET}"
+
+printf "${ORANGE}"
+printf '%s\n' '# Fail early if NAMESPACE is not set.'
+printf '%s\n' ': "${NAMESPACE:?NAMESPACE must be set}"'
+printf '%s\n' '# Generate the Redis server private key.'
+printf '%s\n' 'openssl genrsa -out certs/redis.key 2048'
+printf '%s\n' '# Create a certificate signing request.'
+printf '%s\n' 'openssl req -new -key certs/redis.key -out certs/redis.csr -subj "/CN=redis"'
+printf '%s\n' '# Name both Redis DNS names as subjectAltName.'
+printf '%s\n' 'printf "subjectAltName=DNS:redis,DNS:redis.%s.svc.cluster.local\n" "${NAMESPACE}" > certs/redis.ext'
+printf '%s\n' '# Sign the certificate with the certificate authority.'
+printf '%s\n' 'openssl x509 -req -in certs/redis.csr -CA certs/redis-ca.crt -CAkey certs/redis-ca.key \'
+printf '%s\n' '  -CAcreateserial -out certs/redis.crt -days 365 -sha256 -extfile certs/redis.ext'
+printf "${RESET}"
+
+# Fail early if NAMESPACE is not set.
+: "${NAMESPACE:?NAMESPACE must be set}"
+# Generate the Redis server private key.
+openssl genrsa -out certs/redis.key 2048
+# Create a certificate signing request.
+openssl req -new -key certs/redis.key -out certs/redis.csr -subj "/CN=redis"
+# Name both Redis DNS names as subjectAltName.
+printf "subjectAltName=DNS:redis,DNS:redis.%s.svc.cluster.local\n" "${NAMESPACE}" > certs/redis.ext
+# Sign the certificate with the certificate authority.
+openssl x509 -req -in certs/redis.csr -CA certs/redis-ca.crt -CAkey certs/redis-ca.key \
+  -CAcreateserial -out certs/redis.crt -days 365 -sha256 -extfile certs/redis.ext
 
 printf "${VIOLET}"
 printf '%s\n' ''

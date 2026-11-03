@@ -1,0 +1,80 @@
+# SDV-026 DRAFT for the single-node cluster on VM 163 (node sptd-k8s-163 is a placeholder).
+# Source: pet-clinic/manifests/petclinic.template.yaml (pet-clinic). NOT DEPLOYABLE AS IS: images are SYNTHETIC prepared-image
+# digests under registry.example/sdv026-synthetic, and SCONE_CAS_ADDR/SCONE_CONFIG_ID are
+# SYNTHETIC selectors. Replace them with the real prepared images and CAS session ids.
+# Pod shape from the harness vm163 variant: hostNetwork, dnsPolicy ClusterFirstWithHostNet,
+# nodeName, not-ready toleration, RuntimeClass scone-process-td.
+---
+# Deployment/petclinic: sanitized output of generation main-vm163-pet-clinic-petclinic
+# (scone-sptd-build main, build + verify --exact PASS; receipt main-vm163-pet-clinic-petclinic.receipt.json).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: petclinic
+  name: petclinic
+  namespace: sdv-demos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: petclinic
+  template:
+    metadata:
+      labels:
+        app: petclinic
+    spec:
+      containers:
+      - command:
+        - /bin/envcas
+        env:
+        - name: SCONE_CAS_ADDR
+          value: cas.default:18765
+        - name: SCONE_CONFIG_ID
+          value: sdv026/we851825582a3
+        image: registry.example/sdv026-synthetic/prepared@sha256:2c711efca6df5a98b6d97230d0150fd3f000fe4562a1e418db3affaecf08605e
+        imagePullPolicy: Always
+        name: petclinic
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          failureThreshold: 20
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 40
+          periodSeconds: 15
+        resources:
+          limits:
+            cpu: '1'
+            memory: 4Gi
+          requests:
+            cpu: 250m
+            memory: 1Gi
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      imagePullSecrets:
+      - name: sconeapps
+      nodeName: sptd-k8s-163
+      runtimeClassName: scone-process-td
+      tolerations:
+      - effect: NoSchedule
+        key: node.kubernetes.io/not-ready
+        operator: Exists
+---
+# Service/petclinic: copied from pet-clinic/manifests/petclinic.template.yaml, namespace set to sdv-demos.
+apiVersion: v1
+kind: Service
+metadata:
+  name: petclinic
+  namespace: sdv-demos
+  labels:
+    app: petclinic
+spec:
+  selector:
+    app: petclinic
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+  type: ClusterIP

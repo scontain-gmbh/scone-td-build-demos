@@ -1,0 +1,43 @@
+# SDV-026 DRAFT for the single-node cluster on VM 163 (node sptd-k8s-163 is a placeholder).
+# Source: image-signing/manifest.job.template.yaml (image-signing). NOT DEPLOYABLE AS IS: images are SYNTHETIC prepared-image
+# digests under registry.example/sdv026-synthetic, and SCONE_CAS_ADDR/SCONE_CONFIG_ID are
+# SYNTHETIC selectors. Replace them with the real prepared images and CAS session ids.
+# Pod shape from the harness vm163 variant: hostNetwork, dnsPolicy ClusterFirstWithHostNet,
+# nodeName, not-ready toleration, RuntimeClass scone-process-td.
+---
+# Job/image-signing: sanitized output of generation main-vm163-image-signing-image-signing
+# (scone-sptd-build main, build + verify --exact PASS; receipt main-vm163-image-signing-image-signing.receipt.json).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: image-signing
+  namespace: sdv-demos
+spec:
+  backoffLimit: 4
+  template:
+    metadata:
+      labels:
+        app: image-signing
+    spec:
+      containers:
+      - command:
+        - /bin/envcas
+        env:
+        - name: SCONE_CAS_ADDR
+          value: cas.default:18765
+        - name: SCONE_CONFIG_ID
+          value: sdv026/w04a08b47b5ba
+        image: registry.example/sdv026-synthetic/prepared@sha256:f5b1c204ed063897892a050695d73e65a577f7a7d67df2fa067f729bba4fcd5d
+        imagePullPolicy: Always
+        name: image-signing
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      imagePullSecrets:
+      - name: sconeapps
+      nodeName: sptd-k8s-163
+      restartPolicy: OnFailure
+      runtimeClassName: scone-process-td
+      tolerations:
+      - effect: NoSchedule
+        key: node.kubernetes.io/not-ready
+        operator: Exists

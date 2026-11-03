@@ -1,0 +1,62 @@
+# SDV-026 DRAFT for the single-node cluster on VM 163 (node sptd-k8s-163 is a placeholder).
+# Source: web-server/manifest.sptd.template.yaml (web-server). NOT DEPLOYABLE AS IS: images are SYNTHETIC prepared-image
+# digests under registry.example/sdv026-synthetic, and SCONE_CAS_ADDR/SCONE_CONFIG_ID are
+# SYNTHETIC selectors. Replace them with the real prepared images and CAS session ids.
+# Pod shape from the harness vm163 variant: hostNetwork, dnsPolicy ClusterFirstWithHostNet,
+# nodeName, not-ready toleration, RuntimeClass scone-process-td.
+---
+# Deployment/web-server: sanitized output of generation main-vm163-web-server-sptd-web-server
+# (scone-sptd-build main, build + verify --exact PASS; receipt main-vm163-web-server-sptd-web-server.receipt.json).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-server
+  namespace: sdv-demos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web-server
+  template:
+    metadata:
+      labels:
+        app: web-server
+    spec:
+      containers:
+      - command:
+        - /bin/envcas
+        env:
+        - name: SCONE_CAS_ADDR
+          value: cas.default:18765
+        - name: SCONE_CONFIG_ID
+          value: sdv026/w91a1109d7801
+        image: registry.example/sdv026-synthetic/prepared@sha256:de24c473344abf57c7ec32a24709b5ca476e9f26d1eaa272d0f9071885e5fb84
+        imagePullPolicy: Always
+        name: web-server
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      imagePullSecrets:
+      - name: sconeapps
+      nodeName: sptd-k8s-163
+      runtimeClassName: scone-process-td
+      tolerations:
+      - effect: NoSchedule
+        key: node.kubernetes.io/not-ready
+        operator: Exists
+---
+# Service/web-server: copied from web-server/manifest.sptd.template.yaml, namespace set to sdv-demos.
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-server
+  labels:
+    app: web-server
+  namespace: sdv-demos
+spec:
+  selector:
+    app: web-server
+  ports:
+  - name: main-port
+    protocol: TCP
+    port: 8000
+    targetPort: 8000

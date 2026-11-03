@@ -1,0 +1,49 @@
+# SDV-026 DRAFT for the single-node cluster on VM 163 (node sptd-k8s-163 is a placeholder).
+# Source: java-args-env-file/manifests/manifest.sptd.template.yaml (java-args-env-file). NOT DEPLOYABLE AS IS: images are SYNTHETIC prepared-image
+# digests under registry.example/sdv026-synthetic, and SCONE_CAS_ADDR/SCONE_CONFIG_ID are
+# SYNTHETIC selectors. Replace them with the real prepared images and CAS session ids.
+# Pod shape from the harness vm163 variant: hostNetwork, dnsPolicy ClusterFirstWithHostNet,
+# nodeName, not-ready toleration, RuntimeClass scone-process-td.
+---
+# Deployment/java-args-env-file: sanitized output of generation main-vm163-java-args-env-file-sptd-java-args-env-file
+# (scone-sptd-build main, build + verify --exact PASS; receipt main-vm163-java-args-env-file-sptd-java-args-env-file.receipt.json).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-args-env-file
+  namespace: sdv-demos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: java-args-env-file
+  template:
+    metadata:
+      labels:
+        app: java-args-env-file
+    spec:
+      containers:
+      - command:
+        - /bin/envcas
+        env:
+        - name: SCONE_CAS_ADDR
+          value: cas.default:18765
+        - name: SCONE_CONFIG_ID
+          value: sdv026/w85e96f11ee23
+        image: registry.example/sdv026-synthetic/prepared@sha256:b08f3b60ddc8ac97613b40d714955c5ff72dd32ffe0cec091f000e7b883a96e7
+        imagePullPolicy: Always
+        name: java-cli-env
+        ports:
+        - containerPort: 9999
+          name: metrics
+          protocol: TCP
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      imagePullSecrets:
+      - name: sconeapps
+      nodeName: sptd-k8s-163
+      runtimeClassName: scone-process-td
+      tolerations:
+      - effect: NoSchedule
+        key: node.kubernetes.io/not-ready
+        operator: Exists

@@ -195,39 +195,6 @@ IFS= read -r -d '' PE_CMD <<'EOF' || true
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
-# Redis server cert
-EOF
-pe "${PE_CMD%$'\n'}"
-IFS= read -r -d '' PE_CMD <<'EOF' || true
-# Generate the Redis server private key.
-EOF
-pe "${PE_CMD%$'\n'}"
-IFS= read -r -d '' PE_CMD <<'EOF' || true
-openssl genrsa -out certs/redis.key 2048
-EOF
-pe "${PE_CMD%$'\n'}"
-IFS= read -r -d '' PE_CMD <<'EOF' || true
-# Create a certificate signing request.
-EOF
-pe "${PE_CMD%$'\n'}"
-IFS= read -r -d '' PE_CMD <<'EOF' || true
-openssl req -new -key certs/redis.key -out certs/redis.csr -subj "/CN=redis"
-EOF
-pe "${PE_CMD%$'\n'}"
-IFS= read -r -d '' PE_CMD <<'EOF' || true
-# Sign the certificate with the certificate authority.
-EOF
-pe "${PE_CMD%$'\n'}"
-IFS= read -r -d '' PE_CMD <<'EOF' || true
-openssl x509 -req -in certs/redis.csr -CA certs/redis-ca.crt -CAkey certs/redis-ca.key \
-  -CAcreateserial -out certs/redis.crt -days 365 -sha256
-EOF
-pe "${PE_CMD%$'\n'}"
-IFS= read -r -d '' PE_CMD <<'EOF' || true
-
-EOF
-pe "${PE_CMD%$'\n'}"
-IFS= read -r -d '' PE_CMD <<'EOF' || true
 # Flask server cert
 EOF
 pe "${PE_CMD%$'\n'}"
@@ -328,6 +295,57 @@ EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
 eval $(tplenv --file environment-variables.md --create-values-file --context --eval ${CONFIRM_ALL_ENVIRONMENT_VARIABLES-} --output /dev/null)
+EOF
+pe "${PE_CMD%$'\n'}"
+
+printf "%b" "$LILAC"
+printf '%s\n' ''
+printf '%s\n' 'Then issue the Redis server certificate. The Flask API connects to Redis by its fully'
+printf '%s\n' 'qualified Service name (`REDIS_HOST=redis.${NAMESPACE}.svc.cluster.local`), and the Redis'
+printf '%s\n' 'client checks the server hostname, so the certificate names both that name and the short'
+printf '%s\n' 'name `redis`. It is issued here because it needs `NAMESPACE`:'
+printf '%s\n' ''
+printf "%b" "$RESET"
+
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+# Fail early if NAMESPACE is not set.
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+: "${NAMESPACE:?NAMESPACE must be set}"
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+# Generate the Redis server private key.
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+openssl genrsa -out certs/redis.key 2048
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+# Create a certificate signing request.
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+openssl req -new -key certs/redis.key -out certs/redis.csr -subj "/CN=redis"
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+# Name both Redis DNS names as subjectAltName.
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+printf "subjectAltName=DNS:redis,DNS:redis.%s.svc.cluster.local\n" "${NAMESPACE}" > certs/redis.ext
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+# Sign the certificate with the certificate authority.
+EOF
+pe "${PE_CMD%$'\n'}"
+IFS= read -r -d '' PE_CMD <<'EOF' || true
+openssl x509 -req -in certs/redis.csr -CA certs/redis-ca.crt -CAkey certs/redis-ca.key \
+  -CAcreateserial -out certs/redis.crt -days 365 -sha256 -extfile certs/redis.ext
 EOF
 pe "${PE_CMD%$'\n'}"
 

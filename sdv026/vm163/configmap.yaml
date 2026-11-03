@@ -1,0 +1,52 @@
+# SDV-026 DRAFT for the single-node cluster on VM 163 (node sptd-k8s-163 is a placeholder).
+# Source: configmap/manifest.template.yaml (configmap). NOT DEPLOYABLE AS IS: images are SYNTHETIC prepared-image
+# digests under registry.example/sdv026-synthetic, and SCONE_CAS_ADDR/SCONE_CONFIG_ID are
+# SYNTHETIC selectors. Replace them with the real prepared images and CAS session ids.
+# Pod shape from the harness vm163 variant: hostNetwork, dnsPolicy ClusterFirstWithHostNet,
+# nodeName, not-ready toleration, RuntimeClass scone-process-td.
+---
+# Job/my-rust-app: sanitized output of generation main-vm163-configmap-my-rust-app
+# (scone-sptd-build main, build + verify --exact PASS; receipt main-vm163-configmap-my-rust-app.receipt.json).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: my-rust-app
+  namespace: sdv-demos
+spec:
+  template:
+    metadata:
+      labels:
+        app: my-rust-app
+    spec:
+      containers:
+      - command:
+        - /bin/envcas
+        env:
+        - name: SCONE_CAS_ADDR
+          value: cas.default:18765
+        - name: SCONE_CONFIG_ID
+          value: sdv026/w2cf6015159bc
+        image: registry.example/sdv026-synthetic/prepared@sha256:aa35972164dee6ea1fe3c340d1e26b6ccdfb97fe50c608da0a92b2337cda2143
+        imagePullPolicy: Always
+        name: reader-1
+      - command:
+        - /bin/envcas
+        env:
+        - name: SCONE_CAS_ADDR
+          value: cas.default:18765
+        - name: SCONE_CONFIG_ID
+          value: sdv026/w2cf6015159bc
+        image: registry.example/sdv026-synthetic/prepared@sha256:5e0ac4a671c3003e48555d46b6b50a778781306fd85fcdc030aaa96ab2fb94e2
+        imagePullPolicy: Always
+        name: reader-2
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      imagePullSecrets:
+      - name: sconeapps
+      nodeName: sptd-k8s-163
+      restartPolicy: OnFailure
+      runtimeClassName: scone-process-td
+      tolerations:
+      - effect: NoSchedule
+        key: node.kubernetes.io/not-ready
+        operator: Exists
