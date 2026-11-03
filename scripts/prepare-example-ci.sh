@@ -4,7 +4,7 @@ set -euo pipefail
 
 show_help() {
   cat <<USAGE
-Usage: $0 --mode <sgx|cvm> [--registry REGISTRY] [--image-pull-secret-name NAME] [--namespace NAMESPACE]
+Usage: $0 --mode <sgx|cvm|sptd> [--registry REGISTRY] [--image-pull-secret-name NAME] [--namespace NAMESPACE]
 
 Prepares the example Values.yaml files and Kubernetes pull secrets for CI.
 
@@ -13,7 +13,8 @@ Environment:
   REGISTRY_TOKEN  Registry token/password used to create the image pull secret.
 
 Options:
-  --mode <mode>              One of: sgx, cvm
+  --mode <mode>              One of: sgx, cvm, sptd (sptd: SCONE Process TDs built by
+                             scone-sptd-build; see docs/sptd-mode.md)
   --registry <registry>      Registry hostname to use (default: registry.scontain.com)
   --image-pull-secret-name   Pull secret name to use (default: sconeapps)
   --namespace <namespace>    Kubernetes namespace to deploy all demos into (default: keeps each demo's current value)
@@ -72,10 +73,10 @@ if [[ $# -gt 0 ]]; then
 fi
 
 case "$mode" in
-  sgx|cvm)
+  sgx|cvm|sptd)
     ;;
   *)
-    echo "Error: --mode must be either 'sgx' or 'cvm'." >&2
+    echo "Error: --mode must be one of 'sgx', 'cvm' or 'sptd'." >&2
     exit 1
     ;;
 esac
@@ -180,6 +181,9 @@ all_values_files=(
 if [[ "$mode" == "sgx" ]]; then
   tee_type="sgx"
   scone_enclave="'false'"
+elif [[ "$mode" == "sptd" ]]; then
+  tee_type="sptd"
+  scone_enclave="'false'"
 else
   tee_type="cvm"
   scone_enclave="'true'"
@@ -257,3 +261,7 @@ printf 'Namespaces:\n'
 for ns in "${target_namespaces[@]}"; do
   printf '  - %s\n' "$ns"
 done
+if [[ "$mode" == "sptd" ]]; then
+  printf 'sptd mode: put the scone-td-build dispatcher first in PATH before running the demos:\n'
+  printf '  export PATH="%s/scripts/sptd/bin:$PATH"\n' "$repo_root"
+fi

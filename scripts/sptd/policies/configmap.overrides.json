@@ -1,0 +1,25 @@
+{
+  "schema": "sptd-demo-overrides-v1",
+  "nonRelease": true,
+  "comment": "sptd mode only, temporary until CAS delivers these files. Expects configmap/manifests/manifest.sptd.template.yaml and configmap/manifests/scone.sptd.template.yaml (one sptd source image per reader). Each reader's ConfigMap volume is baked into its sealed launcher as descriptor files (opened as /proc/self/fd/N), numbered by path: reader-1 file1.txt 100, file2.json 101; reader-2 server.crt 100, your_python_script.py 101. folder-reader lists /config and reads each entry; the sptd source image (scripts/sptd/images/configmap) ships /config as a directory of symlinks to those descriptors, and the dispatcher checks the links.",
+  "workloads": {
+    "my-rust-app": {
+      "containers": {
+        "reader-1": {
+          "bakedVolumes": [{"name": "config-volume-1", "content_pin": true}],
+          "imageLinks": {
+            "/config/file1.txt": "/config/file1.txt",
+            "/config/file2.json": "/config/file2.json"
+          }
+        },
+        "reader-2": {
+          "bakedVolumes": [{"name": "config-volume-2", "content_pin": true}],
+          "imageLinks": {
+            "/config/server.crt": "/config/server.crt",
+            "/config/your_python_script.py": "/config/your_python_script.py"
+          }
+        }
+      }
+    }
+  }
+}

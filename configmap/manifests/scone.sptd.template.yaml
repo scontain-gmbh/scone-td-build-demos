@@ -1,0 +1,70 @@
+# sptd-mode variant of scone.template.yaml, read only by the sptd dispatcher: one Register per
+# reader image (see manifest.sptd.template.yaml); the Apply document is unchanged.
+apiVersion: scone.cloud/v1
+kind: Register
+metadata:
+  name: configmap-example-reader-1
+spec:
+  source-image: ${CONFIGMAP_READER_1_IMAGE}
+  reference-image: ${CONFIGMAP_READER_1_IMAGE}
+  output-image: ${DESTINATION_IMAGE_NAME}-reader-1
+  protected-binaries: ["/usr/local/bin/folder-reader"]
+  push-image: true
+  scone-version: ${SCONE_RUNTIME_VERSION}
+  tee-type: ${TEE_TYPE}
+  container-env:
+    - {name: SCONE_VERSION, value: "1"}
+    - {name: SCONE_SYSLIBS, value: "1"}
+    - {name: SCONE_PRODUCTION, value: "0"}
+    - {name: SCONE_HEAP, value: "${ENCLAVE_HEAP}"}
+---
+apiVersion: scone.cloud/v1
+kind: Register
+metadata:
+  name: configmap-example-reader-2
+spec:
+  source-image: ${CONFIGMAP_READER_2_IMAGE}
+  reference-image: ${CONFIGMAP_READER_2_IMAGE}
+  output-image: ${DESTINATION_IMAGE_NAME}-reader-2
+  protected-binaries: ["/usr/local/bin/folder-reader"]
+  push-image: true
+  scone-version: ${SCONE_RUNTIME_VERSION}
+  tee-type: ${TEE_TYPE}
+  container-env:
+    - {name: SCONE_VERSION, value: "1"}
+    - {name: SCONE_SYSLIBS, value: "1"}
+    - {name: SCONE_PRODUCTION, value: "0"}
+    - {name: SCONE_HEAP, value: "${ENCLAVE_HEAP}"}
+---
+apiVersion: scone.cloud/v1
+kind: Apply
+metadata:
+  name: configmap-example
+spec:
+  file:
+    - "manifests/manifest.yaml"
+  output-manifest: "manifests/manifest.prod.sanitized.yaml"
+  output-session: "manifests/manifest.prod.session.yaml"
+  cas-endpoint:
+    address: ${CAS_ENDPOINT}
+  cas-policy-env:
+    - {name: SCONE_VERSION, value: "1"}
+  container-env:
+    - {name: SCONE_VERSION, value: "1"}
+    - {name: SCONE_SYSLIBS, value: "1"}
+    - {name: SCONE_PRODUCTION, value: "0"}
+    - {name: SCONE_HEAP, value: "${ENCLAVE_HEAP}"}
+  permissive: true
+  encrypted-cas-policy: false
+  tee-type: ${TEE_TYPE}
+  scone-enclave: ${SCONE_ENCLAVE}
+  scone-version: ${SCONE_RUNTIME_VERSION}
+  access_policy:
+    read:
+      - ANY
+    update:
+      - signer: |
+          ${SIGNER}
+    create_sessions:
+      - signer: |
+          ${SIGNER}

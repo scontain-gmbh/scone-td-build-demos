@@ -1,0 +1,21 @@
+{
+  "schema": "sptd-demo-overrides-v1",
+  "nonRelease": true,
+  "comment": "sptd mode only, temporary until CAS delivers these files. Expects java-args-env-file/manifests/manifest.sptd.template.yaml (native-image command, plain read-only volumes config-volume and secret-volume at /etc/sptd-baked/java-cli-env-config and /etc/sptd-baked/java-cli-env-secret). Both volumes are baked into the sealed launcher as descriptor files (opened as /proc/self/fd/N) (config-volume first: configs.yaml 100, secrets 101); the program reads /config/configs.yaml and /config/secrets, which the sptd source image (scripts/sptd/images/java-args-env-file) links to those descriptors. The dispatcher checks the links.",
+  "workloads": {
+    "java-args-env-file": {
+      "containers": {
+        "java-cli-env": {
+          "bakedVolumes": [
+            {"name": "config-volume", "content_pin": true},
+            {"name": "secret-volume", "content_pin": true}
+          ],
+          "imageLinks": {
+            "/config/configs.yaml": "/etc/sptd-baked/java-cli-env-config/configs.yaml",
+            "/config/secrets": "/etc/sptd-baked/java-cli-env-secret/secrets"
+          }
+        }
+      }
+    }
+  }
+}

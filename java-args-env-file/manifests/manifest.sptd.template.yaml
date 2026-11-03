@@ -1,0 +1,74 @@
+# sptd-mode variant of manifest.template.yaml, read only by the sptd dispatcher
+# (scripts/sptd/td-build-sptd.py, sptd_variant). Changes (everything else is unchanged):
+#  * The command is the GraalVM native-image binary of the sptd source image
+#    (scripts/sptd/images/java-args-env-file) instead of the JVM; no JVM runs in a TD.
+#  * The two subPath mounts become plain read-only whole-volume mounts outside /config:
+#    ConfigMap java-cli-env-config at /etc/sptd-baked/java-cli-env-config and Secret
+#    java-cli-env-secret at /etc/sptd-baked/java-cli-env-secret. The temporary dev bake
+#    (bakedVolumes) delivers their files as descriptors from 100 in order of volume name,
+#    then path, opened as /proc/self/fd/N: config-volume/configs.yaml is 100 and
+#    secret-volume/secrets is 101. The sptd image links /config/configs.yaml and
+#    /config/secrets to them, so Main still reads /config/configs.yaml and /config/secrets.
+#    The paths here only order the descriptors.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: java-cli-env-config
+  namespace: ${NAMESPACE}
+data:
+  configs.yaml: |
+    key1: value1
+    key2: value2
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: java-cli-env-secret
+  namespace: ${NAMESPACE}
+type: Opaque
+stringData:
+  secrets: |
+    password: s3cr3t
+    my_db_encryption_key: top_secret_key
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-args-env-file
+  namespace: ${NAMESPACE}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: java-args-env-file
+  template:
+    metadata:
+      labels:
+        app: java-args-env-file
+    spec:
+      containers:
+        - name: java-cli-env
+          image: ${DEMO_IMAGE}
+          imagePullPolicy: Always
+          command: ["/usr/local/bin/java-args-env-file"]
+          args: ["arg1", "arg2"]
+          ports:
+          - containerPort: 9999
+            name: metrics
+            protocol: TCP
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/sptd-baked/java-cli-env-config
+              readOnly: true
+            - name: secret-volume
+              mountPath: /etc/sptd-baked/java-cli-env-secret
+              readOnly: true
+      imagePullSecrets:
+        - name: ${IMAGE_PULL_SECRET_NAME}
+      volumes:
+        - name: config-volume
+          configMap:
+            name: java-cli-env-config
+        - name: secret-volume
+          secret:
+            secretName: java-cli-env-secret
