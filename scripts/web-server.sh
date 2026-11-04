@@ -339,7 +339,7 @@ printf "${ORANGE}"
 printf '%s\n' '# Apply the Kubernetes manifest.'
 printf '%s\n' 'kubectl apply -f manifest.yaml -n ${NAMESPACE}'
 printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
-printf '%s\n' 'kubectl wait --for=condition=Ready pod -l app="web-server" -n ${NAMESPACE} --timeout=240s'
+printf '%s\n' 'kubectl rollout status deployment/web-server -n ${NAMESPACE} --timeout=240s'
 printf '%s\n' '# Start a self-restarting port-forward; the loop recreates it if the pod bounces.'
 printf '%s\n' '# `set -m` puts it in its own process group so cleanup can kill the wrapper and'
 printf '%s\n' '# its currently running `kubectl port-forward` child together: killing only the'
@@ -366,7 +366,7 @@ printf "${RESET}"
 # Apply the Kubernetes manifest.
 kubectl apply -f manifest.yaml -n ${NAMESPACE}
 # Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=condition=Ready pod -l app="web-server" -n ${NAMESPACE} --timeout=240s
+kubectl rollout status deployment/web-server -n ${NAMESPACE} --timeout=240s
 # Start a self-restarting port-forward; the loop recreates it if the pod bounces.
 # `set -m` puts it in its own process group so cleanup can kill the wrapper and
 # its currently running `kubectl port-forward` child together: killing only the
@@ -429,7 +429,7 @@ printf "${RESET}"
 
 printf "${ORANGE}"
 printf '%s\n' '# Wait for the Kubernetes resource to reach the expected state.'
-printf '%s\n' 'kubectl wait --for=condition=Ready pod -l app="web-server" -n ${NAMESPACE} --timeout=240s'
+printf '%s\n' 'kubectl rollout status deployment/web-server -n ${NAMESPACE} --timeout=240s'
 printf '%s\n' '# A ready pod does not always mean the port is immediately available.'
 printf '%s\n' '# Wait briefly for the service to become reachable.'
 printf '%s\n' 'sleep 20'
@@ -443,7 +443,7 @@ printf '%s\n' 'set +m'
 printf "${RESET}"
 
 # Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=condition=Ready pod -l app="web-server" -n ${NAMESPACE} --timeout=240s
+kubectl rollout status deployment/web-server -n ${NAMESPACE} --timeout=240s
 # A ready pod does not always mean the port is immediately available.
 # Wait briefly for the service to become reachable.
 sleep 20
