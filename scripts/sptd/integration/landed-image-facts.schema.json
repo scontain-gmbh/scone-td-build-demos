@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/scontain-gmbh/scone-td-build-demos/scripts/sptd/integration/landed-image-facts.schema.json",
+  "title": "sptd-landed-image-facts-v1",
+  "description": "Facts of a landed SPTD dev node image that every demo bundle must be (re-)onboarded against. NON_RELEASE. Holds public values only: digests, commits, the root pin. Never a key.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "nonRelease", "standIn", "recordedAt", "nodeImage", "managerId", "goRoot", "envcas",
+               "launcher", "onboard", "demos", "devRegistry"],
+  "properties": {
+    "schema": {"const": "sptd-landed-image-facts-v1"},
+    "nonRelease": {"const": true},
+    "standIn": {"type": "boolean", "description": "true: some values are placeholders (zero digests, STAND-IN ids); the plan is then for dry runs only"},
+    "recordedAt": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}(T[0-9:]{8}Z)?$"},
+    "comment": {"type": "string"},
+    "nodeImage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "digest", "contract"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "digest": {"$ref": "#/$defs/sha256"},
+        "contract": {"enum": ["V5", "V6", "V7"], "description": "node runtime contract; Pod plans need V7"}
+      }
+    },
+    "managerId": {"type": "string", "minLength": 1, "maxLength": 256},
+    "goRoot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifactDigest"],
+      "properties": {
+        "artifactDigest": {"$ref": "#/$defs/sha256", "description": "rootfs artifact digest of the rebuilt Go root; checked against the go-args bundle"}
+      }
+    },
+    "envcas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "commit"],
+      "properties": {
+        "repository": {"const": "scontain-gmbh/rust-envcas"},
+        "commit": {"$ref": "#/$defs/commit"},
+        "mergedPullRequests": {"type": "object", "additionalProperties": {"$ref": "#/$defs/commit"}},
+        "toolDigests": {
+          "type": "object",
+          "description": "expected onboard toolDigests (bundle.json) built from this commit, e.g. compiler, emitter, signer",
+          "additionalProperties": {"$ref": "#/$defs/sha256"}
+        }
+      }
+    },
+    "launcher": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["route", "sha256"],
+      "properties": {
+        "route": {"enum": ["sealed-per-bundle", "detached-generic"]},
+        "sha256": {"$ref": "#/$defs/sha256", "description": "detached-generic: the generic launcher every bundle-v2 must bind; sealed-per-bundle: recorded only"}
+      }
+    },
+    "onboard": {"$ref": "#/$defs/source"},
+    "demos": {"$ref": "#/$defs/source"},
+    "devRegistry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rootPin", "runtimeHandler"],
+      "properties": {
+        "rootPin": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SCONE_SPTD_N3_ROOT_PIN, bare hex"},
+        "runtimeHandler": {"const": "scone-dev"},
+        "installedOnImage": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["registrySha256"],
+          "properties": {"registrySha256": {"$ref": "#/$defs/sha256"}},
+          "description": "a registry the image already ships; the new set must then extend it (append)"
+        }
+      }
+    },
+    "imageRegistry": {"type": "string", "minLength": 1, "description": "OCI registry/prefix the native and sptd images are pulled from or preloaded as"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "commit"],
+      "properties": {
+        "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+        "commit": {"$ref": "#/$defs/commit"},
+        "ref": {"type": "string"}
+      }
+    }
+  }
+}
