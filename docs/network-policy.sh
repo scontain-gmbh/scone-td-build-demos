@@ -325,7 +325,7 @@ IFS= read -r -d '' PE_CMD <<'EOF' || true
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
-kubectl wait --for=condition=Ready pod -l app="server" -n ${NAMESPACE} --timeout=300s
+kubectl rollout status deployment/server -n ${NAMESPACE} --timeout=300s
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
@@ -333,7 +333,7 @@ IFS= read -r -d '' PE_CMD <<'EOF' || true
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true
-kubectl wait --for=condition=Ready pod -l app="client" -n ${NAMESPACE} --timeout=300s
+kubectl rollout status deployment/client -n ${NAMESPACE} --timeout=300s
 EOF
 pe "${PE_CMD%$'\n'}"
 IFS= read -r -d '' PE_CMD <<'EOF' || true

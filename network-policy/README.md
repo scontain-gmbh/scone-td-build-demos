@@ -97,9 +97,9 @@ Wait for pods and port-forward the server service:
 
 ```bash
 # Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=condition=Ready pod -l app="server" -n ${NAMESPACE} --timeout=300s
+kubectl rollout status deployment/server -n ${NAMESPACE} --timeout=300s
 # Wait for the Kubernetes resource to reach the expected state.
-kubectl wait --for=condition=Ready pod -l app="client" -n ${NAMESPACE} --timeout=300s
+kubectl rollout status deployment/client -n ${NAMESPACE} --timeout=300s
 # A ready pod does not always mean the port is immediately available.
 # Wait briefly for the service to become reachable.
 sleep 10
