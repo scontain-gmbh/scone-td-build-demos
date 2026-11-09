@@ -2,7 +2,7 @@
 # Check that the tools the demos need are installed, before running any demo.
 set -euo pipefail
 
-MIN_TD_BUILD_VERSION="${MIN_TD_BUILD_VERSION:-0.4.0}"
+MIN_TD_BUILD_VERSION="${MIN_TD_BUILD_VERSION:-0.5.0}"
 missing=0
 
 need() {
