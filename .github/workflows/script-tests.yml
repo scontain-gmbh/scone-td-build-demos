@@ -20,9 +20,9 @@ jobs:
       # or a README changed without regenerating them, so CI tests what the READMEs say.
       - name: Check that the generated scripts are up to date
         run: |
-          ./scripts/extract-all-scripts.sh -y
-          git diff --exit-code -- scripts docs
+          ./scripts/extract-all-demo-scripts.sh -y
+          git diff --exit-code -- scripts/demos docs/demos/scripts
       - name: Check generated scripts parse
-        run: for f in scripts/*.sh docs/*.sh; do bash -n "$f"; done
+        run: for f in scripts/demos/*.sh docs/demos/scripts/*.sh; do bash -n "$f"; done
       - name: Run script tests
         run: make test

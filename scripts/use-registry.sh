@@ -12,7 +12,7 @@ cd "${script_dir}/.."
 target="${1:-localhost:30500}"
 source_prefix="${SOURCE_PREFIX:-registry.scontain.com/k8s-scone-images}"
 
-for values in */Values.yaml; do
+for values in "${script_dir}"/../demos/*/values.template.yaml; do
   if grep -q "${source_prefix}/" "${values}"; then
     sed -i.bak "s#${source_prefix}/#${target}/k8s-scone-images/#g" "${values}"
     rm -f "${values}.bak"
