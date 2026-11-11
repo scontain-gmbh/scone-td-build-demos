@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/scontain-gmbh/scone-td-build-demos/scripts/sptd/integration/artifact-manifest.schema.json",
+  "title": "sptd-demo-artifact-manifest-v1",
+  "description": "Pinned manifest of one dev-signed sptd demo artifact set: per demo the bundles, the signed profile registry, the signed Pod plans and the image digests, plus the artifact-set hash the integration workflow is started with. NON_RELEASE. Paths are relative to the artifact-set directory. The set holds public material only: signatures, public roots, digests; never a private key.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "nonRelease", "createdAt", "nodeName", "namespace", "catalogSha256", "facts", "sources", "registry", "podPlans",
+               "demos", "files", "artifactSetSha256"],
+  "properties": {
+    "schema": {"const": "sptd-demo-artifact-manifest-v1"},
+    "nonRelease": {"const": true},
+    "createdAt": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
+    "nodeName": {"type": ["string", "null"], "description": "nodeName baked into every confidential Pod and Pod plan (SPTD_NODE_NAME)"},
+    "namespace": {"type": "string", "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$", "description": "namespace every demo was rendered for; Pod plans bind it"},
+    "catalogSha256": {"$ref": "#/$defs/sha256", "description": "sha256 of scripts/sptd/integration/demos.json used for the order"},
+    "facts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "standIn", "nodeImageDigest", "nodeContract", "managerId", "goRootArtifactDigest",
+                   "envcasCommit", "launcherRoute", "launcherSha256", "rootPin"],
+      "properties": {
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "standIn": {"type": "boolean"},
+        "nodeImageDigest": {"$ref": "#/$defs/sha256"},
+        "nodeContract": {"enum": ["V5", "V6", "V7"]},
+        "managerId": {"type": "string", "minLength": 1},
+        "goRootArtifactDigest": {"$ref": "#/$defs/sha256"},
+        "envcasCommit": {"$ref": "#/$defs/commit"},
+        "launcherRoute": {"enum": ["sealed-per-bundle", "detached-generic"]},
+        "launcherSha256": {"$ref": "#/$defs/sha256"},
+        "rootPin": {"$ref": "#/$defs/hex64"}
+      }
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["demosCommit", "onboardCommit"],
+      "properties": {
+        "demosCommit": {"$ref": "#/$defs/commit"},
+        "onboardCommit": {"$ref": "#/$defs/commit"}
+      }
+    },
+    "registry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dir", "sha256", "sigSha256", "rootPemSha256", "profiles", "history", "installMode"],
+      "properties": {
+        "dir": {"const": "node-set", "description": "the --from directory for sptd-k8s-node provision-dev-registry"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "sigSha256": {"$ref": "#/$defs/sha256"},
+        "rootPemSha256": {"$ref": "#/$defs/sha256"},
+        "profiles": {
+          "type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true,
+          "items": {"$ref": "#/$defs/profile"},
+          "description": "registry profiles in registry order (append-only)"
+        },
+        "history": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["step", "phase", "sha256", "profileCount"],
+            "properties": {
+              "step": {"type": "string", "minLength": 1},
+              "phase": {"type": "string", "minLength": 1},
+              "sha256": {"$ref": "#/$defs/sha256"},
+              "profileCount": {"type": "integer", "minimum": 1}
+            }
+          },
+          "description": "the registry after each step; every entry extends the one before it"
+        },
+        "installMode": {"enum": ["fresh", "append"], "description": "append when the node image already ships a registry (facts devRegistry.installedOnImage)"}
+      }
+    },
+    "podPlans": {
+      "type": "array", "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "step", "namespace", "podName", "sha256", "sigSha256", "rootPemSha256"],
+        "properties": {
+          "name": {"type": "string", "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$", "maxLength": 128},
+          "step": {"type": "string", "minLength": 1},
+          "namespace": {"type": "string", "minLength": 1},
+          "podName": {"type": "string", "minLength": 1},
+          "sha256": {"$ref": "#/$defs/sha256"},
+          "sigSha256": {"$ref": "#/$defs/sha256"},
+          "rootPemSha256": {"$ref": "#/$defs/sha256"}
+        }
+      }
+    },
+    "demos": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["demo", "steps"],
+        "properties": {
+          "demo": {"type": "string", "minLength": 1},
+          "steps": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/step"}}
+        }
+      }
+    },
+    "files": {
+      "type": "object",
+      "description": "every pinned file of the set (relative path -> sha256); bundle contents are pinned through each bundle's checksums.json",
+      "additionalProperties": {"$ref": "#/$defs/sha256"}
+    },
+    "artifactSetSha256": {"$ref": "#/$defs/sha256", "description": "sha256 of the canonical JSON (sorted keys, no whitespace) of this manifest without this field"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "hex64": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "relpath": {"type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$))[A-Za-z0-9._/+-]+$"},
+    "profile": {"type": "string", "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"},
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "phase", "outputManifest", "nativeManifests", "roles"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "phase": {"type": "string", "minLength": 1},
+        "outputManifest": {"$ref": "#/$defs/relpath"},
+        "nativeManifests": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/relpath"}},
+        "supportManifests": {"type": "array", "items": {"$ref": "#/$defs/relpath"}},
+        "roles": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/role"}}
+      }
+    },
+    "role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["workload", "container", "profile", "sourceImage", "imageReference", "imageManifestDigest",
+                   "bundle", "podPlan"],
+      "properties": {
+        "workload": {"type": "string", "pattern": "^[A-Za-z]+/[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"},
+        "container": {"type": "string", "minLength": 1},
+        "profile": {"$ref": "#/$defs/profile"},
+        "sourceImage": {"type": "string", "minLength": 1},
+        "imageReference": {"type": "string", "pattern": "^[^@\\s]+@sha256:[0-9a-f]{64}$"},
+        "imageManifestDigest": {"$ref": "#/$defs/sha256"},
+        "podPlan": {"type": ["string", "null"]},
+        "bundle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["dir", "checksumsSha256", "bundleJsonSha256", "profileDigest", "contractDigest",
+                       "artifactDigest", "imageConfigDigest", "schema"],
+          "properties": {
+            "dir": {"$ref": "#/$defs/relpath"},
+            "schema": {"enum": ["scone-dev-onboard-bundle-v1", "scone-dev-onboard-bundle-v2"]},
+            "checksumsSha256": {"$ref": "#/$defs/sha256"},
+            "bundleJsonSha256": {"$ref": "#/$defs/sha256"},
+            "profileDigest": {"$ref": "#/$defs/sha256"},
+            "contractDigest": {"$ref": "#/$defs/sha256"},
+            "artifactDigest": {"$ref": "#/$defs/sha256"},
+            "imageConfigDigest": {"$ref": "#/$defs/sha256"},
+            "launcherSha256": {"$ref": "#/$defs/sha256"}
+          }
+        }
+      }
+    }
+  }
+}
